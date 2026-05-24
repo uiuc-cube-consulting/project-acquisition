@@ -1,0 +1,56 @@
+# Maps Apollo industry tags to one of the 4 outreach templates.
+# Default fallback is "business" if no match.
+
+default: business
+
+# Use lowercased substring matches against Apollo's `industry` field.
+mappings:
+  business:
+    - "consulting"
+    - "marketing"
+    - "advertising"
+    - "retail"
+    - "consumer"
+    - "food"
+    - "real estate"
+    - "education"
+    - "non-profit"
+    - "venture capital"
+    - "investment"
+    - "private equity"
+    - "financial services"
+    - "banking"
+
+  hybrid_product:
+    - "saas"
+    - "internet"
+    - "e-commerce"
+    - "mobile"
+    - "fintech"
+    - "edtech"
+    - "healthtech"
+    - "logistics"
+
+  technical_software:
+    - "computer software"
+    - "information technology"
+    - "artificial intelligence"
+    - "machine learning"
+    - "data"
+    - "cybersecurity"
+    - "cloud"
+    - "developer tools"
+
+  technical_engineering:
+    - "semiconductors"
+    - "electronics"
+    - "robotics"
+    - "aerospace"
+    - "automotive"
+    - "hardware"
+    - "manufacturing"
+    - "renewables"
+    - "energy"
+    - "biotechnology"
+    - "medical devices"
+    - "industrial"

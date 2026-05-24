@@ -1,0 +1,77 @@
+# Apollo People Search profiles. The orchestrator rotates through these
+# day by day so we cover all sources weekly. Each profile passes its
+# `params` straight to Apollo's /v1/mixed_people/search endpoint.
+#
+# Docs: https://docs.apollo.io/reference/people-search
+
+profiles:
+  - name: uiuc_alumni_executives
+    description: "UIUC alums at high-growth companies in target seniority bands"
+    enrich: true
+    params:
+      person_titles:
+        - "Founder"
+        - "CEO"
+        - "CTO"
+        - "VP"
+        - "Director"
+      person_schools:
+        - "University of Illinois Urbana-Champaign"
+        - "University of Illinois at Urbana-Champaign"
+      organization_num_employees_ranges:
+        - "11,200"
+      page: 1
+      per_page: 25
+
+  - name: vc_partners
+    description: "Partner-level contacts at top VCs (Illinois priority)"
+    enrich: true
+    params:
+      person_titles:
+        - "Managing Partner"
+        - "General Partner"
+        - "Partner"
+        - "Principal"
+      q_organization_domains:
+        - "originventures.com"
+        - "hydeparkangels.com"
+        - "sequoiacap.com"
+        - "a16z.com"
+        - "khoslaventures.com"
+        - "ycombinator.com"
+      page: 1
+      per_page: 25
+
+  - name: yc_founders
+    description: "Recent YC batch founders"
+    enrich: true
+    params:
+      person_titles:
+        - "Founder"
+        - "Co-Founder"
+        - "CEO"
+      organization_keyword_tags:
+        - "Y Combinator"
+      page: 1
+      per_page: 25
+
+  - name: illinois_startups
+    description: "Founder/exec at Illinois-based seed-Series B startups"
+    enrich: true
+    params:
+      person_titles:
+        - "Founder"
+        - "CEO"
+        - "CTO"
+      person_locations:
+        - "Illinois, US"
+        - "Chicago, IL"
+        - "Champaign, IL"
+      organization_num_employees_ranges:
+        - "1,200"
+      page: 1
+      per_page: 25
+
+  - name: cube_alumni
+    description: "Loaded from the CUBE Alumni Sheet, not Apollo"
+    source: cube_alumni_sheet

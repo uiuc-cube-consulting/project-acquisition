@@ -1,0 +1,292 @@
+"""Google Sheets data layer.
+
+One workbook (env: SHEET_ID) with four tabs:
+
+  Leads        — every contact we've ever pulled in, with status
+  Drafts       — pending + sent drafts; the `approved` checkbox is the gate
+  Hot Leads    — auto-populated when a reply is classified positive
+  Suppression  — emails we will never contact (unsubscribes, bounces, do-not-contact)
+
+We keep one row per lead in `Leads` (deduped by lowercased email). Drafts
+can have multiple rows per lead over time (initial + follow-up). Status
+transitions live here, not in the source code, so the director can also
+edit them by hand.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+from datetime import datetime, timezone
+from typing import Iterable
+
+import gspread
+from google.oauth2.service_account import Credentials
+
+from .models import Draft, Lead, LeadStatus
+
+log = logging.getLogger(__name__)
+
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
+LEADS_HEADERS = [
+    "date_added", "name", "title", "company", "email", "linkedin",
+    "industry", "location", "company_stage", "is_uiuc_alum", "schools",
+    "source", "score", "status", "sent_at", "replied_at",
+    "last_follow_up_at", "thread_id", "message_id",
+]
+
+DRAFTS_HEADERS = [
+    "prepared_at", "lead_email", "template_used", "subject", "body",
+    "approved", "sent_at", "send_error", "message_id",
+    "is_follow_up", "in_reply_to",
+]
+
+HOT_LEADS_HEADERS = [
+    "flagged_at", "name", "company", "email", "linkedin",
+    "reply_excerpt", "thread_link",
+]
+
+SUPPRESSION_HEADERS = ["email", "added_at", "reason"]
+
+TAB_HEADERS = {
+    "Leads": LEADS_HEADERS,
+    "Drafts": DRAFTS_HEADERS,
+    "Hot Leads": HOT_LEADS_HEADERS,
+    "Suppression": SUPPRESSION_HEADERS,
+}
+
+
+def load_service_account_info() -> dict:
+    raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if raw:
+        return json.loads(raw)
+    path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
+    with open(path) as f:
+        return json.load(f)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+class SheetClient:
+    def __init__(
+        self,
+        service_account_info: dict | None = None,
+        sheet_id: str | None = None,
+    ) -> None:
+        info = service_account_info or load_service_account_info()
+        creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        self.gc = gspread.authorize(creds)
+        self.sheet_id = sheet_id or os.environ["SHEET_ID"]
+        self.book = self.gc.open_by_key(self.sheet_id)
+
+    def bootstrap(self) -> None:
+        """Create any missing tabs + set the header row."""
+        existing = {ws.title for ws in self.book.worksheets()}
+        for tab, headers in TAB_HEADERS.items():
+            if tab not in existing:
+                ws = self.book.add_worksheet(title=tab, rows=1000, cols=len(headers))
+            else:
+                ws = self.book.worksheet(tab)
+            current_headers = ws.row_values(1)
+            if current_headers != headers:
+                ws.update("A1", [headers])
+        # Drop "Sheet1" default if present
+        if "Sheet1" in existing and len(existing) > 1:
+            try:
+                self.book.del_worksheet(self.book.worksheet("Sheet1"))
+            except Exception:
+                pass
+
+    # ---------------- Leads ----------------
+
+    def get_known_emails(self) -> set[str]:
+        ws = self.book.worksheet("Leads")
+        col = ws.col_values(LEADS_HEADERS.index("email") + 1)[1:]
+        return {e.strip().lower() for e in col if e.strip()}
+
+    def get_contacted_dates(self) -> dict[str, datetime]:
+        ws = self.book.worksheet("Leads")
+        rows = ws.get_all_records()
+        out: dict[str, datetime] = {}
+        for r in rows:
+            sent = r.get("sent_at")
+            email = (r.get("email") or "").strip().lower()
+            if sent and email:
+                try:
+                    out[email] = datetime.fromisoformat(sent.replace("Z", "+00:00"))
+                except ValueError:
+                    pass
+        return out
+
+    def get_suppression_emails(self) -> set[str]:
+        ws = self.book.worksheet("Suppression")
+        col = ws.col_values(1)[1:]
+        return {e.strip().lower() for e in col if e.strip()}
+
+    def append_leads(self, leads: Iterable[Lead]) -> int:
+        ws = self.book.worksheet("Leads")
+        rows = [_lead_to_row(l) for l in leads]
+        if not rows:
+            return 0
+        ws.append_rows(rows, value_input_option="USER_ENTERED")
+        return len(rows)
+
+    def update_lead_status(
+        self,
+        email: str,
+        status: LeadStatus,
+        **fields,
+    ) -> None:
+        ws = self.book.worksheet("Leads")
+        records = ws.get_all_records()
+        for i, row in enumerate(records, start=2):  # row 1 is header
+            if (row.get("email") or "").strip().lower() == email.lower():
+                updates = {"status": status.value, **fields}
+                for k, v in updates.items():
+                    if k not in LEADS_HEADERS:
+                        continue
+                    col_idx = LEADS_HEADERS.index(k) + 1
+                    if isinstance(v, datetime):
+                        v = v.isoformat(timespec="seconds")
+                    ws.update_cell(i, col_idx, v if v is not None else "")
+                return
+
+    # ---------------- Drafts ----------------
+
+    def append_drafts(self, drafts: Iterable[Draft]) -> int:
+        ws = self.book.worksheet("Drafts")
+        rows = [_draft_to_row(d) for d in drafts]
+        if not rows:
+            return 0
+        ws.append_rows(rows, value_input_option="USER_ENTERED")
+        return len(rows)
+
+    def list_approved_pending(self) -> list[tuple[int, Draft]]:
+        """Returns (sheet_row_index, draft) for unsent, approved rows."""
+        ws = self.book.worksheet("Drafts")
+        records = ws.get_all_records()
+        out: list[tuple[int, Draft]] = []
+        for i, row in enumerate(records, start=2):
+            if _truthy(row.get("approved")) and not row.get("sent_at"):
+                out.append((i, _row_to_draft(row)))
+        return out
+
+    def mark_draft_sent(self, row_index: int, message_id: str) -> None:
+        ws = self.book.worksheet("Drafts")
+        ws.update_cell(row_index, DRAFTS_HEADERS.index("sent_at") + 1, _now_iso())
+        ws.update_cell(row_index, DRAFTS_HEADERS.index("message_id") + 1, message_id)
+
+    def mark_draft_error(self, row_index: int, error: str) -> None:
+        ws = self.book.worksheet("Drafts")
+        ws.update_cell(row_index, DRAFTS_HEADERS.index("send_error") + 1, error[:500])
+
+    def list_awaiting_follow_up(self, business_days: int = 3) -> list[dict]:
+        """Leads sent >= N business days ago, not yet replied, not yet followed up."""
+        ws = self.book.worksheet("Leads")
+        rows = ws.get_all_records()
+        out = []
+        now = datetime.now(timezone.utc)
+        for r in rows:
+            if r.get("status") != LeadStatus.SENT.value:
+                continue
+            if r.get("last_follow_up_at"):
+                continue
+            sent = r.get("sent_at")
+            if not sent:
+                continue
+            try:
+                sent_dt = datetime.fromisoformat(sent.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if _business_days_between(sent_dt, now) >= business_days:
+                out.append(r)
+        return out
+
+    # ---------------- Hot leads / Suppression ----------------
+
+    def append_hot_lead(
+        self,
+        name: str,
+        company: str,
+        email: str,
+        linkedin: str | None,
+        reply_excerpt: str,
+        thread_link: str,
+    ) -> None:
+        ws = self.book.worksheet("Hot Leads")
+        ws.append_row(
+            [_now_iso(), name, company, email, linkedin or "", reply_excerpt[:500], thread_link],
+            value_input_option="USER_ENTERED",
+        )
+
+    def add_suppression(self, email: str, reason: str) -> None:
+        ws = self.book.worksheet("Suppression")
+        existing = {e.strip().lower() for e in ws.col_values(1)[1:]}
+        if email.lower() in existing:
+            return
+        ws.append_row([email.lower(), _now_iso(), reason], value_input_option="USER_ENTERED")
+
+
+# --------- helpers ---------
+
+def _lead_to_row(l: Lead) -> list:
+    return [
+        (l.date_added or datetime.now(timezone.utc)).isoformat(timespec="seconds"),
+        l.name, l.title or "", l.company, l.email, l.linkedin or "",
+        l.industry or "", l.location or "", l.company_stage or "",
+        "TRUE" if l.is_uiuc_alum else "FALSE",
+        "; ".join(l.schools), l.source, round(l.score, 2),
+        l.status.value,
+        l.sent_at.isoformat(timespec="seconds") if l.sent_at else "",
+        l.replied_at.isoformat(timespec="seconds") if l.replied_at else "",
+        l.last_follow_up_at.isoformat(timespec="seconds") if l.last_follow_up_at else "",
+        l.thread_id or "", l.message_id or "",
+    ]
+
+
+def _draft_to_row(d: Draft) -> list:
+    return [
+        d.prepared_at.isoformat(timespec="seconds"),
+        d.lead_email, d.template_used.value, d.subject, d.body,
+        "FALSE",  # approved: starts unchecked
+        d.sent_at.isoformat(timespec="seconds") if d.sent_at else "",
+        d.send_error or "", d.message_id or "",
+        "TRUE" if d.is_follow_up else "FALSE",
+        d.in_reply_to or "",
+    ]
+
+
+def _row_to_draft(row: dict) -> Draft:
+    from .models import TemplateType
+    return Draft(
+        lead_email=row["lead_email"],
+        prepared_at=datetime.fromisoformat(str(row["prepared_at"]).replace("Z", "+00:00")),
+        template_used=TemplateType(row["template_used"]),
+        subject=row["subject"],
+        body=row["body"],
+        approved=_truthy(row.get("approved")),
+        is_follow_up=_truthy(row.get("is_follow_up")),
+        in_reply_to=row.get("in_reply_to") or None,
+        message_id=row.get("message_id") or None,
+    )
+
+
+def _truthy(v) -> bool:
+    return str(v).strip().lower() in ("true", "yes", "y", "1", "✓", "checked")
+
+
+def _business_days_between(a: datetime, b: datetime) -> int:
+    days = 0
+    cur = a.date()
+    end = b.date()
+    while cur < end:
+        cur = cur.fromordinal(cur.toordinal() + 1)
+        if cur.weekday() < 5:
+            days += 1
+    return days

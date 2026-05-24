@@ -1,0 +1,35 @@
+name: send
+
+# Runs Mon-Fri at 10:00 CT (16:00 UTC during CST, 15:00 UTC during CDT)
+# We pick 16:00 UTC so the job lands at 10am during winter / 11am during summer.
+
+on:
+  schedule:
+    - cron: "0 16 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+      IMPERSONATE_EMAIL: ${{ secrets.IMPERSONATE_EMAIL }}
+      DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
+      ORG_NAME: ${{ secrets.ORG_NAME }}
+      ORG_PHYSICAL_ADDRESS: ${{ secrets.ORG_PHYSICAL_ADDRESS }}
+      UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
+      SENDER_NAME: ${{ secrets.SENDER_NAME }}
+      SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
+      DAILY_SEND_CAP: "10"
+      SEND_INTERVAL_SECONDS: "30"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m src.main send

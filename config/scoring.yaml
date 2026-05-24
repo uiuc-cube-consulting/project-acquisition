@@ -1,0 +1,39 @@
+# Lead scoring weights. Higher score => more likely to be in today's batch of 10.
+# Tune these after the first week of real sends.
+
+weights:
+  uiuc_alum: 30
+  illinois_based: 20
+  startup_stage_match: 15        # seed through Series B
+  industry_matches_past_project: 10
+  senior_title: 10               # Director, VP, Founder, Partner, C-level
+  uiuc_alum_executive: 15        # bonus stacking with both alum and senior title
+
+# Hard filters (lead is dropped if any return True)
+exclude:
+  - current_uiuc_student         # never contact current students at illinois.edu
+  - in_suppression_list
+  - already_contacted_within_days: 180
+
+# Stage match list (Apollo company stage values)
+target_stages:
+  - "Seed"
+  - "Series A"
+  - "Series B"
+  - "Early Stage"
+
+# Seniority keywords (case-insensitive substring match on title)
+senior_title_keywords:
+  - "Founder"
+  - "CEO"
+  - "CTO"
+  - "COO"
+  - "CFO"
+  - "President"
+  - "VP"
+  - "Vice President"
+  - "Director"
+  - "Managing Partner"
+  - "General Partner"
+  - "Partner"
+  - "Head of"

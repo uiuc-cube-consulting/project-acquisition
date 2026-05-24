@@ -1,0 +1,943 @@
+[
+  {
+    "semester": "SP24",
+    "client": "BYLD",
+    "keywords": [
+      "Product Design",
+      "CAD Design",
+      "Prototype Development",
+      "App Dev"
+    ],
+    "deliverables": "The team will be divided into technical and marketing subteams - the technical team will conduct progressive prototype improvements, while also work on app development for the prototype"
+  },
+  {
+    "semester": "SP24",
+    "client": "TAVO Sleep",
+    "keywords": [
+      "Social Media Marketing",
+      "Product Launch"
+    ],
+    "deliverables": "They are launching a new product next month so they need help with a lot of product development and marketing it to different categories. This new product is targeted deaf and hard of hearing people. The project scope involves marketing (revamping their social media including but not limited to Instagram, Facebook, LinkedIn, Tiktok), creating pitch decks, and updating the existing slide deck (target market, testimonials)."
+  },
+  {
+    "semester": "SP24",
+    "client": "Inprentus",
+    "keywords": [
+      "Market size analysis",
+      "Comp. Analysis",
+      "Cost model analysis"
+    ],
+    "deliverables": "Business portion of the project involves market size analysis (trends in the market, what AR market with look like in future) and customer identification (how many people are interested in partnering and buying eyepieces, how much money people will spend on the eye pieces, knowing what customers would pay for the eyepiece). This part of the project is networking and research heavy. The second part of the project involves developing a cost model of going from mold to a palette with a thousand eye pieces on it. There are 15 steps to make an eyepiece and a different person doing that job"
+  },
+  {
+    "semester": "FA23",
+    "client": "Cache Energy",
+    "keywords": [
+      "Software Development",
+      "Front End",
+      "Back End",
+      "Coding",
+      "Batteries"
+    ],
+    "deliverables": "A model that can accurately track a battery\u2019s charge cycle and predict when the battery should be charged. The model was able to accurately filter out noise from charge data and map charging intervals and the charging rate."
+  },
+  {
+    "semester": "FA23",
+    "client": "Haylon Technical (2)",
+    "keywords": [
+      "Research",
+      "Electronics",
+      "Hardware"
+    ],
+    "deliverables": "Research the STM32 microcontroller and familiarize the client with its functionality. \nLooked into the API and functionality."
+  },
+  {
+    "semester": "FA23",
+    "client": "Top Tier Lessons",
+    "keywords": [
+      "Research",
+      "Data Visualization",
+      "Expansion Strategy",
+      "Market Entry"
+    ],
+    "deliverables": "Wants CUBE to look at companies that have previously made region based expansion and focus on which method of regional expansion they should focus on\nProvide any relevant data and a final strategy in the form of a presentation\nCreated a map representing the main consumer markets based on researched sectors"
+  },
+  {
+    "semester": "FA23",
+    "client": "SilverTouch",
+    "keywords": [
+      "IT",
+      "Market Entry"
+    ],
+    "deliverables": "Identified top venture capital areas in North America\nIdentified top industries in North America\nUsed data to evaluate and formulate a market entry tactic"
+  },
+  {
+    "semester": "FA23",
+    "client": "Shenny Visuals",
+    "keywords": [
+      "Workflow Management",
+      "Social Media Strategy"
+    ],
+    "deliverables": "Evaluating the client\u2019s platforms \nProviding a comprehensive analysis for competing Instagram accounts and websites \nTrend analysis regarding Tik Tok video application to Instagram reels\nResearching various platforms to aid with streamlining the client project process\nPlatforms help with bookings, editing, bookkeeping, and other management tasks\nComparing and contrasting the selected platforms\nConducting a deep dive through pilot-testing"
+  },
+  {
+    "semester": "FA23",
+    "client": "Quail.AI / Webdev Internal",
+    "keywords": [
+      "AI",
+      "Angel Investor Outreach"
+    ],
+    "deliverables": "Searched for angel investors through databases such as Mercury, VC Sheet, and Dealroom\nDocumented investors LinkedIn as a future contact point\nPivoted to internal website development after the client dropped"
+  },
+  {
+    "semester": "FA23",
+    "client": "ClimeCast",
+    "keywords": [
+      "Software Development",
+      "Front End",
+      "Back End",
+      "SaaS"
+    ],
+    "deliverables": "Comprehensive industry research and data acquisition focused on customer discovery, interviews, and market research. \nData collection from reliable sources and relevant databases for a robust climate risk analysis. Aid in deploying ClimeCast\u2019s SaaS product."
+  },
+  {
+    "semester": "SP23",
+    "client": "SRVE",
+    "keywords": [
+      "Product Launch",
+      "Design",
+      "Testing"
+    ],
+    "deliverables": "The client wants to prepare the product for launch and develop its identity to become more personal. The\nproject\u2019s goals are to increase the number of angel investors and develop an identity for the product\nthrough design and testing. This includes providing the client with a mood board to base some of SRVE\u2019s\nproduction. Consultants will provide evidence-based recommendations in order to suggest potential MVP\ndesigns to SRVE. The client will receive a focus group report, mood board information, product design pitch\nslideshow, angel investor portfolio, and wireframe assessment report. The deliverables will be extended, and\nwell-formatted versions of the information covered in the weekly client meetings."
+  },
+  {
+    "semester": "SP23",
+    "client": "ASL Aspire",
+    "keywords": [
+      "Information Packets",
+      "Social Media"
+    ],
+    "deliverables": "Refining information packets: These are targeted at three audiences - school administrators,\nteachers, and parents/students. This process will involve researching what information regarding\nthe application each group is interested in knowing about.\n2. Social media and digital marketing plan: The client indicated that they had previously collaborated\nwith another consulting group to create a digital marketing plan. Consultants will review this plan\nand consider potential points of improvement and also research best practices for advertising on\nvarious social media platforms.\n3. Angel Investor Profiling/Venture Capital Funding: The client indicated that they have previously had\nsuccess with various pitch competitions, and are now interested in getting into contact with angel\ninvestors that may be interested in a product like theirs. Consultants will look into methods of\nconnecting with investors, as well as best practices concerning pitching."
+  },
+  {
+    "semester": "SP23",
+    "client": "Lumnis",
+    "keywords": [
+      "Api",
+      "Cryptocurrency",
+      "Market Strategy"
+    ],
+    "deliverables": "Make their API more robust and add new tech features like reducing database costs and adding live\nversions\n Increase customers through marketing strategies"
+  },
+  {
+    "semester": "SP23",
+    "client": "Haylon \u2013 Technical (1)",
+    "keywords": [
+      "Circuit Simulations",
+      "Battery Design",
+      "Schematics"
+    ],
+    "deliverables": "The goals of the project are to start the model designs that will increase the speed at which\nthe client can develop their battery. This includes, but is not limited to the testbenches, mobile\napplications, circuit simulation and design. The team will be working on these prototypes and\npresent their findings and results via bi-weekly client meeting presentations. Other\ndeliverables may include research on material that will optimize"
+  },
+  {
+    "semester": "SP23",
+    "client": "Haylon \u2013 Business Development",
+    "keywords": [
+      "Pack Assembly",
+      "Market Research"
+    ],
+    "deliverables": "Develop a list of the top competitors of the pack assembly market that is in depth and efficiently\ncreated\n\u2022 Analyze the pack assembly hardware and software markets\n\u2022 Research battery cell end users"
+  },
+  {
+    "semester": "SP23",
+    "client": "Cache Energy",
+    "keywords": [
+      "Market Strategy",
+      "Distribution",
+      "Ui/Ux",
+      "Machine Learning"
+    ],
+    "deliverables": "Tihe primary goal of the project is formulating1\n\na gerto-marl<et strat,egy for the produeit and software sectors. The\nteam will ideate recommendations based on the project scope aind convey findings via bi-wee1kly client\nmeeting presentaUons. Other deliverables include iden \u00b7tying the target audience/market, competitor analysis.,\npricing strategies, marl<etingfsales/distrilbution channels, timeline for product launch, mode ,of entry, and\nmetrics. UI/UX and progl'amming algorithms will be utillirzed for website and product innovation.The\u2022\ndeliverables will be identical to the infonnation covered in client meeting slideshows but in document format."
+  },
+  {
+    "semester": "SP23",
+    "client": "DoubleSpot (2)",
+    "keywords": [
+      "Mvp",
+      "Platform Research",
+      "Testing"
+    ],
+    "deliverables": "Develop a minimum viable\nproduct of the website with google calendar\ncompatibility, contract completion platform, and\nvenue layout visual for the client to showcase during\nCOZAD and iVENTURE vents. Client is looking to get 10\nChampaign based venues signed up for the website\ntesting."
+  },
+  {
+    "semester": "FA22",
+    "client": "Yummy Future",
+    "keywords": [
+      "Market Initiatives",
+      "Social Media",
+      "Investor Pitch"
+    ],
+    "deliverables": "Propose marketing initiatives and branding over social media and newsletter\nAssist in finding new locations for Yummy Future\u2019s Chicago branch \nAssist with developing pitches and maintain recent launch of their Green St. location"
+  },
+  {
+    "semester": "FA22",
+    "client": "Specialty Paper Dispenser",
+    "keywords": [
+      "Product Evaluation",
+      "Design Report"
+    ],
+    "deliverables": "The goals of the project are to fully evaluate the project\u2019s potential, including function, manufacturing, and\nfinancial viability. The team will propose ideas and convey findings via bi-weekly client meeting\npresentations. Other deliverables include a report on the function and operation of the design, competitor\nanalysis, manufacturing options, and financial possibilities. Most of the deliverables will be identical to the\ninformation covered in the client meeting slideshows but in document format."
+  },
+  {
+    "semester": "FA22",
+    "client": "NASADYA",
+    "keywords": [
+      "Customer Outreach",
+      "Partnership Research"
+    ],
+    "deliverables": "The client wants to increase outreach and connections significantly so as to create some initial partnerships\nwith potential renewable IPPs and end users. The client has suggested multiple ways to approach the same.\nThe process will primarily be broken into direct outreach and design improvement. The team will propose\nideas and convey findings via bi-weekly client meeting presentations. Other deliverables include a list of\nconnections found over the semester, website design improvements, as well as other deliverables requested\nby the client over the semester."
+  },
+  {
+    "semester": "FA22",
+    "client": "Gridscale",
+    "keywords": [
+      "Industry Research",
+      "Analysis"
+    ],
+    "deliverables": "The main goal of this project is to inform Gridscale on the solar farming industry as a whole and subsequently provide a recommendation as to whether they should enter this market. In order to do this, the team will provide analysis on industry trends as well as on winning strategies in the market. The team will present this research to the client via bi-weekly meetings."
+  },
+  {
+    "semester": "FA22",
+    "client": "Fento (renamed DoubleSpot)",
+    "keywords": [
+      "Market Strategy"
+    ],
+    "deliverables": "The goals of this project consist of helping Fento with their launch while coming up with strategies to advertise and\nmarket their new mobile app. Our team will also come up with both short-term and long-term ideas to help the\ncompany grow as well as help communicating and negotiating with the Champaign and Urbana Park Districts, as well as\nlocal high schools and other costumers"
+  },
+  {
+    "semester": "SP22",
+    "client": "Valkyrie Robotics (2)",
+    "keywords": [
+      "Design"
+    ],
+    "deliverables": "This project was similar in nature to the Fall 2021 project and will be primarily design-focused, with potential to expand into additional areas of need."
+  },
+  {
+    "semester": "SP22",
+    "client": "SES Mobile Accessories",
+    "keywords": [
+      "Market Research",
+      "Customer Analysis"
+    ],
+    "deliverables": "Market research, particularly customer analysis.\nResearch into manufacturing options for the product.\nPatent searching as well as potentially developing a new patent.\nDevelopment of brand image."
+  },
+  {
+    "semester": "SP22",
+    "client": "Yummy Future",
+    "keywords": [
+      "Market Strategy",
+      "Social Media"
+    ],
+    "deliverables": "General marketing strategy + implementation, including social media and newsletter management, particularly geared towards the UIUC community \nTalent acquisition strategy\nAssistance with developing pitches as well as assisting with the launch of their Green St location"
+  },
+  {
+    "semester": "SP22",
+    "client": "Sage for Aging",
+    "keywords": [
+      "Sql",
+      "Web Design"
+    ],
+    "deliverables": "develop a new web platform for this database and assist with the development of a marketing plan. Overall, this project is primarily tech focused with some business and strategic aspects."
+  },
+  {
+    "semester": "SP22",
+    "client": "0to1 Analytics",
+    "keywords": [
+      "Marketing Plan",
+      "Hedge Funds"
+    ],
+    "deliverables": "First, developing and implementing marketing plans targeted at specific verticals such as hedge funds and outsource trading. Second, developing and implementing plans for software architecture on AWS and API development. The overall scope will need to be narrowed to focus on one of these two potential aspects. Overall, this project is a unique opportunity to make a major impact on an early stage startup while working with a career expert in the finance industry."
+  },
+  {
+    "semester": "SP22",
+    "client": "Nephra",
+    "keywords": [
+      "Go-To Market Strategy",
+      "Competitor Analysis"
+    ],
+    "deliverables": "Developing a go-to-market strategy, particularly focusing on developing Nephra\u2019s value proposition and how to market Nephra\u2019s product towards hospitals. \nConducting in-depth competitor and market research\nResearch into the FDA approval process and how it applies to Nephra\nResearch into partnerships and funding opportunities"
+  },
+  {
+    "semester": "FA21",
+    "client": "Banato (3)",
+    "keywords": [
+      "Marketing",
+      "Social Media",
+      "Photography"
+    ],
+    "deliverables": "Conducted research on various social media platforms and how to optimize engagement using them including the creation of hashtags and captions\nCreated marketing materials that could be used to advertise their products on instagram\nGenerated a marketing timeline to post at the optimal time for increased reach and engagement"
+  },
+  {
+    "semester": "FA21",
+    "client": "Hang",
+    "keywords": [
+      "Design",
+      "Sponsor Research"
+    ],
+    "deliverables": "Compiled Contact List of Champaign-Urbana Businesses\nSent emails and cold called potential sponsored Hang Businesses\nPerformed general UI/UX research\nDeveloped UI for sponsored business platform"
+  },
+  {
+    "semester": "FA21",
+    "client": "Influx/ Pingko",
+    "keywords": [
+      "Design",
+      "Market Analysis",
+      "Referral Strategy",
+      "Social Media"
+    ],
+    "deliverables": "Created mock logo designs + color palettes for our client\nProvided social media growth research as well as a market analysis\nProvided examples of ideal referral strategies for brand growth and customer accumulation"
+  },
+  {
+    "semester": "FA21",
+    "client": "Tavo",
+    "keywords": [],
+    "deliverables": ""
+  },
+  {
+    "semester": "FA21",
+    "client": "Valkyrie Robotics",
+    "keywords": [],
+    "deliverables": ""
+  },
+  {
+    "semester": "SP21",
+    "client": "Banato (2)",
+    "keywords": [
+      "Merchandise Creation",
+      "Industrial Design"
+    ],
+    "deliverables": "Generated consumer data on what goes into demand for merchandise \nIterated through a design process to test and evaluate water bottles\nRan a financial analysis on the investment needed to order and sell water bottles"
+  },
+  {
+    "semester": "SP21",
+    "client": "DeepWalk (2)",
+    "keywords": [
+      "Data Collection",
+      "Computer Vision",
+      "Coding"
+    ],
+    "deliverables": "Created an observation report from data collected using the DeepWalk mobile application\nCoded improvements to their integrated annotator"
+  },
+  {
+    "semester": "SP21",
+    "client": "MyDecorify (1)",
+    "keywords": [
+      "Marketing",
+      "Small Business",
+      "Customer Research"
+    ],
+    "deliverables": "Researched and found most beneficial ways of using Pinterest\nPut together a catered set of marketing strategies for increasing brand awareness\nConducted potential customer research using a survey\nInitial research on how to transition into a subscription box service\nBOX Files are Here\nTrello Board is Here"
+  },
+  {
+    "semester": "SP21",
+    "client": "Passport to Wellness (2)",
+    "keywords": [
+      "Ui/Ux",
+      "Market Research"
+    ],
+    "deliverables": "Researched potential sponsor/successor information and marketing platform to use for Wix website\nAdded e-commerce component with complementary P2W products\nImproved upon website aesthetics and readability\nBOX Files are Here"
+  },
+  {
+    "semester": "SP21",
+    "client": "Watch me Grow (2)",
+    "keywords": [],
+    "deliverables": "Launched survey campaign to collect primary data from the client\u2019s customer base and extrapolate key customer behaviors\nInterpreted primary data to tailor business strategy recommendations \nAdvised on most effective loyalty program practices and partnerships\nBOX Files are Here"
+  },
+  {
+    "semester": "FA20",
+    "client": "Bellwether Analytics (1)",
+    "keywords": [
+      "Webscraping",
+      "Data Collection",
+      "Coding"
+    ],
+    "deliverables": "Used Python\u2019s Beautiful Soup library to scrape university websites for health technology\nConverted scraped output to csv files, one for each school\nCompiled data report for client\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA20",
+    "client": "Clark Dietz (2)",
+    "keywords": [
+      "Flutter",
+      "Mobile Application",
+      "Microstation",
+      "Database"
+    ],
+    "deliverables": "Created a cross platform working mobile application to collect field data.\nIncorporated a back end Oracle Database to hold the data inputted.\nGave potential steps to connect this Database to Microstation using AWS.\nCreated UI for application.\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA20",
+    "client": "Ahead Materials Inc. (3) / NDF",
+    "keywords": [
+      "Market Research",
+      "Databases",
+      "Cloud Computing"
+    ],
+    "deliverables": "Compiled data on the education market sector for database use\nConducted research on competitors in database field\nCreated a survey sent out to local school district on the use of databases\nTook noted on the cloud computing industry and attended a cloud computing workshop\nBox files are HERE"
+  },
+  {
+    "semester": "FA20",
+    "client": "Pareto Tree (2)",
+    "keywords": [
+      "Medical Devices",
+      "Pricing Analysis",
+      "Business Models"
+    ],
+    "deliverables": "Contacted hospital executives to gain understanding of hospitals product procurement process\nEstimated client's costs for product distribution and maintenance\nAnalyzed clients financials and competitors product pricing to determine optimal pricing strategy\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA20",
+    "client": "Passport to Wellness (1)",
+    "keywords": [
+      "Website Development",
+      "Spreadsheet Database"
+    ],
+    "deliverables": "Created spreadsheets for client to digitally aggregate data from paper files. Included documentation for how to use filtering features in Google Sheets\nResearched website builder platforms (Wix, Wordpress.org, Square Space, etc.)\nDeveloped Wix website for the client\u2019s company\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA20",
+    "client": "Watch me Grow (1)",
+    "keywords": [],
+    "deliverables": "Advised on market entry, advertising channels, and website design. \nDeliverables consisted of slide decks that conveyed the team\u2019s research and recommendations \nBOX Files are HERE"
+  },
+  {
+    "semester": "SP20",
+    "client": "Banato (1)",
+    "keywords": [
+      "Shipping design",
+      "consumer market research"
+    ],
+    "deliverables": "Conducted demographic research for frozen dessert market\nResearch into shipping and packaging for possible ways to expand services \nDid market research on consumers with respect to COVID-19 pandemic and how to allow Banato to cater in different scenarios\nSurveyed people on their preferences and analyzed the sample\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP20",
+    "client": "CamUX",
+    "keywords": [],
+    "deliverables": ""
+  },
+  {
+    "semester": "SP20",
+    "client": "DeepWalk (1)",
+    "keywords": [
+      "Profitability",
+      "Technology & Industry Research"
+    ],
+    "deliverables": "Conducted primary and secondary research to determine clients to which DeepWalks could sell its product and be profitable\nLooked for industries which had frequent, expensive inspections \nNarrow down to 5-10 potential customers\nUnable to complete interviews as planned due to COVID-19 but were able to provide valuable information for ongoing research\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP20",
+    "client": "EarthSense (4)",
+    "keywords": [],
+    "deliverables": ""
+  },
+  {
+    "semester": "SP20",
+    "client": "MenuLikes",
+    "keywords": [
+      "Machine Learning",
+      "Data Collection",
+      "Application Development"
+    ],
+    "deliverables": "Conducted manual data entry for local restaurants in the Urbana-Champaign area that will be used to populate the app for the initial application launch \nStudied different machine learning software platforms in order to create cost-effective solutions for the company as it scales up.\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP20",
+    "client": "Pareto Tree (1)",
+    "keywords": [],
+    "deliverables": "Conducted Primary Market Research on the medical device industry and the challenges and opportunities\nCreated a thorough list of primary and tertiary care hospitals to cold call \nCreated a google form with all necessary questions to send to nurses and doctors\nWrote a report of all our research and market sizing \nConducted a competitors analysis to understand the other companies in the market \nBox Files are HERE"
+  },
+  {
+    "semester": "FA19",
+    "client": "TEC",
+    "keywords": [
+      "Entrepreneurship",
+      "Data Survey",
+      "Data Analysis",
+      "Flyer Design"
+    ],
+    "deliverables": "Conducted a survey to determine whether students were aware of the TEC and the resources it had to offer\nAnalyzed the data collected and identified areas where the TEC could market their competitions and events\nSuggested improvements for flyers, booklets, and other marketing material the TEC utilized for promotions\n\nBox Files are HERE"
+  },
+  {
+    "semester": "FA19",
+    "client": "Ahead Materials Inc. (2)",
+    "keywords": [
+      "Market Research",
+      "Product feasibility analysis"
+    ],
+    "deliverables": "Conduct industry research to determine what industry standards for graphene applications are\nUltimately decide whether AMI is ready to release products onto market or if they need to continue R&D \nAnalyzed various testing methods, options for outsourcing testing, and found standards of competing products such as thermal paste\nBox Files are HERE"
+  },
+  {
+    "semester": "FA19",
+    "client": "Inprentus (2)",
+    "keywords": [],
+    "deliverables": "Conducted market research on potential customers and users for their product within other manufacturers\nWrote a report of all the major companies we contacted and the progress we had with each phone call and email\nWe included contact information for future use for Inprentus\nMade recommendations for future cold calls and verbiage to use when reaching out to these companies\nBox Files are HERE"
+  },
+  {
+    "semester": "FA19",
+    "client": "Qooley",
+    "keywords": [
+      "Data Science",
+      "NLP",
+      "Cloud Services",
+      "AWS"
+    ],
+    "deliverables": "Conducted research and compared various cloud platforms for data science functionalities \u2013 mainly Google Cloud Platform and Amazon Web Service.\nDetermined which would be a better platform for the use case by comparing several metrics like # features, reliability, resources, cost etc. \nFound datasets that would most resemble the dataset Qooley expects to get in future and use that to determine the steps to work through the cloud platform. \nMade use of the AWS Personalize and AWS Comprehend features for Recommendation System and NLP applications."
+  },
+  {
+    "semester": "FA19",
+    "client": "KarmaTrade",
+    "keywords": [
+      "Market Research",
+      "Website Formatting",
+      "Product Feasibility Analysis",
+      "Business Research"
+    ],
+    "deliverables": "Conducted market research and research on different business models that could be utilized\nCreated a survey collecting data on website formats customers prefer, and how they feel about reused clothes on an online platform.\nCreated a flyer that KarmaTrade would be able to hang around campus marketing their business.\nFocused on social media strategies. Suggested the use of hashtags, Instagram stories, themes, a posting cadence of 4 times a week, and a more concise Instagram bio.\nGave strategies on how to form business partnerships and maintain them.\nBox Files are HERE"
+  },
+  {
+    "semester": "FA19",
+    "client": "EarthSense (3)",
+    "keywords": [],
+    "deliverables": "Conducted research and compared how different agricultural companies/competitors portioned out their resources towards research and development. \nConducted phone interviews, emails, and LinkedIn messages, with head of departments to gather data on how money was spent towards employees, interns, and overall research and development\nBox Files are HERE"
+  },
+  {
+    "semester": "SP19",
+    "client": "Ahead Materials Inc. (1)",
+    "keywords": [
+      "Graphene",
+      "Primary Market Research",
+      "Competitor Analysis",
+      "Pricing Model",
+      "Market Segmentation"
+    ],
+    "deliverables": "Conduct in-person interviews with professors in academia at UIUC whose research deals with graphene\nConduct phone interviews with industry contacts and professionals, including business/sales managers at other graphene suppliers\nCollect responses based on the interviewee\u2019s thoughts on product applications, product specifications, and the future of the industry \nIdentify the different customer segments for the product, and analyze which are most feasible/profitable based on interview responses \nResearch & build a spreadsheet of similar graphene products from competitors, directly comparing prices\nResearch & build a spreadsheet of products that utilize graphene which are currently on the market, calculating the % difference in price between products with and without graphene to estimate the average value added by graphene\n\nBox Files are HERE"
+  },
+  {
+    "semester": "SP19",
+    "client": "Phi Optics",
+    "keywords": [],
+    "deliverables": ""
+  },
+  {
+    "semester": "SP19",
+    "client": "Careband",
+    "keywords": [
+      "Coding",
+      "UI/UX design",
+      "AWS"
+    ],
+    "deliverables": "Design application to help customers with onboarding of Careband app\nWorked closely with their dev/PM team members to write both front end and back end code\nCreated mockups and designed frontend using feedback from Careband team"
+  },
+  {
+    "semester": "SP19",
+    "client": "Pixo",
+    "keywords": [],
+    "deliverables": "Conducted detailed market research on the entering market space and competitors \nAttended demos by competitors to understand their marketing style and make recommendations\nCreated a long term and short term Linkedin marketing strategy to reach more potential users\nBox Files are HERE"
+  },
+  {
+    "semester": "SP19",
+    "client": "EarthSense (2)",
+    "keywords": [
+      "UI/UX Design",
+      "Static and Dynamic Mockups",
+      "Adobe Illustrator",
+      "Adobe XD"
+    ],
+    "deliverables": "Designed layouts for each page of the website where user could collect data\nDeveloped static mockups using Adobe Illustrator, designing layout, shape, and color\nDeveloped dynamic mockups using Adobe XD, paying attention to user interaction and flow\nCreated a design that detailed the multiple components of each design and the technical implementation of the design\n\nBox Files are HERE"
+  },
+  {
+    "semester": "SP19",
+    "client": "Inprentus (1)",
+    "keywords": [],
+    "deliverables": ""
+  },
+  {
+    "semester": "FA18",
+    "client": "Clark Dietz (1)",
+    "keywords": [
+      "Road Construction",
+      "App Development",
+      "Surveying",
+      "Virtual Reality",
+      "Construction"
+    ],
+    "deliverables": "Researched marketing strategies with virtual and augmented reality to be used when trying to win clients. This included looking into different virtual and augmented reality platforms and deciding on whether VR or AR would be a better fit for the company \nCreated tutorials for different VR products and listed out the pros and cons of Modelo, Oculus Rift, HTC Vive, and HoloLens. \nUtilized a decision matrix outlining specific details of each product in order to make a recommendation. \nCreated an outline for an app using a free app creator service to help design a form that would allow survey measurements to be put directly into their MicroStation account."
+  },
+  {
+    "semester": "FA18",
+    "client": "EarthSense (1)",
+    "keywords": [
+      "AgTech",
+      "Crop Science",
+      "Financial modelling",
+      "Primary market research"
+    ],
+    "deliverables": "Conduct phone interviews with contacts from predicted customer segments: universities, contract research organizations (CROs), seed companies, and others\nCollect responses about the research scope, the current methods of data collection, the current use of technology in data collection, and the problems that customers currently face\nBuild a financial model to estimate total operating costs, revenue, profitability, and year-to-year growth \nBuild a pricing model for price per site based on unit prices, # of robots per site, and # of traits monitored\n\nBox Files are HERE"
+  },
+  {
+    "semester": "FA18",
+    "client": "Clark Lindsey (2)",
+    "keywords": [
+      "Education Planning",
+      "Technology research"
+    ],
+    "deliverables": "Created curriculum for iPad education program so that residents at Clark Lindsey can better use technology devices to live more independently\nWorked with Clark Lindsey to create timeline, curriculum, rollout program \nResearched existing curriculums to understand what strategies best work for this target demographic"
+  },
+  {
+    "semester": "FA18",
+    "client": "Black Dog",
+    "keywords": [
+      "Logistics",
+      "IT Infra"
+    ],
+    "deliverables": "Observed and analyzed Black Dog\u2019s current POS system t\nResearched multiple possible leads as an alternative\nTest-run and informed the client on results passed off trail runs\nChose new POS system for client and handed off resonsiblity and point of contac"
+  },
+  {
+    "semester": "FA18",
+    "client": "IntelinAir",
+    "keywords": [
+      "Marketing",
+      "Expansion",
+      "Market research",
+      "Competitor analysis"
+    ],
+    "deliverables": "Conducted market research focused on product demand and potential target retailers\nCreated a market plan that would ultimately lead to sales growth and increased brand recognition \nPresented research on avenues client could take to reach larger customers\nGathered data on customer sentiment\nBox Files are HERE"
+  },
+  {
+    "semester": "FA18",
+    "client": "Tavo",
+    "keywords": [],
+    "deliverables": "Designed flyers to invite students and faculty around campus to user testing sessions\nEvaluated the user interface and provided recommendations\nConducted a user testing session and made inferences and recommendations based off the data collected\nGenerated reports that summed up findings and recommendations\n\nBox Files are HERE"
+  },
+  {
+    "semester": "SP18",
+    "client": "Psyonic",
+    "keywords": [
+      "3D Modelling",
+      "Biotech",
+      "Business Strategy"
+    ],
+    "deliverables": "Design the appearance and functionality of the glove through prototyping and testing\nPlan out distribution channels, marketing, strategies, and supply chain\nHelp communicate with investors\n\n*Unfortunately several of the folders of the this project are empty\n\nClick HERE for the project\u2019s box folder"
+  },
+  {
+    "semester": "SP18",
+    "client": "Inspirit IoT",
+    "keywords": [
+      "Product Improvement",
+      "Firmware Dev",
+      "GUI Dev",
+      "Deep Neural Network Customer Development",
+      "Product Value"
+    ],
+    "deliverables": "Create customer personas of the audience that Inspirit IoT is targeting\nDetermine the pain points of each customer segment (with market size, value, actional, non-actionable items)\nTests of the product\u2019s accuracy in detecting audio with data\nBuilding a Graphical User Interface for a Deep Neural Network Optimizer\nProvided alternative use cases for the product\n\nBOX Files are HERE\nDeliverables are HERE"
+  },
+  {
+    "semester": "SP18",
+    "client": "Clark-Lindsey (1)",
+    "keywords": [
+      "Surveys",
+      "Financial Analysis",
+      "Technology Analysis",
+      "Child Care"
+    ],
+    "deliverables": "Investigating the benefits of a system of child care\nCreated surveys for different categories of parents\nCalculated Financial Projections for cost, revenue and profit, and provided recommendations based on the analysis\nDetermined the timeline for a new center to start up\nStudy of regulations\nEvaluation of the implementation of technologies in the facilities\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP18",
+    "client": "Homer Soda",
+    "keywords": [
+      "Market Research",
+      "Social Media Integration",
+      "Content Sharing Platform"
+    ],
+    "deliverables": "Create a marketing campaign that appeals to a wider audience with more diverse age groups\nCustomer segmentation \u2013 Add value for existing customers and attract new customers\nBrand loyalty\nLeverage media platforms such as YouTube and Instagram to post recipes, cooking videos, etc\nLeverage social media platforms to host events such as giveaways\nExamine the financial budget of using Marketing channels such as Facebook/Instagram and examine the viability for the client. Identify Pros and Cons of each platform\n\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP18",
+    "client": "Cracked",
+    "keywords": [
+      "Product diversification",
+      "Customer Dev",
+      "Marketing",
+      "Increasing Profits"
+    ],
+    "deliverables": "Analyze current deals that Cracked is offering and determine their financial feasibility\nList partners that Cracked could work with, pros and cons of each\nDetermine other possibilities for Food truck locations\nDetermine events (In Champaign, Urbana and on Campus) where Cracked could market themselves\nProvide information about each avenue such that Cracked has all the information about where they can expand\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA17",
+    "client": "First Column",
+    "keywords": [
+      "Property leasing",
+      "Marketing Strategy",
+      "Expansion"
+    ],
+    "deliverables": "Determine whether the First Column leasing process is efficient in attracting target customers\nDetermine MROI (Marketing Return on Investment) for advertising future properties\nInvestigate whether the company\u2019s internal process can be improved for growth\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA17",
+    "client": "Schnell Optics",
+    "keywords": [
+      "Design Improvements",
+      "Market Entry",
+      "University Resources",
+      "Market Research"
+    ],
+    "deliverables": "Suggest improvements to the design of the product to increase marketability\nDetermine the product segmentation of where the technology is applicable (commercial vs custom)\nLooked up machine shops across the university to find one that was capable of producing an interference objective scanner\nDetermined potential applications for market entry\nSummarized potential challenges in delivering the product to market\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA17",
+    "client": "Dremel",
+    "keywords": [
+      "Fabrication and DIY",
+      "Market Entry",
+      "Website",
+      "Social Media"
+    ],
+    "deliverables": "Investigate how Dremel can market their products towards the DIY space for consumers\nLook into fabrication tools and determine the barriers to entry for a consumer to transform their digital design to a physical one\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA17",
+    "client": "Psyonic",
+    "keywords": [
+      "3D Modelling",
+      "Biotech",
+      "Business Strategy"
+    ],
+    "deliverables": "Design the appearance and functionality of the glove through prototyping and testing\nPlan out distribution channels, marketing, strategies, and supply chain\nHelp communicate with investors\n\n*Unfortunately several of the folders of the this project are empty\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA17",
+    "client": "Dr. G\u2019s Brainworks",
+    "keywords": [
+      "Business analysis",
+      "Database Implementation"
+    ],
+    "deliverables": "Assist in implementing a new program that tracks the development of infants in the toddler stage\nAnalyze the current market of Dr. G\u2019s brainworks\nImplement a database and marketing plan for the project\n\n*This project folder does not contain deliverables or any of the project work\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP17",
+    "client": "Jump Project",
+    "keywords": [
+      "Product Workflow",
+      "Healthcare"
+    ],
+    "deliverables": "Improve the workflow with which a 3D heart s designed for a patient\nDevelop the presentation that will market this technology and workflow to hospitals and healthcare institutions where this is relevant\nDetail the technical steps with which the DICOM file will be anonymized, stored, and processed\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP17",
+    "client": "Synthetic Optical Holography",
+    "keywords": [
+      "Logo Design",
+      "Industry Analysis",
+      "Product Design Breakdown"
+    ],
+    "deliverables": "Recommended logo designs\nRest of the deliverables are similar to that of the Schnell Optics Project in FA17\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP17",
+    "client": "Junior Enterprise (Estin & Co.)",
+    "keywords": [
+      "Market Survey",
+      "Data Analysis"
+    ],
+    "deliverables": "Collect atleast 200 responses to perform market research for a distributor of coffee machines such that they can enter the US market\nWork with other JE organizations and help Estin & Co develop a database to help develop marketing strategies for their client"
+  },
+  {
+    "semester": "SP17",
+    "client": "Cracked",
+    "keywords": [
+      "Improve Inventory Management",
+      "Documenting solution workflow"
+    ],
+    "deliverables": "Provided a detailed workflow of how Revel could be used to improve the inventory management system\n\nFinal Deliverable is HERE\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP17",
+    "client": "Hammerhead",
+    "keywords": [
+      "Food/Beverage industry"
+    ],
+    "deliverables": "Provide marketing templates\nRecommendation on targeting Latitude tenants (specific geographic area)\nRecommending improvements in business workflow such as modifying the back kitchen space to optimize the speed of serving food\n\n*Project files are limited\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP17",
+    "client": "Haiti Clean Stove",
+    "keywords": [
+      "Product Improvement",
+      "Design"
+    ],
+    "deliverables": "Research the cause of carbon deposition on the cooking stove\nImprove the design of the cooking stove such that is environmentally and financially sustainable\n\n*Project files are limited\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA16",
+    "client": "Solar Fish Farm (2)",
+    "keywords": [
+      "System Design",
+      "Sustainability",
+      "Cost Analysis"
+    ],
+    "deliverables": "Made improvements to the prior Solar Fish Farm Project\nResearched existing systems, aquaponics, and existing fish farms\nPerformed a cost analysis in terms of the fish farm size and operation\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA16",
+    "client": "Walnut Street Tea Company",
+    "keywords": [
+      "Marketing",
+      "Customer Development",
+      "Expansion"
+    ],
+    "deliverables": "Performed a survey of UIUC students\nListed partnerships and events and their contact details\nConducted a financial analysis on the subscription model and used the survey data to make recommendations\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA16",
+    "client": "GlucoSentient",
+    "keywords": [
+      "Competitor Analysis",
+      "Product Development"
+    ],
+    "deliverables": "Research of current biomarkers and methods of drug testing/measuring\nResearch the target market and use case towards which GlucoSentient can diversify their product\nAnalysis of the drug monitoring industry\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA16",
+    "client": "Action Jackson Comics",
+    "keywords": [
+      "Customer Development",
+      "System Improvement",
+      "Brand Development"
+    ],
+    "deliverables": "Investigate current social media outlets and determine ways to take advantage of it to increase brand promotion\nAnalyzed customer preferences to enter the store and segregated data based on various customers\nLook into ways to improve the POS system\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA16",
+    "client": "See You CD and Vinyl",
+    "keywords": [],
+    "deliverables": "Found ways to differentiate the business from close competitors\nProvided locations to hold pop events and detailed the rules and permits that would be required to do so\nListed RSOs and other partnerships that will help See You CD expand its customer base\nResearched statistics and provided the benefits of using social media\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP16",
+    "client": "Solar Fish Farm (1)",
+    "keywords": [
+      "Circuit Design"
+    ],
+    "deliverables": "Designed a circuit that would eliminate the charge controller and battery from the system\nTested and benchmarked the functionality of the circuit and its components\nCompared various biofilter materials and recommended the most effective one based off the results\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP16",
+    "client": "Jurassic Grill (2)",
+    "keywords": [
+      "Marketing",
+      "Organization",
+      "Inventory Analysis",
+      "Accounting System",
+      "Business Promotion"
+    ],
+    "deliverables": "Standardize inventory management so that it can be picked up by employees\nEvaluated that an accounting intern could be hired to keep track of the various short and long term expenses\nRecommended programs for marketing Jurassic Grill such as a punch card system\nEvaluated the existing delivery service through a cost analysis, and made recommendations to improve it\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP16",
+    "client": "Latea",
+    "keywords": [
+      "Beverages",
+      "Marketing Analysis",
+      "Service Optimization"
+    ],
+    "deliverables": "Performed a campus wide demographic analysis\nRecommended marketing strategies such as emphasizing product qualities, advertising at various locations, and forming partnerships\nRestructured the existing operations to increase efficiency of customer service\nProvided a menu redesign\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP16",
+    "client": "WaitStaffNow",
+    "keywords": [
+      "Marketing Strategies"
+    ],
+    "deliverables": "Made a list of contacts of Greek Life fraternities\nProvided flyer design\nListed locations and procedures to distribute the flyers at various locations\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP16",
+    "client": "Neutral Design Studio",
+    "keywords": [
+      "Market Strategy",
+      "Advertising",
+      "Customer Segmentation"
+    ],
+    "deliverables": "Recommended that NDS diversify its services\nListed clients that would be interested in Bike Ads\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA15",
+    "client": "Jurassic Grill (1)",
+    "keywords": [
+      "Food",
+      "Operations Analysis"
+    ],
+    "deliverables": "Performed a cost analysis of the current operations\nProvided detailed logitics of using a food truck to increase its profits\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA15",
+    "client": "TextIE",
+    "keywords": [],
+    "deliverables": "Researched users and the market\nEvaluated the use cases and reviews of existing text analytic products and identified gaps which TextIE could fill\nRecommended with examples that TextIE partner with a suite provider\n\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA15",
+    "client": "J\u2019Gumbos",
+    "keywords": [
+      "Food and Dining",
+      "Interior Design"
+    ],
+    "deliverables": "Provided layouts of the dining space with measurements\nProvided layouts of the kitchen space with measurements\nListed items to purchase to design the space inside the restaurant\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP15",
+    "client": "Kerris Lee Biotech",
+    "keywords": [
+      "Wearable Technology",
+      "Electronics Prototyping",
+      "Arduino"
+    ],
+    "deliverables": "Built a prototype with an Arduino of the wearable technology\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA14",
+    "client": "Student Sustainable Farm",
+    "keywords": [
+      "Electronic Design",
+      "Arduino"
+    ],
+    "deliverables": "Designed and implemented a ventilation system for the battery box\nProvided troubleshooting methods for SSF for the device\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA14",
+    "client": "IntelliWheels",
+    "keywords": [
+      "Bill of Materials"
+    ],
+    "deliverables": "Generated a Bill of Materials for substitutes that would improve the product\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "SP13",
+    "client": "Orpheum Air Maze",
+    "keywords": [
+      "CAD"
+    ],
+    "deliverables": "*Zip file contains several drawing files of parts\n\nBOX Files are HERE"
+  },
+  {
+    "semester": "FA13",
+    "client": "Fresh Press",
+    "keywords": [
+      "Improvement of Product Development",
+      "Customer Development",
+      "Business Competition Analysis",
+      "Distribution Channels"
+    ],
+    "deliverables": "Suggest ways to improve the process with which the paper is produced\nProvide recommendations can target a specific customer segment\nUnderstand how Fresh Press is different from its competitors\nExplore other ways the product can be marketed other than the client\u2019s intended distribution channel\n\nClick HERE for the project\u2019s box folder"
+  }
+]

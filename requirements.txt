@@ -1,0 +1,9 @@
+anthropic>=0.40.0
+google-api-python-client>=2.140.0
+google-auth>=2.34.0
+google-auth-oauthlib>=1.2.0
+gspread>=6.1.0
+pydantic[email]>=2.8.0
+PyYAML>=6.0.2
+requests>=2.32.0
+python-dateutil>=2.9.0

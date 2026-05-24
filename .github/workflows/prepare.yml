@@ -1,0 +1,37 @@
+name: prepare
+
+# Runs Mon-Fri at 06:00 CT (11:00 UTC during CST, 12:00 UTC during CDT)
+# We pick 12:00 UTC so the job lands at 6am during winter / 7am during summer.
+# Tighten this if you want to handle DST more precisely.
+
+on:
+  schedule:
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+      ALUMNI_SHEET_ID: ${{ secrets.ALUMNI_SHEET_ID }}
+      IMPERSONATE_EMAIL: ${{ secrets.IMPERSONATE_EMAIL }}
+      DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
+      ORG_NAME: ${{ secrets.ORG_NAME }}
+      ORG_PHYSICAL_ADDRESS: ${{ secrets.ORG_PHYSICAL_ADDRESS }}
+      UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
+      SENDER_NAME: ${{ secrets.SENDER_NAME }}
+      SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
+      DAILY_PREPARE_TARGET: "15"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m src.main prepare
