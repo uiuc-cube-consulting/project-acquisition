@@ -52,11 +52,17 @@ HOT_LEADS_HEADERS = [
 
 SUPPRESSION_HEADERS = ["email", "added_at", "reason"]
 
+# One row per `prepare` run. Records the Gmail thread the approval digest was
+# sent on plus a JSON map of digest-number -> Drafts row, so the `send` job can
+# resolve "approve 1,3" from the approver's reply back to the right rows.
+APPROVALS_HEADERS = ["digest_at", "thread_id", "message_id", "items_json", "processed_at"]
+
 TAB_HEADERS = {
     "Leads": LEADS_HEADERS,
     "Drafts": DRAFTS_HEADERS,
     "Hot Leads": HOT_LEADS_HEADERS,
     "Suppression": SUPPRESSION_HEADERS,
+    "Approvals": APPROVALS_HEADERS,
 }
 
 
@@ -159,13 +165,19 @@ class SheetClient:
 
     # ---------------- Drafts ----------------
 
-    def append_drafts(self, drafts: Iterable[Draft]) -> int:
+    def append_drafts(self, drafts: Iterable[Draft]) -> list[int]:
+        """Append drafts and return the Sheet row index of each new row."""
         ws = self.book.worksheet("Drafts")
         rows = [_draft_to_row(d) for d in drafts]
         if not rows:
-            return 0
-        ws.append_rows(rows, value_input_option="USER_ENTERED")
-        return len(rows)
+            return []
+        resp = ws.append_rows(rows, value_input_option="USER_ENTERED")
+        updated_range = (resp or {}).get("updates", {}).get("updatedRange", "")
+        start = _parse_start_row(updated_range)
+        if start is None:
+            # Fallback: assume they landed at the current tail of the sheet.
+            start = len(ws.col_values(1)) - len(rows) + 1
+        return list(range(start, start + len(rows)))
 
     def list_approved_pending(self) -> list[tuple[int, Draft]]:
         """Returns (sheet_row_index, draft) for unsent, approved rows."""
@@ -185,6 +197,39 @@ class SheetClient:
     def mark_draft_error(self, row_index: int, error: str) -> None:
         ws = self.book.worksheet("Drafts")
         ws.update_cell(row_index, DRAFTS_HEADERS.index("send_error") + 1, error[:500])
+
+    def approve_draft_rows(self, row_indices: Iterable[int]) -> int:
+        """Flip the `approved` cell to TRUE for the given Drafts rows."""
+        ws = self.book.worksheet("Drafts")
+        col = DRAFTS_HEADERS.index("approved") + 1
+        count = 0
+        for ri in row_indices:
+            ws.update_cell(ri, col, "TRUE")
+            count += 1
+        return count
+
+    # ---------------- Approvals (email reply gate) ----------------
+
+    def record_digest(self, thread_id: str, message_id: str, items: list[dict]) -> None:
+        """Persist the digest thread + number->row map for the send job to read."""
+        ws = self.book.worksheet("Approvals")
+        ws.append_row(
+            [_now_iso(), thread_id or "", message_id or "", json.dumps(items), ""],
+            value_input_option="RAW",
+        )
+
+    def latest_unprocessed_digest(self) -> tuple[int, dict] | None:
+        """Most recent Approvals row that hasn't been processed yet, with its row index."""
+        ws = self.book.worksheet("Approvals")
+        records = ws.get_all_records()
+        for i in range(len(records) - 1, -1, -1):
+            if not str(records[i].get("processed_at") or "").strip():
+                return i + 2, records[i]  # +2: header row + 1-based
+        return None
+
+    def mark_digest_processed(self, row_index: int) -> None:
+        ws = self.book.worksheet("Approvals")
+        ws.update_cell(row_index, APPROVALS_HEADERS.index("processed_at") + 1, _now_iso())
 
     def list_awaiting_follow_up(self, business_days: int = 3) -> list[dict]:
         """Leads sent >= N business days ago, not yet replied, not yet followed up."""
@@ -275,6 +320,14 @@ def _row_to_draft(row: dict) -> Draft:
         in_reply_to=row.get("in_reply_to") or None,
         message_id=row.get("message_id") or None,
     )
+
+
+def _parse_start_row(updated_range: str) -> int | None:
+    """Pull the first row number out of an A1 range like 'Drafts!A10:K12'."""
+    import re
+
+    m = re.search(r"![A-Z]+(\d+)", updated_range or "")
+    return int(m.group(1)) if m else None
 
 
 def _truthy(v) -> bool:

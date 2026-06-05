@@ -12,18 +12,19 @@ import os
 from datetime import datetime, timezone
 
 from .draft import Drafter, make_footer
-from .models import Lead, LeadStatus
+from .models import Draft, Lead, LeadStatus
 from .sheets import SheetClient
 
 log = logging.getLogger(__name__)
 
 
-def prepare_follow_ups(sender_name: str, business_days: int = 3) -> int:
+def prepare_follow_ups(sender_name: str, business_days: int = 3) -> list[tuple[int, Draft]]:
+    """Draft follow-ups due today. Returns (drafts_row, Draft) for each new row."""
     sheets = SheetClient()
     pending = sheets.list_awaiting_follow_up(business_days=business_days)
     if not pending:
         log.info("No follow-ups due today")
-        return 0
+        return []
 
     drafter = Drafter()
     footer = make_footer()
@@ -48,10 +49,11 @@ def prepare_follow_ups(sender_name: str, business_days: int = 3) -> int:
             continue
         drafts_to_append.append(d)
 
+    rows: list[int] = []
     if drafts_to_append:
-        sheets.append_drafts(drafts_to_append)
+        rows = sheets.append_drafts(drafts_to_append)
         # Mark lead.last_follow_up_at = now so we don't redraft tomorrow even
-        # if the director hasn't approved the row yet.
+        # if the approver hasn't approved the row yet.
         now = datetime.now(timezone.utc)
         for d in drafts_to_append:
             sheets.update_lead_status(
@@ -61,4 +63,4 @@ def prepare_follow_ups(sender_name: str, business_days: int = 3) -> int:
             )
 
     log.info("Prepared %d follow-up drafts", len(drafts_to_append))
-    return len(drafts_to_append)
+    return list(zip(rows, drafts_to_append))

@@ -9,15 +9,17 @@ Two commands wired into separate GitHub Actions workflows:
       4. Draft personalized emails via Claude
       5. Write Leads + Drafts to the Sheet
       6. Prepare follow-up drafts for leads sent 3 business days ago
-      7. Email projectacquisition@ that drafts are ready for approval
+      7. Email the approver (APPROVER_EMAIL) a numbered list of every draft,
+         inline. They approve by replying ("approve all", "approve 1,3", ...).
 
   send     — 10:00 CT M-F
-      1. Read approved-but-unsent rows from Drafts
-      2. Send each via Gmail, throttled (max DAILY_SEND_CAP)
-      3. Update Leads.status -> sent, write thread/message IDs
-      4. Poll Gmail for replies on prior threads; classify; route to
+      1. Read the approver's reply to the digest; flip approved Drafts rows
+      2. Read approved-but-unsent rows from Drafts
+      3. Send each via Gmail, throttled (max DAILY_SEND_CAP)
+      4. Update Leads.status -> sent, write thread/message IDs
+      5. Poll Gmail for replies on prior threads; classify; route to
          Hot Leads / Suppression / closed as appropriate
-      5. Email projectacquisition@ a daily summary
+      6. Email the approver a daily summary
 
 Both commands accept --dry-run for safe local smoke testing.
 """
@@ -106,15 +108,16 @@ def cmd_prepare(dry_run: bool) -> int:
     top = pick_top(fresh, target=target, scorer=scorer, past_project_keywords=past_kw)
     log.info("Selected top %d for drafting", len(top))
 
-    if not top:
-        log.info("Nothing to draft today")
-        return 0
+    sender_name, sender_phone = _sender_identity()
 
     # 4) Draft
-    router = TemplateRouter()
-    sender_name, sender_phone = _sender_identity()
-    pairs = draft_for_leads(top, router, past_index, sender_name, sender_phone)
-    log.info("Generated %d drafts", len(pairs))
+    pairs = []
+    if top:
+        router = TemplateRouter()
+        pairs = draft_for_leads(top, router, past_index, sender_name, sender_phone)
+        log.info("Generated %d drafts", len(pairs))
+    else:
+        log.info("No new leads to draft today (follow-ups may still be due)")
 
     if dry_run:
         for lead, draft in pairs[:3]:
@@ -129,13 +132,24 @@ def cmd_prepare(dry_run: bool) -> int:
         leads_to_write.append(lead)
         drafts_to_write.append(draft)
     sheets.append_leads(leads_to_write)
-    sheets.append_drafts(drafts_to_write)
+    draft_rows = sheets.append_drafts(drafts_to_write)
 
     # 6) Follow-ups for older sends
-    follow_up_count = prepare_follow_ups(sender_name=sender_name)
+    follow_ups = prepare_follow_ups(sender_name=sender_name)  # list[(row, Draft)]
 
-    # 7) Digest email to director
-    send_prepare_digest(drafts_count=len(drafts_to_write) + follow_up_count)
+    # 7) Build the numbered approval digest and email the approver. They reply to
+    #    approve; the send job reads that reply and flips the matching rows.
+    items: list[dict] = []
+    for row_idx, draft in list(zip(draft_rows, drafts_to_write)) + follow_ups:
+        items.append({
+            "n": len(items) + 1,
+            "drafts_row": row_idx,
+            "lead_email": draft.lead_email,
+            "subject": draft.subject,
+            "body": draft.body,
+            "is_follow_up": draft.is_follow_up,
+        })
+    send_prepare_digest(items)
     return 0
 
 
@@ -144,6 +158,12 @@ def cmd_prepare(dry_run: bool) -> int:
 def cmd_send(dry_run: bool) -> int:
     cap = int(os.environ.get("DAILY_SEND_CAP", "10"))
     sheets = SheetClient()
+
+    # Read the approver's emailed reply to this morning's digest and flip the
+    # approved drafts before we look at what's approved + pending.
+    from .approvals import apply_email_approvals
+    approved_via_email = apply_email_approvals(dry_run=dry_run)
+    log.info("Approved %d drafts from the emailed reply", approved_via_email)
 
     approved = sheets.list_approved_pending()
     log.info("%d drafts approved + pending", len(approved))

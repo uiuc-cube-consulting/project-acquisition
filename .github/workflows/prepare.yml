@@ -20,7 +20,9 @@ jobs:
       SHEET_ID: ${{ secrets.SHEET_ID }}
       ALUMNI_SHEET_ID: ${{ secrets.ALUMNI_SHEET_ID }}
       IMPERSONATE_EMAIL: ${{ secrets.IMPERSONATE_EMAIL }}
-      DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
+      # Daily drafts + approval requests go to Mann; he approves by replying.
+      APPROVER_EMAIL: "mannat2@illinois.edu"
+      DIGEST_RECIPIENT: "mannat2@illinois.edu"
       ORG_NAME: ${{ secrets.ORG_NAME }}
       ORG_PHYSICAL_ADDRESS: ${{ secrets.ORG_PHYSICAL_ADDRESS }}
       UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}

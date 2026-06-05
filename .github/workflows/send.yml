@@ -17,7 +17,9 @@ jobs:
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       SHEET_ID: ${{ secrets.SHEET_ID }}
       IMPERSONATE_EMAIL: ${{ secrets.IMPERSONATE_EMAIL }}
-      DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
+      # Mann replies to the morning digest to approve; the summary also goes to him.
+      APPROVER_EMAIL: "mannat2@illinois.edu"
+      DIGEST_RECIPIENT: "mannat2@illinois.edu"
       ORG_NAME: ${{ secrets.ORG_NAME }}
       ORG_PHYSICAL_ADDRESS: ${{ secrets.ORG_PHYSICAL_ADDRESS }}
       UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}

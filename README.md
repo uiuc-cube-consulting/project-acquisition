@@ -1,8 +1,8 @@
 # CUBE Consulting — Project Acquisition Automation
 
-Automates CUBE's weekday client outreach: sources fresh leads, drafts personalized cold emails, lands them in a Google Sheet for director approval, sends approved drafts via Gmail, detects replies, schedules follow-ups, and emails a daily summary.
+Automates CUBE's weekday client outreach: sources fresh leads, drafts personalized cold emails, emails them to the approver for sign-off, sends approved drafts via Gmail, detects replies, schedules follow-ups, and emails a daily summary.
 
-The only recurring human action required is ticking the `approved` checkbox on the morning drafts.
+The only recurring human action required is **replying to one email each morning** to say which drafts to send.
 
 ## How it works
 
@@ -10,10 +10,26 @@ Two GitHub Actions cron jobs run every weekday:
 
 | Job | Time (CT) | Does |
 |---|---|---|
-| `prepare` | 06:00 | Pulls leads from Apollo + CUBE alumni Sheet → dedupes → scores → drafts 15 personalized emails via Claude → writes to `Drafts` tab → emails director that drafts are ready |
-| `send` | 10:00 | Reads approved rows from `Drafts` → sends up to 10 via Gmail (throttled 1 every 30s) → checks Gmail for replies on prior threads → classifies replies → flags hot leads → drafts follow-ups after 3 business days → emails daily summary |
+| `prepare` | 06:00 | Pulls leads from Apollo + CUBE alumni Sheet → dedupes → scores → drafts 15 personalized emails via Claude → writes to `Drafts` tab → **emails the approver a numbered list of every draft, inline** |
+| `send` | 10:00 | **Reads the approver's reply to that email** and flips the approved rows → sends up to 10 via Gmail (throttled 1 every 30s) → checks Gmail for replies on prior threads → classifies replies → flags hot leads → drafts follow-ups after 3 business days → emails daily summary |
 
-This gives the director a 4-hour approval window between prepare and send.
+This gives the approver a 4-hour window to reply before send.
+
+### Approving by reply (no spreadsheet, no uploads)
+
+The 6am email lands in the approver's inbox (`mannat2@illinois.edu`) with every draft's full subject and body laid out and numbered. To approve, just **reply in that thread**:
+
+| Reply | Sends |
+|---|---|
+| `approve all` | everything |
+| `approve 1, 3, 5` | those drafts |
+| `1-4` | drafts 1 through 4 |
+| `skip 2` / `all but 2` | everything except 2 |
+| `none` | nothing today |
+
+At 10am the `send` job reads that reply straight from Gmail, parses it (Claude, with a plain-text regex fallback), and flips exactly those rows to approved in the same Sheet — then sends. Nothing to open, nothing to upload. If no reply has arrived by 10am, nothing goes out that day and the batch is simply skipped. Editing the `approved` checkbox in the Sheet by hand still works too, if you ever prefer it.
+
+The Sheet stays the single source of truth: `prepare` writes drafts there, the reply gate flips the `approved` cells there, and `send` reads them there — one continuous loop with no manual hand-off.
 
 ## Repository layout
 
@@ -29,8 +45,9 @@ src/
   sheets.py             # Google Sheets data layer
   gmail_send.py         # Gmail API send (impersonates projectacquisition@)
   reply_check.py        # Poll Gmail + Claude-classify replies
+  approvals.py          # Read approver's reply to the digest → approve drafts
   follow_up.py          # 3-business-day follow-up drafter
-  summary.py            # Daily digest email
+  summary.py            # Daily digest + approval-request email
   sourcing/
     apollo.py           # Apollo People Search wrapper
     cube_alumni.py      # Read CUBE alumni Sheet
@@ -128,33 +145,34 @@ In this repo on GitHub → Settings → Secrets and variables → Actions → Ne
 | `SHEET_ID` | from step 4 |
 | `ALUMNI_SHEET_ID` | from step 4 (optional) |
 | `IMPERSONATE_EMAIL` | `projectacquisition@cubeconsulting.org` |
-| `DIGEST_RECIPIENT` | `projectacquisition@cubeconsulting.org` |
 | `ORG_NAME` | `CUBE Consulting` |
 | `ORG_PHYSICAL_ADDRESS` | `707 S 4th St, APT 1006A, Champaign IL 61820` |
 | `UNSUBSCRIBE_MAILTO` | `unsubscribe@cubeconsulting.org` |
 | `SENDER_NAME` | e.g. `Raghav Taneja` |
 | `SENDER_PHONE` | e.g. `(555) 123-4567` |
 
-Then go to Actions tab → `prepare` workflow → **Run workflow** → main. Watch it run. Repeat with `send` once you've approved a draft.
+`APPROVER_EMAIL` and `DIGEST_RECIPIENT` are **not** secrets — they're set directly in `.github/workflows/prepare.yml` and `send.yml` to `mannat2@illinois.edu`. Change them there to reroute the daily approval email.
+
+Then go to Actions tab → `prepare` workflow → **Run workflow** → main. Watch it run. Repeat with `send` once you've replied to approve a draft.
 
 After verifying both workflows work, the cron schedules take over and run automatically Mon–Fri.
 
 ## Smoke test (end-to-end, ~15 minutes)
 
-1. `python -m src.main bootstrap` — creates the 4 tabs in your Sheet
+1. `python -m src.main bootstrap` — creates the 5 tabs in your Sheet (incl. `Approvals`)
 2. `python -m src.main prepare --dry-run` — confirm drafts print to stdout
-3. Run `prepare` for real (small batch): `DAILY_PREPARE_TARGET=2 python -m src.main prepare`
-4. Open the Sheet, edit one draft to send to your own `@illinois.edu`, tick `approved`
-5. `DAILY_SEND_CAP=1 python -m src.main send --dry-run` — verify the would-send log
-6. Drop `--dry-run`: `DAILY_SEND_CAP=1 python -m src.main send` → check your inbox
-7. Reply to the email from your inbox
+3. Run `prepare` for real (small batch): `DAILY_PREPARE_TARGET=2 python -m src.main prepare` → check that the numbered approval email lands at `mannat2@illinois.edu`
+4. **Reply to that email** with `approve all` (or `approve 1`)
+5. `DAILY_SEND_CAP=1 python -m src.main send --dry-run` — verify the log shows the reply being parsed and the would-send list
+6. Drop `--dry-run`: `DAILY_SEND_CAP=1 python -m src.main send` → check the recipient inbox
+7. Reply to the outreach email as the recipient
 8. Run `python -m src.main send` again → confirm `Hot Leads` row appears, lead status flips to `hot`, summary email arrives
 
 ## Day-to-day operation
 
-- **Morning (anytime before 10am CT):** open the Sheet → `Drafts` tab → tick `approved` on rows you want sent. Edit subject or body freely first.
+- **Morning (anytime before 10am CT):** the 6am email arrives at `mannat2@illinois.edu` with every draft inline. Reply `approve all`, `approve 1,3`, `skip 2`, or `none`. (Editing the `approved` checkbox in the Sheet still works if you'd rather.)
 - **After 10am:** check your inbox for the daily summary
-- **Replies:** positive replies auto-route to the `Hot Leads` tab. Director takes over manually from there for the call → LOI conversation.
+- **Replies:** positive replies auto-route to the `Hot Leads` tab. The director takes over manually from there for the call → LOI conversation.
 - **Don't-contact:** add an email to the `Suppression` tab and the system will never include them again.
 
 ## Tuning
