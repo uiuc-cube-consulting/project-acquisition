@@ -6,7 +6,7 @@ Two commands wired into separate GitHub Actions workflows:
       1. Source new leads (Apollo + CUBE alumni)
       2. Dedup against existing Leads + suppression list
       3. Score and keep the top DAILY_PREPARE_TARGET (default 15)
-      4. Draft personalized emails via Claude
+      4. Draft personalized emails via Gemini
       5. Write Leads + Drafts to the Sheet
       6. Prepare follow-up drafts for leads sent 3 business days ago
       7. Email the approver (APPROVER_EMAIL) a numbered list of every draft,

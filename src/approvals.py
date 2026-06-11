@@ -22,15 +22,14 @@ import logging
 import os
 import re
 
-import anthropic
-
 from .gmail_send import _service
+from .llm import generate_json
 from .reply_check import _extract_body
 from .sheets import SheetClient
 
 log = logging.getLogger(__name__)
 
-PARSE_MODEL = "claude-haiku-4-5-20251001"
+PARSE_MODEL = "gemini-2.5-flash-lite"
 
 PARSE_SYSTEM = """You parse a human's reply approving cold-email drafts for sending.
 You are given a numbered list of drafts and the reply text. Return STRICT JSON:
@@ -82,35 +81,24 @@ def parse_approval(reply_text: str, items: list[dict]) -> set[int]:
     valid = {int(it["n"]) for it in items}
     text = _strip_quoted(reply_text)
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
         try:
-            client = anthropic.Anthropic(api_key=api_key)
             listing = "\n".join(
                 f'{it["n"]}. {it["lead_email"]} — {it["subject"]}' for it in items
             )
-            msg = client.messages.create(
+            data = generate_json(
                 model=PARSE_MODEL,
-                max_tokens=300,
                 system=PARSE_SYSTEM,
-                messages=[{"role": "user", "content": f"Drafts:\n{listing}\n\nReply:\n{text[:2000]}"}],
+                prompt=f"Drafts:\n{listing}\n\nReply:\n{text[:2000]}",
+                max_tokens=300,
             )
-            raw = "".join(b.text for b in msg.content if hasattr(b, "text")).strip()
-            raw = _strip_fence(raw)
-            approved = {int(n) for n in json.loads(raw).get("approved", [])}
+            approved = {int(n) for n in data.get("approved", [])}
             return approved & valid
         except Exception as exc:
-            log.warning("Claude approval parse failed (%s); falling back to regex", exc)
+            log.warning("Gemini approval parse failed (%s); falling back to regex", exc)
 
     return _regex_parse(text, valid)
-
-
-def _strip_fence(raw: str) -> str:
-    if raw.startswith("```"):
-        raw = raw.strip("`")
-        if raw.startswith("json"):
-            raw = raw[4:]
-    return raw.strip()
 
 
 def _regex_parse(text: str, valid: set[int]) -> set[int]:

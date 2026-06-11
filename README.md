@@ -10,7 +10,7 @@ Two GitHub Actions cron jobs run every weekday:
 
 | Job | Time (CT) | Does |
 |---|---|---|
-| `prepare` | 06:00 | Pulls leads from Apollo + CUBE alumni Sheet → dedupes → scores → drafts 15 personalized emails via Claude → writes to `Drafts` tab → **emails the approver a numbered list of every draft, inline** |
+| `prepare` | 06:00 | Pulls leads from Apollo + CUBE alumni Sheet → dedupes → scores → drafts 15 personalized emails via Gemini → writes to `Drafts` tab → **emails the approver a numbered list of every draft, inline** |
 | `send` | 10:00 | **Reads the approver's reply to that email** and flips the approved rows → sends up to 10 via Gmail (throttled 1 every 30s) → checks Gmail for replies on prior threads → classifies replies → flags hot leads → drafts follow-ups after 3 business days → emails daily summary |
 
 This gives the approver a 4-hour window to reply before send.
@@ -27,7 +27,7 @@ The 6am email lands in the approver's inbox (`mannat2@illinois.edu`) with every 
 | `skip 2` / `all but 2` | everything except 2 |
 | `none` | nothing today |
 
-At 10am the `send` job reads that reply straight from Gmail, parses it (Claude, with a plain-text regex fallback), and flips exactly those rows to approved in the same Sheet — then sends. Nothing to open, nothing to upload. If no reply has arrived by 10am, nothing goes out that day and the batch is simply skipped. Editing the `approved` checkbox in the Sheet by hand still works too, if you ever prefer it.
+At 10am the `send` job reads that reply straight from Gmail, parses it (Gemini, with a plain-text regex fallback), and flips exactly those rows to approved in the same Sheet — then sends. Nothing to open, nothing to upload. If no reply has arrived by 10am, nothing goes out that day and the batch is simply skipped. Editing the `approved` checkbox in the Sheet by hand still works too, if you ever prefer it.
 
 The Sheet stays the single source of truth: `prepare` writes drafts there, the reply gate flips the `approved` cells there, and `send` reads them there — one continuous loop with no manual hand-off.
 
@@ -70,10 +70,10 @@ data/
 2. Settings → Integrations → API → Generate API key
 3. Save the key for the GitHub secret step below
 
-### 2. Anthropic API key
+### 2. Gemini API key (free tier)
 
-1. Go to console.anthropic.com → API Keys → Create Key
-2. Add a payment method; Claude calls are ~$0.01–0.05 per lead drafted
+1. Go to https://aistudio.google.com/apikey → Create API key
+2. The free tier covers this workload (daily drafts + reply classification) at no cost — no payment method required
 3. Save the key
 
 ### 3. Google Cloud setup
@@ -140,7 +140,7 @@ In this repo on GitHub → Settings → Secrets and variables → Actions → Ne
 | Secret | Value |
 |---|---|
 | `APOLLO_API_KEY` | from step 1 |
-| `ANTHROPIC_API_KEY` | from step 2 |
+| `GEMINI_API_KEY` | from step 2 |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | entire contents of the JSON file from step 3a |
 | `SHEET_ID` | from step 4 |
 | `ALUMNI_SHEET_ID` | from step 4 (optional) |
@@ -185,7 +185,7 @@ After verifying both workflows work, the cron schedules take over and run automa
 ## Cost ballpark (per weekday)
 
 - Apollo: depends on your plan, but a search + ~10 enriches is well within paid-tier daily quota
-- Anthropic: ~15 Opus drafts × ~1.5K tokens ≈ $0.20–0.40/day; reply classification on Haiku is rounding error
+- Gemini: ~15 drafts + reply classification on `gemini-2.5-flash` / `gemini-2.5-flash-lite` fits inside the free tier's daily rate limits — $0/day
 - GitHub Actions: free for the cron schedule (well under the 2,000 free minutes/month)
 
 ## Out of scope (v1)

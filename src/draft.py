@@ -1,6 +1,6 @@
-"""Claude-powered email personalization.
+"""Gemini-powered email personalization.
 
-Each lead gets exactly one Claude call. We feed it the lead's profile, the
+Each lead gets exactly one Gemini call. We feed it the lead's profile, the
 chosen template, and 1-2 matched past projects, then ask for a JSON object
 with `subject` and `body`. The model is instructed to preserve CUBE's
 voice (lifted from the manual outreach guide's McKesson example) and to
@@ -8,14 +8,12 @@ edit only the salutation, the credibility line, and the industry mention.
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
 from datetime import datetime, timezone
 from typing import Iterable
 
-import anthropic
-
+from .llm import generate_json
 from .models import Draft, Lead, PastProject, TemplateType
 from .templates import (
     FOLLOW_UP,
@@ -26,7 +24,7 @@ from .templates import (
 
 log = logging.getLogger(__name__)
 
-DRAFT_MODEL = "claude-opus-4-7"
+DRAFT_MODEL = "gemini-2.5-flash"
 DRAFT_SYSTEM = """You write cold outreach emails for CUBE Consulting, a student-run consulting group at the University of Illinois Urbana-Champaign.
 
 You are personalizing a base template. Rules:
@@ -43,8 +41,7 @@ You are personalizing a base template. Rules:
 
 
 class Drafter:
-    def __init__(self, api_key: str | None = None, model: str = DRAFT_MODEL) -> None:
-        self.client = anthropic.Anthropic(api_key=api_key or os.environ["ANTHROPIC_API_KEY"])
+    def __init__(self, model: str = DRAFT_MODEL) -> None:
         self.model = model
 
     def draft(
@@ -93,20 +90,12 @@ Sender values to substitute:
 
 Return JSON only."""
 
-        msg = self.client.messages.create(
+        payload = generate_json(
             model=self.model,
-            max_tokens=900,
             system=DRAFT_SYSTEM,
-            messages=[{"role": "user", "content": prompt}],
+            prompt=prompt,
+            max_tokens=900,
         )
-        text = "".join(b.text for b in msg.content if hasattr(b, "text")).strip()
-        # Strip accidental code fences if the model adds them
-        if text.startswith("```"):
-            text = text.strip("`")
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-        payload = json.loads(text)
         return Draft(
             lead_email=lead.email,
             prepared_at=datetime.now(timezone.utc),

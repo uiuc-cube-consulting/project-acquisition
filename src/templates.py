@@ -1,7 +1,7 @@
 """Outreach email templates, copied verbatim from Outreach Message Template.docx.
 
-The drafter (src/draft.py) hands these to Claude as the structural starting
-point. Claude personalizes the salutation, the industry-specific line, and the
+The drafter (src/draft.py) hands these to Gemini as the structural starting
+point. Gemini personalizes the salutation, the industry-specific line, and the
 past-project credibility line, while preserving CUBE's voice.
 
 Placeholders:

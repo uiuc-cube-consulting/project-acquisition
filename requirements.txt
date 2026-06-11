@@ -1,4 +1,4 @@
-anthropic>=0.40.0
+google-genai>=1.0.0
 google-api-python-client>=2.140.0
 google-auth>=2.34.0
 google-auth-oauthlib>=1.2.0

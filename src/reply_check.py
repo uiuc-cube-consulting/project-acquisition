@@ -1,10 +1,10 @@
-"""Poll Gmail for replies on tracked threads + classify with Claude.
+"""Poll Gmail for replies on tracked threads + classify with Gemini.
 
 Approach:
   1. Read the Leads tab; collect all thread_ids where status is sent / followed-up
   2. For each, fetch the latest message via the Gmail API
   3. If the latest message is from someone other than us, treat as a reply
-  4. Classify with Claude into one of ReplyClass
+  4. Classify with Gemini into one of ReplyClass
   5. Write the reply back into Sheets:
        - positive => Hot Leads + Leads.status = hot
        - unsubscribe => Suppression + Leads.status = suppressed
@@ -13,22 +13,21 @@ Approach:
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
 from datetime import datetime, timezone
 from typing import Iterable
 
-import anthropic
 from googleapiclient.errors import HttpError
 
 from .gmail_send import _service
+from .llm import generate_json
 from .models import LeadStatus, Reply, ReplyClass
 from .sheets import SheetClient
 
 log = logging.getLogger(__name__)
 
-CLASSIFY_MODEL = "claude-haiku-4-5-20251001"
+CLASSIFY_MODEL = "gemini-2.5-flash-lite"
 CLASSIFY_SYSTEM = """You classify replies to a cold outreach email from CUBE Consulting (a student consulting group at UIUC). Output one of:
   positive   - the recipient wants a call, more info, to discuss a project, or expresses warm interest
   neutral    - they ask a clarifying question that isn't a clear yes or no, or hand off to someone else
@@ -40,20 +39,13 @@ Return strict JSON: {"class": "...", "reason": "one short sentence"}
 """
 
 
-def _classify(client: anthropic.Anthropic, body: str) -> tuple[ReplyClass, str]:
-    msg = client.messages.create(
+def _classify(body: str) -> tuple[ReplyClass, str]:
+    data = generate_json(
         model=CLASSIFY_MODEL,
-        max_tokens=200,
         system=CLASSIFY_SYSTEM,
-        messages=[{"role": "user", "content": body[:4000]}],
+        prompt=body[:4000],
+        max_tokens=200,
     )
-    text = "".join(b.text for b in msg.content if hasattr(b, "text")).strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.startswith("json"):
-            text = text[4:]
-        text = text.strip()
-    data = json.loads(text)
     cls_val = data.get("class", "neutral").lower()
     try:
         cls = ReplyClass(cls_val)
@@ -98,7 +90,6 @@ def _extract_body(msg: dict) -> str:
 def check_replies(dry_run: bool = False) -> list[Reply]:
     sheets = SheetClient()
     svc = _service()
-    anth = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     our_address = os.environ["IMPERSONATE_EMAIL"]
 
     leads_ws = sheets.book.worksheet("Leads")
@@ -118,7 +109,7 @@ def check_replies(dry_run: bool = False) -> list[Reply]:
         body = _extract_body(msg)
         headers = {h["name"].lower(): h["value"] for h in msg["payload"].get("headers", [])}
         from_addr = headers.get("from", "")
-        cls, reason = _classify(anth, body)
+        cls, reason = _classify(body)
         reply = Reply(
             thread_id=r["thread_id"],
             from_email=from_addr,
