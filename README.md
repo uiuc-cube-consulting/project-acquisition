@@ -10,7 +10,7 @@ Two GitHub Actions cron jobs run every weekday:
 
 | Job | Time (CT) | Does |
 |---|---|---|
-| `prepare` | 06:00 | Pulls leads from Apollo + CUBE alumni Sheet → dedupes → scores → drafts 15 personalized emails via Gemini → writes to `Drafts` tab → **emails the approver a numbered list of every draft, inline** |
+| `prepare` | 06:00 | Pulls leads from the `Prospects` tab + CUBE alumni Sheet (Apollo optional) → dedupes → scores → drafts 15 personalized emails via Gemini → writes to `Drafts` tab → **emails the approver a numbered list of every draft, inline** |
 | `send` | 10:00 | **Reads the approver's reply to that email** and flips the approved rows → sends up to 10 via Gmail (throttled 1 every 30s) → checks Gmail for replies on prior threads → classifies replies → flags hot leads → drafts follow-ups after 3 business days → emails daily summary |
 
 This gives the approver a 4-hour window to reply before send.
@@ -64,11 +64,26 @@ data/
 
 ## One-time setup
 
-### 1. Apollo API key
+### 1. Apollo API key (optional — skip for the free setup)
+
+Apollo's lead-discovery API requires a paid plan. The pipeline runs fine without
+it: leave `APOLLO_API_KEY` unset and source leads from the free **`Prospects`
+tab** (see below) and/or the CUBE alumni Sheet. To re-enable Apollo later, just
+add the `APOLLO_API_KEY` secret — no code changes needed.
 
 1. Log in to Apollo as `director@cubeconsulting.org`
 2. Settings → Integrations → API → Generate API key
 3. Save the key for the GitHub secret step below
+
+### Free lead source: the `Prospects` tab
+
+`bootstrap` creates a **`Prospects`** tab in the outreach Sheet. Paste prospective
+clients there — one row each — and `prepare` reads them like any other lead.
+Columns: `name`, `title`, `company`, `email`, `linkedin`, `industry`, `location`,
+`is_uiuc_alum`. Only `name` and `email` are required; the rest sharpen the draft.
+Set `is_uiuc_alum` to `true` only for genuine Illini (it adds a "fellow Illini"
+line). Once a row is drafted it's copied into `Leads` and deduped, so it won't be
+emailed twice — add new rows as you find them.
 
 ### 2. Gemini API key (free tier)
 
@@ -80,7 +95,7 @@ data/
 
 #### 3a. Create a GCP project + service account
 
-1. Open https://console.cloud.google.com/ and create a project named e.g. `cube-outreach`
+1. Open g and create a project named e.g. `cube-outreach`
 2. Enable APIs: **Gmail API** and **Google Sheets API** and **Google Drive API**
 3. IAM & Admin → Service Accounts → Create Service Account
    - Name: `cube-outreach-bot`
@@ -139,7 +154,7 @@ In this repo on GitHub → Settings → Secrets and variables → Actions → Ne
 
 | Secret | Value |
 |---|---|
-| `APOLLO_API_KEY` | from step 1 |
+| `APOLLO_API_KEY` | from step 1 *(optional — omit for the free Prospects-tab setup)* |
 | `GEMINI_API_KEY` | from step 2 |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | entire contents of the JSON file from step 3a |
 | `SHEET_ID` | from step 4 |

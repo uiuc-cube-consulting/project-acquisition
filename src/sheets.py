@@ -52,6 +52,14 @@ HOT_LEADS_HEADERS = [
 
 SUPPRESSION_HEADERS = ["email", "added_at", "reason"]
 
+# Free, manually-curated lead source. The team pastes prospective-client rows
+# here and `prepare` reads them — the no-cost stand-in for Apollo discovery.
+# Only name + email are required; the rest improves personalization.
+PROSPECTS_HEADERS = [
+    "name", "title", "company", "email", "linkedin",
+    "industry", "location", "is_uiuc_alum",
+]
+
 # One row per `prepare` run. Records the Gmail thread the approval digest was
 # sent on plus a JSON map of digest-number -> Drafts row, so the `send` job can
 # resolve "approve 1,3" from the approver's reply back to the right rows.
@@ -62,6 +70,7 @@ TAB_HEADERS = {
     "Drafts": DRAFTS_HEADERS,
     "Hot Leads": HOT_LEADS_HEADERS,
     "Suppression": SUPPRESSION_HEADERS,
+    "Prospects": PROSPECTS_HEADERS,
     "Approvals": APPROVALS_HEADERS,
 }
 
@@ -108,6 +117,47 @@ class SheetClient:
                 self.book.del_worksheet(self.book.worksheet("Sheet1"))
             except Exception:
                 pass
+
+    # ---------------- Prospects (free lead source) ----------------
+
+    def fetch_prospect_leads(self) -> list[Lead]:
+        """Read the 'Prospects' input tab into Lead records.
+
+        A manually compiled list of prospective clients — the free stand-in for
+        Apollo. Rows missing a name or a valid email are skipped. `is_uiuc_alum`
+        accepts true/yes/1 (default false), so the drafter only adds the "fellow
+        Illini" line when the row actually marks an alumnus.
+        """
+        try:
+            ws = self.book.worksheet("Prospects")
+        except gspread.WorksheetNotFound:
+            log.info("No 'Prospects' tab found; skipping the manual lead source")
+            return []
+
+        now = datetime.now(timezone.utc)
+        out: list[Lead] = []
+        for row in ws.get_all_records():
+            keyed = {str(k).lower().strip(): (v if v is not None else "") for k, v in row.items()}
+            email = str(keyed.get("email", "")).strip()
+            name = str(keyed.get("name", "")).strip()
+            if not email or not name or "@" not in email:
+                continue
+            is_alum = str(keyed.get("is_uiuc_alum", "")).strip().lower() in ("true", "yes", "1", "y")
+            out.append(Lead(
+                name=name,
+                title=str(keyed.get("title", "")).strip() or None,
+                company=str(keyed.get("company", "")).strip() or "",
+                email=email,
+                linkedin=str(keyed.get("linkedin", "")).strip() or None,
+                industry=str(keyed.get("industry", "")).strip() or None,
+                location=str(keyed.get("location", "")).strip() or None,
+                is_uiuc_alum=is_alum,
+                schools=["University of Illinois Urbana-Champaign"] if is_alum else [],
+                source="prospects_sheet",
+                date_added=now,
+            ))
+        log.info("Loaded %d leads from the Prospects tab", len(out))
+        return out
 
     # ---------------- Leads ----------------
 

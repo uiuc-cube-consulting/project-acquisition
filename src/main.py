@@ -3,7 +3,7 @@
 Two commands wired into separate GitHub Actions workflows:
 
   prepare  — 06:00 CT M-F
-      1. Source new leads (Apollo + CUBE alumni)
+      1. Source new leads (free Prospects + CUBE alumni Sheets; Apollo optional)
       2. Dedup against existing Leads + suppression list
       3. Score and keep the top DAILY_PREPARE_TARGET (default 15)
       4. Draft personalized emails via Gemini
@@ -70,21 +70,29 @@ def cmd_prepare(dry_run: bool) -> int:
     known = sheets.get_known_emails()
     contacted = sheets.get_contacted_dates()
 
-    # 1) Source leads (rotate profile by day-of-year)
-    profiles = load_profiles()
-    apollo_profile = pick_profile_for_today(profiles, datetime.now(timezone.utc).timetuple().tm_yday)
-    log.info("Today's Apollo profile: %s", apollo_profile["name"])
-
+    # 1) Source leads
     candidates = []
-    if not dry_run:
-        apollo = ApolloClient()
-        candidates.extend(fetch_leads(apollo, apollo_profile, max_results=40))
-        # Alumni source runs every day in addition to the rotated Apollo profile
+    if dry_run:
+        log.info("[DRY RUN] skipping live sourcing — using fixtures")
+        candidates = _dry_run_fixture_leads()
+    else:
+        # Free sources (no paid API): the manually curated Prospects tab in the
+        # outreach Sheet, plus the CUBE alumni Sheet when ALUMNI_SHEET_ID is set.
+        candidates.extend(sheets.fetch_prospect_leads())
         from .sheets import load_service_account_info
         candidates.extend(fetch_alumni_leads(load_service_account_info()))
-    else:
-        log.info("[DRY RUN] skipping Apollo + alumni fetch — using fixtures if present")
-        candidates = _dry_run_fixture_leads()
+        # Apollo is optional — enabled only when APOLLO_API_KEY is set. To revisit
+        # it later, just add the secret back; the rest of the pipeline is unchanged.
+        if os.environ.get("APOLLO_API_KEY"):
+            profiles = load_profiles()
+            apollo_profile = pick_profile_for_today(
+                profiles, datetime.now(timezone.utc).timetuple().tm_yday
+            )
+            log.info("Today's Apollo profile: %s", apollo_profile["name"])
+            apollo = ApolloClient()
+            candidates.extend(fetch_leads(apollo, apollo_profile, max_results=40))
+        else:
+            log.info("APOLLO_API_KEY not set — sourcing from the free Sheet sources only")
 
     # 2) Dedup + filter
     scorer = Scorer()
