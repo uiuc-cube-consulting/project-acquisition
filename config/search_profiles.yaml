@@ -6,22 +6,30 @@
 
 profiles:
   - name: uiuc_alumni_executives
-    description: "UIUC alums at high-growth companies in target seniority bands"
+    description: "UIUC alums in decision-maker roles — highest-converting segment, searched EVERY day"
+    uiuc_only: true   # filtered to UIUC alumni, so every result is marked is_uiuc_alum=True
     enrich: true
     params:
       person_titles:
         - "Founder"
+        - "Co-Founder"
         - "CEO"
         - "CTO"
+        - "COO"
+        - "President"
         - "VP"
+        - "Vice President"
         - "Director"
+        - "Head of"
+        - "Managing Partner"
+        - "Partner"
       person_schools:
         - "University of Illinois Urbana-Champaign"
         - "University of Illinois at Urbana-Champaign"
-      organization_num_employees_ranges:
-        - "11,200"
+        - "University of Illinois, Urbana-Champaign"
+        - "University of Illinois Urbana Champaign"
       page: 1
-      per_page: 25
+      per_page: 50
 
   - name: vc_partners
     description: "Partner-level contacts at top VCs (Illinois priority)"

@@ -166,6 +166,13 @@ class SheetClient:
         col = ws.col_values(LEADS_HEADERS.index("email") + 1)[1:]
         return {e.strip().lower() for e in col if e.strip()}
 
+    def get_known_linkedins(self) -> set[str]:
+        """LinkedIn URLs already in the pipeline — used to dedup Apollo
+        candidates *before* spending a credit to reveal their email."""
+        ws = self.book.worksheet("Leads")
+        col = ws.col_values(LEADS_HEADERS.index("linkedin") + 1)[1:]
+        return {u.strip().lower() for u in col if u.strip()}
+
     def get_contacted_dates(self) -> dict[str, datetime]:
         ws = self.book.worksheet("Leads")
         rows = ws.get_all_records()

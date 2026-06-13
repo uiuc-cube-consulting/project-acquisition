@@ -82,5 +82,8 @@ def pick_top(
     for lead in leads:
         lead.score = scorer.score(lead, past_project_keywords)
         scored.append(lead)
-    scored.sort(key=lambda l: l.score, reverse=True)
+    # Hard-prioritize UIUC alumni: every alum sorts ahead of every non-alum,
+    # with the weighted score as the tiebreaker within each tier. Non-alumni
+    # only fill the batch once we run out of alumni to reach `target`.
+    scored.sort(key=lambda l: (l.is_uiuc_alum, l.score), reverse=True)
     return scored[:target]

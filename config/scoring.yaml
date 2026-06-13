@@ -2,12 +2,12 @@
 # Tune these after the first week of real sends.
 
 weights:
-  uiuc_alum: 30
+  uiuc_alum: 50                  # our highest-converting segment; alumni are also hard-prioritized in pick_top
   illinois_based: 20
   startup_stage_match: 15        # seed through Series B
   industry_matches_past_project: 10
   senior_title: 10               # Director, VP, Founder, Partner, C-level
-  uiuc_alum_executive: 15        # bonus stacking with both alum and senior title
+  uiuc_alum_executive: 25        # bonus stacking with both alum and senior title
 
 # Hard filters (lead is dropped if any return True)
 exclude:

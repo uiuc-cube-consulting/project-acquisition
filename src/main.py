@@ -33,13 +33,14 @@ from datetime import datetime, timezone
 
 from .draft import draft_for_leads
 from .follow_up import prepare_follow_ups
-from .models import LeadStatus
+from .models import Lead, LeadStatus
 from .past_projects import PastProjectIndex
 from .reply_check import check_replies
-from .scoring import Scorer, pick_top
+from .scoring import Scorer
 from .sheets import SheetClient
 from .sourcing.apollo import (
-    ApolloClient, fetch_leads, load_profiles, pick_profile_for_today,
+    ApolloClient, Candidate, get_uiuc_profile, load_profiles,
+    pick_profile_for_today, search_candidates,
 )
 from .sourcing.cube_alumni import fetch_alumni_leads
 from .summary import send_daily_summary, send_prepare_digest
@@ -68,53 +69,97 @@ def cmd_prepare(dry_run: bool) -> int:
 
     suppression = sheets.get_suppression_emails()
     known = sheets.get_known_emails()
+    known_li = sheets.get_known_linkedins()
     contacted = sheets.get_contacted_dates()
-
-    # 1) Source leads
-    candidates = []
-    if dry_run:
-        log.info("[DRY RUN] skipping live sourcing — using fixtures")
-        candidates = _dry_run_fixture_leads()
-    else:
-        # Free sources (no paid API): the manually curated Prospects tab in the
-        # outreach Sheet, plus the CUBE alumni Sheet when ALUMNI_SHEET_ID is set.
-        candidates.extend(sheets.fetch_prospect_leads())
-        from .sheets import load_service_account_info
-        candidates.extend(fetch_alumni_leads(load_service_account_info()))
-        # Apollo is optional — enabled only when APOLLO_API_KEY is set. To revisit
-        # it later, just add the secret back; the rest of the pipeline is unchanged.
-        if os.environ.get("APOLLO_API_KEY"):
-            profiles = load_profiles()
-            apollo_profile = pick_profile_for_today(
-                profiles, datetime.now(timezone.utc).timetuple().tm_yday
-            )
-            log.info("Today's Apollo profile: %s", apollo_profile["name"])
-            apollo = ApolloClient()
-            candidates.extend(fetch_leads(apollo, apollo_profile, max_results=40))
-        else:
-            log.info("APOLLO_API_KEY not set — sourcing from the free Sheet sources only")
-
-    # 2) Dedup + filter
     scorer = Scorer()
     past_index = PastProjectIndex.load()
     past_kw = {kw.lower() for p in past_index.projects for kw in p.keywords}
 
-    fresh = []
-    for lead in candidates:
+    # 1) Source. Sheet sources yield ready-to-use Leads (emails already present,
+    #    no cost). Apollo yields Candidates whose emails are NOT revealed yet — we
+    #    spend an Apollo credit only on the handful we actually select (step 3).
+    apollo: ApolloClient | None = None
+    sheet_leads: list[Lead] = []
+    apollo_candidates: list[Candidate] = []
+    if dry_run:
+        log.info("[DRY RUN] skipping live sourcing — using fixtures")
+        sheet_leads = _dry_run_fixture_leads()
+    else:
+        # Free sources (no paid API): the manually curated Prospects tab plus the
+        # CUBE alumni Sheet when ALUMNI_SHEET_ID is set.
+        sheet_leads.extend(sheets.fetch_prospect_leads())
+        from .sheets import load_service_account_info
+        sheet_leads.extend(fetch_alumni_leads(load_service_account_info()))
+        # Apollo is optional — enabled only when APOLLO_API_KEY is set.
+        if os.environ.get("APOLLO_API_KEY"):
+            profiles = load_profiles()
+            apollo = ApolloClient()
+            day_index = datetime.now(timezone.utc).timetuple().tm_yday
+            # UIUC alumni are our highest-converting segment — search them EVERY
+            # day as the primary source (everything it returns is an alum).
+            uiuc_profile = get_uiuc_profile(profiles)
+            if uiuc_profile:
+                log.info("Apollo UIUC alumni search: %s", uiuc_profile["name"])
+                apollo_candidates.extend(search_candidates(apollo, uiuc_profile, max_results=50))
+            # Plus one rotated profile for breadth; these rank below alumni.
+            secondary = pick_profile_for_today(profiles, day_index)
+            log.info("Apollo secondary profile: %s", secondary["name"])
+            apollo_candidates.extend(search_candidates(apollo, secondary, max_results=50))
+        else:
+            log.info("APOLLO_API_KEY not set — sourcing from the free Sheet sources only")
+
+    # 2) Pre-reveal filtering (no Apollo credits spent). Drop anyone already in
+    #    the pipeline by LinkedIn; Sheet leads (email already known) also get the
+    #    full email-based exclusions now.
+    pool: list = list(sheet_leads) + list(apollo_candidates)
+    filtered: list = []
+    for item in pool:
+        li = (getattr(item, "linkedin", None) or "").strip().lower()
+        if li and li in known_li:
+            continue
+        if isinstance(item, Lead):
+            if item.email.lower() in known:
+                continue
+            excluded, reason = scorer.is_excluded(item, suppression, contacted)
+            if excluded:
+                log.info("Skipping %s: %s", item.email.lower(), reason)
+                continue
+        filtered.append(item)
+
+    # 3) Score, rank alumni-first, then select the top `target`. Apollo emails are
+    #    revealed here and ONLY here — one credit per selected lead, capped at
+    #    `target * 2` reveals so a single run can't burn through credits.
+    for item in filtered:
+        item.score = scorer.score(item, past_kw)
+    filtered.sort(key=lambda x: (x.is_uiuc_alum, x.score), reverse=True)
+
+    top: list[Lead] = []
+    reveals = 0
+    reveal_budget = target * 2
+    for item in filtered:
+        if len(top) >= target:
+            break
+        if isinstance(item, Lead):
+            top.append(item)
+            continue
+        if reveals >= reveal_budget:
+            log.info("Hit reveal budget (%d) — stopping to conserve Apollo credits", reveal_budget)
+            break
+        reveals += 1
+        lead = item.reveal(apollo)
+        if lead is None:
+            continue  # email stayed masked
         email_lc = lead.email.lower()
-        if email_lc in known:
+        if email_lc in known or email_lc in suppression:
             continue
         excluded, reason = scorer.is_excluded(lead, suppression, contacted)
         if excluded:
             log.info("Skipping %s: %s", email_lc, reason)
             continue
-        fresh.append(lead)
+        lead.score = item.score
+        top.append(lead)
 
-    log.info("After dedup/filter: %d fresh candidates", len(fresh))
-
-    # 3) Score + pick top N
-    top = pick_top(fresh, target=target, scorer=scorer, past_project_keywords=past_kw)
-    log.info("Selected top %d for drafting", len(top))
+    log.info("Selected %d leads for drafting (alumni-first); %d Apollo reveals used", len(top), reveals)
 
     sender_name, sender_phone = _sender_identity()
 
