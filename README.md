@@ -10,7 +10,7 @@ Two GitHub Actions cron jobs run every weekday:
 
 | Job | Time (CT) | Does |
 |---|---|---|
-| `prepare` | 06:00 | Pulls leads from the `Prospects` tab + CUBE alumni Sheet (Apollo optional) → dedupes → scores → drafts 15 personalized emails via Gemini → writes to `Drafts` tab → **emails the approver a numbered list of every draft, inline** |
+| `prepare` | 06:00 | Sources leads from People Data Labs (UIUC alumni first) + the `Prospects` tab + CUBE alumni Sheet → dedupes → scores → drafts 15 personalized emails via Gemini → writes to `Drafts` tab → **emails the approver a numbered list of every draft, inline** |
 | `send` | 10:00 | **Reads the approver's reply to that email** and flips the approved rows → sends up to 10 via Gmail (throttled 1 every 30s) → checks Gmail for replies on prior threads → classifies replies → flags hot leads → drafts follow-ups after 3 business days → emails daily summary |
 
 This gives the approver a 4-hour window to reply before send.
@@ -49,12 +49,13 @@ src/
   follow_up.py          # 3-business-day follow-up drafter
   summary.py            # Daily digest + approval-request email
   sourcing/
-    apollo.py           # Apollo People Search wrapper
+    pdl.py              # People Data Labs Person Search wrapper (lead discovery)
+    apollo.py           # (dormant) former Apollo wrapper, kept for reference
     cube_alumni.py      # Read CUBE alumni Sheet
 config/
   scoring.yaml          # Tune lead scoring weights here
-  industry_template_map.yaml  # Map Apollo industry → template
-  search_profiles.yaml  # Apollo search profiles (rotated daily)
+  industry_template_map.yaml  # Map industry → template
+  search_profiles.yaml  # PDL search profiles (UIUC daily + rotated breadth)
 data/
   past_projects.json    # 102 past projects parsed from Past Projects.docx
 .github/workflows/
@@ -64,16 +65,22 @@ data/
 
 ## One-time setup
 
-### 1. Apollo API key (optional — skip for the free setup)
+### 1. People Data Labs (PDL) API key
 
-Apollo's lead-discovery API requires a paid plan. The pipeline runs fine without
-it: leave `APOLLO_API_KEY` unset and source leads from the free **`Prospects`
-tab** (see below) and/or the CUBE alumni Sheet. To re-enable Apollo later, just
-add the `APOLLO_API_KEY` secret — no code changes needed.
+Lead discovery runs on [People Data Labs](https://www.peopledatalabs.com/person-data).
+The pipeline searches PDL for UIUC alumni in decision-maker roles first (our
+highest-converting segment), then broadens to other Illinois executives / tech
+founders only if alumni don't fill the daily target.
 
-1. Log in to Apollo as `director@cubeconsulting.org`
-2. Settings → Integrations → API → Generate API key
-3. Save the key for the GitHub secret step below
+1. Create an account at https://www.peopledatalabs.com and grab your API key
+2. **A paid tier with email access is required** — PDL's free tier blanks the
+   `work_email` field, and without an email there's nothing to send. PDL bills
+   per record returned, so the pipeline fetches roughly `DAILY_PREPARE_TARGET`
+   records/day and runs the breadth search only to fill a gap.
+3. Save the key for the `PDL_API_KEY` secret below
+
+If `PDL_API_KEY` is unset, the pipeline still runs and sources from the free
+`Prospects` tab / CUBE alumni Sheet only (no discovery).
 
 ### Free lead source: the `Prospects` tab
 
@@ -143,7 +150,7 @@ set -a; source .env; set +a
 # Initialize the Sheet tabs (one-time)
 python -m src.main bootstrap
 
-# Smoke test without paying for Apollo / sending real mail
+# Smoke test without spending PDL credits / sending real mail
 python -m src.main prepare --dry-run
 # Should print 3 fake personalized drafts to stdout
 ```
@@ -154,7 +161,7 @@ In this repo on GitHub → Settings → Secrets and variables → Actions → Ne
 
 | Secret | Value |
 |---|---|
-| `APOLLO_API_KEY` | from step 1 *(optional — omit for the free Prospects-tab setup)* |
+| `PDL_API_KEY` | from step 1 (People Data Labs; paid tier with email access) |
 | `GEMINI_API_KEY` | from step 2 |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | entire contents of the JSON file from step 3a |
 | `SHEET_ID` | from step 4 |
@@ -195,11 +202,11 @@ After verifying both workflows work, the cron schedules take over and run automa
 - **Lower send cap while testing:** in `.github/workflows/send.yml`, change `DAILY_SEND_CAP: "10"` to `"3"` until quality is dialed in
 - **Edit scoring weights:** `config/scoring.yaml` — bump `uiuc_alum` up if alumni outreach is your strongest channel
 - **Change templates:** edit `src/templates.py` directly; Claude follows whatever structure you put there
-- **Add Apollo search profiles:** `config/search_profiles.yaml` — they rotate daily
+- **Add PDL search profiles:** `config/search_profiles.yaml` — UIUC runs daily, breadth profiles rotate
 
 ## Cost ballpark (per weekday)
 
-- Apollo: depends on your plan, but a search + ~10 enriches is well within paid-tier daily quota
+- People Data Labs: billed per record returned (~1 credit each); the pipeline fetches roughly `DAILY_PREPARE_TARGET` records/day (~15), breadth only to fill a gap
 - Gemini: ~15 drafts + reply classification on `gemini-2.5-flash` / `gemini-2.5-flash-lite` fits inside the free tier's daily rate limits — $0/day
 - GitHub Actions: free for the cron schedule (well under the 2,000 free minutes/month)
 
