@@ -40,8 +40,9 @@ from .past_projects import PastProjectIndex
 from .reply_check import check_replies
 from .scoring import Scorer
 from .sheets import SheetClient
-from .sourcing.pdl import (
-    PDLClient, get_uiuc_profile, load_profiles, pick_profile_for_today, search_leads,
+from .sourcing.apollo import (
+    ApolloClient, Candidate, bulk_reveal, get_uiuc_profile, load_profiles,
+    pick_profile_for_today, search_candidates,
 )
 from .sourcing.cube_alumni import fetch_alumni_leads
 from .summary import send_daily_summary, send_prepare_digest
@@ -63,27 +64,6 @@ def _sender_identity() -> tuple[str, str]:
 
 # ---------------- prepare ----------------
 
-def _filter_fresh(leads, known, known_li, suppression, contacted, scorer) -> list[Lead]:
-    """Drop leads already in the pipeline (by email or LinkedIn), duplicates
-    within this batch, suppressed addresses, and recently-contacted leads."""
-    out: list[Lead] = []
-    seen: set[str] = set()
-    for lead in leads:
-        email_lc = lead.email.lower()
-        if email_lc in seen:
-            continue
-        li = (lead.linkedin or "").strip().lower()
-        if email_lc in known or (li and li in known_li):
-            continue
-        excluded, reason = scorer.is_excluded(lead, suppression, contacted)
-        if excluded:
-            log.info("Skipping %s: %s", email_lc, reason)
-            continue
-        seen.add(email_lc)
-        out.append(lead)
-    return out
-
-
 def cmd_prepare(dry_run: bool) -> int:
     target = int(os.environ.get("DAILY_PREPARE_TARGET", "15"))
     sheets = SheetClient()
@@ -97,11 +77,12 @@ def cmd_prepare(dry_run: bool) -> int:
     past_index = PastProjectIndex.load()
     past_kw = {kw.lower() for p in past_index.projects for kw in p.keywords}
 
-    # 1) Source. Every source returns ready-to-use Leads (emails included). PDL
-    #    bills per record returned, so we fetch UIUC alumni first and only run the
-    #    breadth search if alumni + Sheet sources don't already fill the target.
+    # 1) Source. Sheet sources yield ready-to-use Leads (emails already present,
+    #    no cost). Apollo yields Candidates whose emails are NOT revealed yet — we
+    #    spend an Apollo credit only on the handful we actually select (step 3).
+    apollo: ApolloClient | None = None
     sheet_leads: list[Lead] = []
-    pdl_leads: list[Lead] = []
+    apollo_candidates: list[Candidate] = []
     if dry_run:
         log.info("[DRY RUN] skipping live sourcing — using fixtures")
         sheet_leads = _dry_run_fixture_leads()
@@ -111,36 +92,83 @@ def cmd_prepare(dry_run: bool) -> int:
         sheet_leads.extend(sheets.fetch_prospect_leads())
         from .sheets import load_service_account_info
         sheet_leads.extend(fetch_alumni_leads(load_service_account_info()))
-        # PDL is optional — enabled only when PDL_API_KEY is set.
-        if os.environ.get("PDL_API_KEY"):
-            client = PDLClient()
+        # Apollo is optional — enabled only when APOLLO_API_KEY is set.
+        if os.environ.get("APOLLO_API_KEY"):
             profiles = load_profiles()
+            apollo = ApolloClient()
             day_index = datetime.now(timezone.utc).timetuple().tm_yday
-            # Primary: UIUC alumni, our highest-converting segment, every day.
+            # UIUC alumni are our highest-converting segment — search them EVERY
+            # day as the primary source (everything it returns is an alum).
             uiuc_profile = get_uiuc_profile(profiles)
             if uiuc_profile:
-                log.info("PDL UIUC alumni search: %s", uiuc_profile["name"])
-                pdl_leads.extend(search_leads(client, uiuc_profile, size=target + 5))
-            # Breadth search runs ONLY if alumni + Sheet leads don't fill target,
-            # and only fetches the gap — keeps PDL credit spend close to `target`.
-            have = len(_filter_fresh(sheet_leads + pdl_leads, known, known_li, suppression, contacted, scorer))
-            if have < target:
-                secondary = pick_profile_for_today(profiles, day_index)
-                log.info("PDL breadth search: %s (need %d more)", secondary["name"], target - have)
-                pdl_leads.extend(search_leads(client, secondary, size=(target - have) + 5))
+                log.info("Apollo UIUC alumni search: %s", uiuc_profile["name"])
+                apollo_candidates.extend(search_candidates(apollo, uiuc_profile, max_results=50))
+            # Plus one rotated profile for breadth; these rank below alumni.
+            secondary = pick_profile_for_today(profiles, day_index)
+            log.info("Apollo secondary profile: %s", secondary["name"])
+            apollo_candidates.extend(search_candidates(apollo, secondary, max_results=50))
         else:
-            log.info("PDL_API_KEY not set — sourcing from the free Sheet sources only")
+            log.info("APOLLO_API_KEY not set — sourcing from the free Sheet sources only")
 
-    # 2) Dedup + filter (LinkedIn + email + suppression + recency).
-    fresh = _filter_fresh(sheet_leads + pdl_leads, known, known_li, suppression, contacted, scorer)
-    log.info("After dedup/filter: %d fresh leads", len(fresh))
+    # 2) Pre-reveal filtering (no Apollo credits spent). Drop anyone already in
+    #    the pipeline by LinkedIn; Sheet leads (email already known) also get the
+    #    full email-based exclusions now.
+    pool: list = list(sheet_leads) + list(apollo_candidates)
+    filtered: list = []
+    for item in pool:
+        li = (getattr(item, "linkedin", None) or "").strip().lower()
+        if li and li in known_li:
+            continue
+        if isinstance(item, Lead):
+            if item.email.lower() in known:
+                continue
+            excluded, reason = scorer.is_excluded(item, suppression, contacted)
+            if excluded:
+                log.info("Skipping %s: %s", item.email.lower(), reason)
+                continue
+        filtered.append(item)
 
-    # 3) Score + rank alumni-first, then take the top `target`.
-    for lead in fresh:
-        lead.score = scorer.score(lead, past_kw)
-    fresh.sort(key=lambda l: (l.is_uiuc_alum, l.score), reverse=True)
-    top: list[Lead] = fresh[:target]
-    log.info("Selected %d leads for drafting (alumni-first)", len(top))
+    # 3) Score, rank alumni-first, then select the top `target`. Apollo emails are
+    #    revealed here and ONLY here — one credit per selected lead, capped at
+    #    `target * 2` reveals so a single run can't burn through credits.
+    for item in filtered:
+        item.score = scorer.score(item, past_kw)
+    filtered.sort(key=lambda x: (x.is_uiuc_alum, x.score), reverse=True)
+
+    # Walk in alumni-first order, revealing Apollo candidates' emails in BULK
+    # (10 per call) and only for leads we actually take. Cap total reveals at
+    # target*2 to protect credits.
+    top: list[Lead] = []
+    revealed: dict[int, Lead | None] = {}
+    reveals = 0
+    reveal_budget = target * 2
+    idx = 0
+    while len(top) < target and idx < len(filtered) and reveals < reveal_budget:
+        window = filtered[idx:idx + 10]
+        idx += 10
+        to_reveal = [it for it in window if isinstance(it, Candidate) and id(it) not in revealed]
+        if to_reveal:
+            for cand, lead in zip(to_reveal, bulk_reveal(apollo, to_reveal)):
+                revealed[id(cand)] = lead
+            reveals += len(to_reveal)
+        for it in window:
+            if len(top) >= target:
+                break
+            lead = it if isinstance(it, Lead) else revealed.get(id(it))
+            if lead is None:
+                continue  # no email revealed
+            email_lc = lead.email.lower()
+            if email_lc in known or email_lc in suppression:
+                continue
+            excluded, reason = scorer.is_excluded(lead, suppression, contacted)
+            if excluded:
+                log.info("Skipping %s: %s", email_lc, reason)
+                continue
+            if isinstance(it, Candidate):
+                lead.score = it.score
+            top.append(lead)
+
+    log.info("Selected %d leads for drafting (alumni-first); %d Apollo reveals used", len(top), reveals)
 
     sender_name, sender_phone = _sender_identity()
 

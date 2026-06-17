@@ -4,13 +4,14 @@ API docs: https://docs.apollo.io/reference/people-search
 
 Two phases, on purpose, to conserve Apollo credits:
 
-  1. `search_candidates` hits `/v1/mixed_people/search`. The search itself does
-     NOT consume email credits and returns emails masked ("email_not_unlocked@").
-     We turn each result into a lightweight `Candidate` (no email yet).
+  1. `search_candidates` hits `/v1/mixed_people/search` (People Search API —
+     requires a *master* API key on a paid plan). The search does NOT consume
+     credits and returns no emails; we turn each result into a lightweight
+     `Candidate` (no email yet).
   2. After the orchestrator scores + selects the few candidates we'll actually
-     email, it calls `Candidate.reveal`, which hits `/v1/people/match` to unlock
-     the email. THIS is what costs a credit — so we only spend one per lead we
-     actually contact, not per lead we merely consider.
+     email, `bulk_reveal` resolves their emails via `/v1/people/bulk_match`
+     (Bulk People Enrichment, up to 10 per call). THIS is what costs credits —
+     one per matched person — so we only spend on leads we actually contact.
 """
 from __future__ import annotations
 
@@ -71,27 +72,34 @@ class ApolloClient:
         r.raise_for_status()
         return r.json().get("people", [])
 
-    def enrich_person(
-        self, person: dict[str, Any], reveal_personal_emails: bool = False
-    ) -> dict[str, Any]:
-        """Force-reveal the work email if the search returned a masked record.
+    def bulk_match(
+        self, people: list[dict[str, Any]], reveal_personal_emails: bool = False
+    ) -> list[dict[str, Any] | None]:
+        """Reveal emails for up to 10 people in one call (Apollo Bulk People
+        Enrichment, /people/bulk_match). Costs 1 credit per matched person.
+        Returns enriched person dicts aligned to `people` (None where no match).
 
-        `reveal_personal_emails` defaults to False: personal-email reveals can
-        draw from a separate credit pool, and work emails are what we want for
-        B2B outreach anyway.
+        reveal_personal_emails defaults to False — work emails are what we want
+        for B2B outreach, and personal reveals can draw a separate credit pool.
         """
-        payload: dict[str, Any] = {"reveal_personal_emails": reveal_personal_emails}
-        if person.get("linkedin_url"):
-            payload["linkedin_url"] = person["linkedin_url"]
-        elif person.get("id"):
-            payload["id"] = person["id"]
-        else:
-            return person
-        r = self.session.post(f"{APOLLO_BASE}/people/match", json=payload, timeout=30)
+        details: list[dict[str, Any]] = []
+        for p in people:
+            if p.get("id"):
+                details.append({"id": p["id"]})
+            elif p.get("linkedin_url"):
+                details.append({"linkedin_url": p["linkedin_url"]})
+            else:
+                details.append({
+                    "first_name": p.get("first_name"),
+                    "last_name": p.get("last_name"),
+                    "organization_name": (p.get("organization") or {}).get("name"),
+                })
+        payload = {"reveal_personal_emails": reveal_personal_emails, "details": details}
+        r = self.session.post(f"{APOLLO_BASE}/people/bulk_match", json=payload, timeout=60)
         if r.status_code != 200:
-            log.warning("Apollo enrich failed for %s: %s", person.get("name"), r.text[:200])
-            return person
-        return r.json().get("person") or person
+            log.warning("Apollo bulk_match failed (%s): %s", r.status_code, r.text[:300])
+            return [None] * len(people)
+        return r.json().get("matches", [None] * len(people))
 
 
 def _to_lead(person: dict[str, Any], source: str, assume_uiuc: bool = False) -> Lead | None:
@@ -185,18 +193,6 @@ class Candidate:
     schools: list[str] = field(default_factory=list)
     score: float = 0.0
 
-    def reveal(self, client: "ApolloClient | None") -> Lead | None:
-        """Unlock the email and return a full Lead, or None if it stays masked.
-
-        This is the credit-spending step — call it only for selected leads.
-        """
-        person = self.person
-        if client is not None and self.enrich and (
-            not person.get("email") or "email_not_unlocked" in (person.get("email") or "")
-        ):
-            person = client.enrich_person(person)
-        return _to_lead(person, source=self.source, assume_uiuc=self.is_uiuc_alum)
-
 
 def _to_candidate(person: dict[str, Any], profile: dict[str, Any]) -> Candidate:
     org = person.get("organization") or {}
@@ -231,3 +227,18 @@ def search_candidates(
     people = client.search_people(profile["params"])
     log.info("Apollo returned %d people for profile %s", len(people), profile["name"])
     return [_to_candidate(p, profile) for p in people[:max_results]]
+
+
+def bulk_reveal(client: ApolloClient, candidates: list[Candidate]) -> list[Lead | None]:
+    """Reveal emails for candidates via Apollo bulk_match (10 per call, 1 credit
+    per matched person). Returns Lead|None aligned to `candidates`."""
+    out: list[Lead | None] = []
+    for i in range(0, len(candidates), 10):
+        chunk = candidates[i:i + 10]
+        matches = client.bulk_match([c.person for c in chunk])
+        for cand, person in zip(chunk, matches):
+            out.append(
+                _to_lead(person, source=cand.source, assume_uiuc=cand.is_uiuc_alum)
+                if person else None
+            )
+    return out

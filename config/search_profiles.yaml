@@ -1,51 +1,85 @@
-# People Data Labs (PDL) search profiles. Each profile is translated into a PDL
-# Person Search Elasticsearch query by src/sourcing/pdl.py (build_query).
+# Apollo People Search profiles. Each profile's `params` are passed straight to
+# Apollo's /v1/mixed_people/search endpoint. The orchestrator runs the UIUC
+# profile EVERY day (primary source) and rotates one breadth profile per day.
 #
-# Supported keys:
-#   uiuc_only:         true  -> filter to UIUC (Urbana-Champaign) alumni
-#   job_title_levels:  PDL seniority levels: cxo, owner, partner, vp, director,
-#                      manager, senior, entry
-#   location_regions:  PDL location_region values (e.g. "illinois")
-#   industries:        PDL job_company_industry values (LinkedIn-style)
-#
-# Every query also requires a work email (build_query adds exists:work_email),
-# since records without one can't be used for outreach.
-#
-# Docs: https://docs.peopledatalabs.com/docs/person-search-api
+# Docs: https://docs.apollo.io/reference/people-search
 
 profiles:
   - name: uiuc_alumni_executives
-    description: "UIUC alumni in decision-maker roles — primary daily source"
-    uiuc_only: true
-    job_title_levels:
-      - "cxo"
-      - "owner"
-      - "partner"
-      - "vp"
-      - "director"
+    description: "UIUC alumni in decision-maker roles — primary, searched every day"
+    uiuc_only: true   # filtered to UIUC alumni, so every result is is_uiuc_alum=True
+    enrich: true
+    params:
+      person_titles:
+        - "Founder"
+        - "Co-Founder"
+        - "CEO"
+        - "CTO"
+        - "COO"
+        - "President"
+        - "VP"
+        - "Vice President"
+        - "Director"
+        - "Head of"
+        - "Managing Partner"
+        - "Partner"
+      person_schools:
+        - "University of Illinois Urbana-Champaign"
+        - "University of Illinois at Urbana-Champaign"
+        - "University of Illinois, Urbana-Champaign"
+        - "University of Illinois Urbana Champaign"
+      page: 1
+      per_page: 50
 
-  - name: illinois_executives
-    description: "Decision-makers at Illinois companies (breadth)"
-    location_regions:
-      - "illinois"
-    job_title_levels:
-      - "cxo"
-      - "owner"
-      - "partner"
-      - "vp"
-      - "director"
+  - name: vc_partners
+    description: "Partner-level contacts at top VCs (breadth)"
+    enrich: true
+    params:
+      person_titles:
+        - "Managing Partner"
+        - "General Partner"
+        - "Partner"
+        - "Principal"
+      q_organization_domains:
+        - "originventures.com"
+        - "hydeparkangels.com"
+        - "sequoiacap.com"
+        - "a16z.com"
+        - "khoslaventures.com"
+        - "ycombinator.com"
+      page: 1
+      per_page: 25
 
-  - name: tech_founders
-    description: "Founders/execs in software & tech (breadth)"
-    industries:
-      - "computer software"
-      - "information technology and services"
-      - "internet"
-    job_title_levels:
-      - "cxo"
-      - "owner"
-      - "partner"
+  - name: yc_founders
+    description: "Recent YC batch founders (breadth)"
+    enrich: true
+    params:
+      person_titles:
+        - "Founder"
+        - "Co-Founder"
+        - "CEO"
+      organization_keyword_tags:
+        - "Y Combinator"
+      page: 1
+      per_page: 25
+
+  - name: illinois_startups
+    description: "Founder/exec at Illinois-based startups (breadth)"
+    enrich: true
+    params:
+      person_titles:
+        - "Founder"
+        - "CEO"
+        - "CTO"
+      person_locations:
+        - "Illinois, US"
+        - "Chicago, IL"
+        - "Champaign, IL"
+      organization_num_employees_ranges:
+        - "1,200"
+      page: 1
+      per_page: 25
 
   - name: cube_alumni
-    description: "Loaded from the CUBE Alumni Sheet, not PDL"
+    description: "Loaded from the CUBE Alumni Sheet, not Apollo"
     source: cube_alumni_sheet
