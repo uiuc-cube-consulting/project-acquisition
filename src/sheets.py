@@ -60,6 +60,13 @@ PROSPECTS_HEADERS = [
     "industry", "location", "is_uiuc_alum",
 ]
 
+# UIUC-alumni input tab. Paste alumni from LinkedIn's Alumni tool — name +
+# company is enough (email is looked up via Apollo if blank). Every row here is
+# treated as a UIUC alum and ranked first.
+ALUMNI_HEADERS = [
+    "name", "company", "linkedin", "title", "industry", "location", "email",
+]
+
 # One row per `prepare` run. Records the Gmail thread the approval digest was
 # sent on plus a JSON map of digest-number -> Drafts row, so the `send` job can
 # resolve "approve 1,3" from the approver's reply back to the right rows.
@@ -71,6 +78,7 @@ TAB_HEADERS = {
     "Hot Leads": HOT_LEADS_HEADERS,
     "Suppression": SUPPRESSION_HEADERS,
     "Prospects": PROSPECTS_HEADERS,
+    "Alumni": ALUMNI_HEADERS,
     "Approvals": APPROVALS_HEADERS,
 }
 
@@ -158,6 +166,51 @@ class SheetClient:
             ))
         log.info("Loaded %d leads from the Prospects tab", len(out))
         return out
+
+    def fetch_alumni_targets(self) -> tuple[list[Lead], list[dict]]:
+        """Read the 'Alumni' input tab. Every row is treated as a UIUC alum.
+
+        Returns (ready_leads, contacts_to_enrich): rows that already have an
+        email become Leads immediately; rows with just name + company are
+        returned as dicts for Apollo to look up the email.
+        """
+        try:
+            ws = self.book.worksheet("Alumni")
+        except gspread.WorksheetNotFound:
+            log.info("No 'Alumni' tab found; skipping the alumni source")
+            return [], []
+
+        now = datetime.now(timezone.utc)
+        leads: list[Lead] = []
+        contacts: list[dict] = []
+        for row in ws.get_all_records():
+            keyed = {str(k).lower().strip(): (v if v is not None else "") for k, v in row.items()}
+            name = str(keyed.get("name", "")).strip()
+            if not name:
+                continue
+            company = str(keyed.get("company", "")).strip()
+            common = dict(
+                name=name,
+                company=company,
+                linkedin=str(keyed.get("linkedin", "")).strip() or None,
+                title=str(keyed.get("title", "")).strip() or None,
+                industry=str(keyed.get("industry", "")).strip() or None,
+                location=str(keyed.get("location", "")).strip() or None,
+            )
+            email = str(keyed.get("email", "")).strip()
+            if email and "@" in email:
+                leads.append(Lead(
+                    **common,
+                    email=email,
+                    is_uiuc_alum=True,
+                    schools=["University of Illinois Urbana-Champaign"],
+                    source="alumni_input",
+                    date_added=now,
+                ))
+            elif company:  # need at least name + company to look up the email
+                contacts.append(common)
+        log.info("Alumni tab: %d with email, %d to look up", len(leads), len(contacts))
+        return leads, contacts
 
     # ---------------- Leads ----------------
 

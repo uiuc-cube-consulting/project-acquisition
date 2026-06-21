@@ -238,6 +238,36 @@ def search_candidates(
     return [_to_candidate(p, profile) for p in people[:max_results]]
 
 
+def candidate_from_contact(
+    *,
+    name: str,
+    company: str = "",
+    linkedin: str | None = None,
+    title: str | None = None,
+    industry: str | None = None,
+    location: str | None = None,
+    is_uiuc_alum: bool = False,
+    source: str = "sheet",
+) -> Candidate:
+    """Build a pre-reveal Candidate from a hand-entered contact (name + company,
+    optionally a LinkedIn URL). bulk_reveal resolves the email via Apollo
+    enrichment — a LinkedIn URL matches best; name + company is the fallback."""
+    parts = name.split()
+    person: dict[str, Any] = {
+        "first_name": parts[0] if parts else "",
+        "last_name": " ".join(parts[1:]) if len(parts) > 1 else "",
+        "organization": {"name": company},
+    }
+    if linkedin:
+        person["linkedin_url"] = linkedin
+    return Candidate(
+        person=person, source=source, enrich=True, name=name, title=title,
+        company=company or "", industry=industry, location=location,
+        company_stage=None, linkedin=linkedin, apollo_id=None,
+        is_uiuc_alum=is_uiuc_alum, schools=[],
+    )
+
+
 def bulk_reveal(client: ApolloClient, candidates: list[Candidate]) -> list[Lead | None]:
     """Reveal emails for candidates via Apollo bulk_match (10 per call, 1 credit
     per matched person). Returns Lead|None aligned to `candidates`."""

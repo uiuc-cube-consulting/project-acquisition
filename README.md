@@ -82,6 +82,20 @@ Set `is_uiuc_alum` to `true` only for genuine Illini (it adds a "fellow Illini"
 line). Once a row is drafted it's copied into `Leads` and deduped, so it won't be
 emailed twice — add new rows as you find them.
 
+### Targeting UIUC alumni: the `Alumni` tab
+
+Apollo's API can't filter by school (and doesn't return education), so accurate
+alumni targeting comes from **LinkedIn's Alumni tool**
+(linkedin.com/school/university-of-illinois-urbana-champaign/people) — filter UIUC
+alumni by employer/role, then paste them into the **`Alumni`** tab. Columns:
+`name`, `company`, `linkedin`, `title`, `industry`, `location`, `email`.
+
+**Only `name` + `company` are required** — if `email` is blank, `prepare` looks it
+up via Apollo enrichment (a `linkedin` URL improves the match rate). Every row is
+treated as a UIUC alum: flagged `is_uiuc_alum`, **ranked ahead of all other
+leads**, and drafted with the "fellow Illini" angle. This is the highest-converting
+channel, so keep this tab stocked.
+
 ### 2. Gemini API key (free tier)
 
 1. Go to https://aistudio.google.com/apikey → Create API key
