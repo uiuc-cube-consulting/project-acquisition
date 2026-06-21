@@ -37,7 +37,6 @@ from .draft import draft_for_leads
 from .follow_up import prepare_follow_ups
 from .models import Lead, LeadStatus
 from .past_projects import PastProjectIndex
-from .reply_check import check_replies
 from .scoring import Scorer
 from .sheets import SheetClient
 from .sourcing.apollo import (
@@ -45,7 +44,7 @@ from .sourcing.apollo import (
     pick_profile_for_today, search_candidates,
 )
 from .sourcing.cube_alumni import fetch_alumni_leads
-from .summary import send_daily_summary, send_prepare_digest
+from .summary import send_daily_summary
 from .template import TemplateRouter
 
 logging.basicConfig(
@@ -144,8 +143,11 @@ def cmd_prepare(dry_run: bool) -> int:
     reveal_budget = target * 2
     idx = 0
     while len(top) < target and idx < len(filtered) and reveals < reveal_budget:
-        window = filtered[idx:idx + 10]
-        idx += 10
+        # Reveal in bulk, but size each batch to what we still need (+2 buffer for
+        # ones that get filtered out), capped at 10/call and the overall budget.
+        batch_size = max(1, min(10, (target - len(top)) + 2, reveal_budget - reveals))
+        window = filtered[idx:idx + batch_size]
+        idx += batch_size
         to_reveal = [it for it in window if isinstance(it, Candidate) and id(it) not in revealed]
         if to_reveal:
             for cand, lead in zip(to_reveal, bulk_reveal(apollo, to_reveal)):
@@ -194,24 +196,20 @@ def cmd_prepare(dry_run: bool) -> int:
         leads_to_write.append(lead)
         drafts_to_write.append(draft)
     sheets.append_leads(leads_to_write)
-    draft_rows = sheets.append_drafts(drafts_to_write)
+    sheets.append_drafts(drafts_to_write)
 
-    # 6) Follow-ups for older sends
+    # 6) Follow-ups for older sends (also written to Drafts for approval)
     follow_ups = prepare_follow_ups(sender_name=sender_name)  # list[(row, Draft)]
 
-    # 7) Build the numbered approval digest and email the approver. They reply to
-    #    approve; the send job reads that reply and flips the matching rows.
-    items: list[dict] = []
-    for row_idx, draft in list(zip(draft_rows, drafts_to_write)) + follow_ups:
-        items.append({
-            "n": len(items) + 1,
-            "drafts_row": row_idx,
-            "lead_email": draft.lead_email,
-            "subject": draft.subject,
-            "body": draft.body,
-            "is_follow_up": draft.is_follow_up,
-        })
-    send_prepare_digest(items)
+    # 7) Approval happens in the Sheet: review the Drafts tab and set the
+    #    `approved` column to yes/TRUE on the rows to send. The send job mails
+    #    exactly those. No approval email is sent.
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheets.sheet_id}/edit"
+    log.info(
+        "Wrote %d new drafts (+%d follow-ups) to the Drafts tab. Set 'approved'=yes "
+        "on the rows to send, then `send` mails them: %s",
+        len(drafts_to_write), len(follow_ups), sheet_url,
+    )
     return 0
 
 
@@ -221,12 +219,7 @@ def cmd_send(dry_run: bool) -> int:
     cap = int(os.environ.get("DAILY_SEND_CAP", "10"))
     sheets = SheetClient()
 
-    # Read the approver's emailed reply to this morning's digest and flip the
-    # approved drafts before we look at what's approved + pending.
-    from .approvals import apply_email_approvals
-    approved_via_email = apply_email_approvals(dry_run=dry_run)
-    log.info("Approved %d drafts from the emailed reply", approved_via_email)
-
+    # Approval is the `approved` column in the Drafts tab (set it to yes/TRUE).
     approved = sheets.list_approved_pending()
     log.info("%d drafts approved + pending", len(approved))
 
@@ -234,8 +227,8 @@ def cmd_send(dry_run: bool) -> int:
     sender = GmailSender()
 
     sent_count = 0
+    follow_up_count = 0
     for row_idx, draft in approved[:cap]:
-        # Look up the lead row so we can update status + record thread id
         try:
             msg_id, thread_id = sender.send(
                 to=draft.lead_email,
@@ -264,18 +257,17 @@ def cmd_send(dry_run: bool) -> int:
                 message_id=msg_id,
             )
         sent_count += 1
+        if draft.is_follow_up:
+            follow_up_count += 1
 
-    # Check replies
-    replies = check_replies(dry_run=dry_run)
-
-    # Daily summary
-    drafts_pending = len(sheets.list_approved_pending())  # remaining after this run
-    send_daily_summary(
-        sent_count=sent_count,
-        replies=replies,
-        follow_ups=sum(1 for _, d in approved[:cap] if d.is_follow_up),
-        drafts_pending=drafts_pending,
-    )
+    log.info("Sent %d emails (%d follow-ups)", sent_count, follow_up_count)
+    if not dry_run:
+        drafts_pending = len(sheets.list_approved_pending())  # remaining after this run
+        send_daily_summary(
+            sent_count=sent_count,
+            follow_ups=follow_up_count,
+            drafts_pending=drafts_pending,
+        )
     return 0
 
 

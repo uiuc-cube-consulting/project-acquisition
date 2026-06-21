@@ -16,7 +16,8 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       SHEET_ID: ${{ secrets.SHEET_ID }}
-      IMPERSONATE_EMAIL: ${{ secrets.IMPERSONATE_EMAIL }}
+      GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
       # Mann replies to the morning digest to approve; the summary also goes to him.
       APPROVER_EMAIL: "mannat2@illinois.edu"
       DIGEST_RECIPIENT: "mannat2@illinois.edu"

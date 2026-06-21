@@ -17,7 +17,7 @@ SUBJECT_TEMPLATE = "Collaboration opportunity between {company} and CUBE Consult
 
 BUSINESS = """Hi {contact_name},
 
-I hope you're doing well. My name is {your_name}, and I'm a member of CUBE Consulting at the University of Illinois Urbana-Champaign.
+I hope you're doing well. My name is {your_name}, and I'm the President of CUBE Consulting at the University of Illinois Urbana-Champaign.
 
 CUBE is a student-run consulting group that partners with organizations on strategic and analytical projects each semester. Our consultants have worked with high-growth startups and Fortune 500 Companies on initiatives such as market strategy, data analytics, and operational optimization. {credibility_line} We'd love to explore the opportunity to work with {company} on initiatives that drive innovation and strategic insights in {industry}.
 
@@ -29,7 +29,7 @@ Thank you for your time,
 
 HYBRID_PRODUCT = """Hi {contact_name},
 
-I hope you're doing well. My name is {your_name}, and I'm a member of CUBE Consulting at the University of Illinois Urbana-Champaign.
+I hope you're doing well. My name is {your_name}, and I'm the President of CUBE Consulting at the University of Illinois Urbana-Champaign.
 
 CUBE is a student-run consulting group that partners with organizations on strategy and optimization projects each semester. Our consultants have worked with high-growth startups and Fortune 500 Companies on initiatives such as product ideation and development, UI/UX design, and GTM strategy. {credibility_line} We'd love to explore the opportunity to work with {company} on initiatives that drive innovation and strategic insights in {industry}.
 
@@ -41,7 +41,7 @@ Thank you for your time,
 
 TECHNICAL_SOFTWARE = """Hi {contact_name},
 
-I hope you're doing well. My name is {your_name}, and I'm a member of CUBE Consulting at the University of Illinois Urbana-Champaign.
+I hope you're doing well. My name is {your_name}, and I'm the President of CUBE Consulting at the University of Illinois Urbana-Champaign.
 
 CUBE is a student-run consulting group that partners with organizations on engineering and optimization projects each semester. Our consultants have worked with high-growth startups and Fortune 500 Companies on initiatives such as AI integration, data platforms, and software development. {credibility_line} We'd love to explore the opportunity to work with {company} on initiatives that drive innovation and strategic insights in {industry}.
 
@@ -53,7 +53,7 @@ Thank you for your time,
 
 TECHNICAL_ENGINEERING = """Hi {contact_name},
 
-I hope you're doing well. My name is {your_name}, and I'm a member of CUBE Consulting at the University of Illinois Urbana-Champaign.
+I hope you're doing well. My name is {your_name}, and I'm the President of CUBE Consulting at the University of Illinois Urbana-Champaign.
 
 CUBE is a student-run consulting group that partners with organizations on engineering and optimization projects each semester. Our consultants have worked with high-growth startups and Fortune 500 Companies on initiatives such as system design, hardware prototyping, and CAD simulations. {credibility_line} We'd love to explore the opportunity to work with {company} on initiatives that drive innovation and strategic insights in {industry}.
 
