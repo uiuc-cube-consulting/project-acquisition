@@ -29,7 +29,7 @@ from ..models import Lead
 
 log = logging.getLogger(__name__)
 
-APOLLO_BASE = "https://api.apollo.io/v1"
+APOLLO_BASE = "https://api.apollo.io/api/v1"
 UIUC_SCHOOLS = {
     "university of illinois urbana-champaign",
     "university of illinois at urbana-champaign",
@@ -68,7 +68,16 @@ class ApolloClient:
         )
 
     def search_people(self, params: dict[str, Any]) -> list[dict[str, Any]]:
-        r = self.session.post(f"{APOLLO_BASE}/mixed_people/search", json=params, timeout=30)
+        # People Search API (api_search): filters go in the query string; list
+        # values use a [] suffix. Returns minimal records (id + firmographics);
+        # name/email/education come from a later bulk_match enrichment.
+        query: dict[str, Any] = {}
+        for k, v in params.items():
+            if isinstance(v, (list, tuple)):
+                query[f"{k}[]"] = list(v)
+            else:
+                query[k] = v
+        r = self.session.post(f"{APOLLO_BASE}/mixed_people/api_search", params=query, timeout=30)
         r.raise_for_status()
         return r.json().get("people", [])
 

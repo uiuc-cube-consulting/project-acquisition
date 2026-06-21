@@ -1,13 +1,18 @@
-# Apollo People Search profiles. Each profile's `params` are passed straight to
-# Apollo's /v1/mixed_people/search endpoint. The orchestrator runs the UIUC
-# profile EVERY day (primary source) and rotates one breadth profile per day.
+# Apollo People Search (api_search) profiles. Each profile's `params` are sent as
+# query parameters to /api/v1/mixed_people/api_search (list values get a []
+# suffix automatically). The orchestrator rotates one profile per day.
 #
-# Docs: https://docs.apollo.io/reference/people-search
+# IMPORTANT: api_search has NO school/alma-mater filter (it was removed when
+# Apollo deprecated the old mixed_people/search endpoint), so we cannot target
+# UIUC *alumni* at the API level — q_keywords matches the employer, returning
+# UIUC staff, not alumni. We therefore discover decision-makers by title +
+# Illinois location for volume; real UIUC alumni come from the CUBE alumni Sheet
+# (accurate) and still rank first via the alumni-first selection.
+# Docs: https://docs.apollo.io/reference/people-api-search
 
 profiles:
-  - name: uiuc_alumni_executives
-    description: "UIUC alumni in decision-maker roles — primary, searched every day"
-    uiuc_only: true   # filtered to UIUC alumni, so every result is is_uiuc_alum=True
+  - name: illinois_executives
+    description: "Decision-makers at Illinois companies"
     enrich: true
     params:
       person_titles:
@@ -21,63 +26,24 @@ profiles:
         - "Vice President"
         - "Director"
         - "Head of"
-        - "Managing Partner"
+        - "Owner"
         - "Partner"
-      person_schools:
-        - "University of Illinois Urbana-Champaign"
-        - "University of Illinois at Urbana-Champaign"
-        - "University of Illinois, Urbana-Champaign"
-        - "University of Illinois Urbana Champaign"
-      page: 1
+      person_locations:
+        - "Illinois, US"
+        - "Chicago, Illinois, US"
+        - "Champaign, Illinois, US"
       per_page: 50
 
-  - name: vc_partners
-    description: "Partner-level contacts at top VCs (breadth)"
+  - name: tech_founders
+    description: "Founders/execs in software & tech (breadth)"
     enrich: true
     params:
-      person_titles:
-        - "Managing Partner"
-        - "General Partner"
-        - "Partner"
-        - "Principal"
-      q_organization_domains:
-        - "originventures.com"
-        - "hydeparkangels.com"
-        - "sequoiacap.com"
-        - "a16z.com"
-        - "khoslaventures.com"
-        - "ycombinator.com"
-      page: 1
-      per_page: 25
-
-  - name: yc_founders
-    description: "Recent YC batch founders (breadth)"
-    enrich: true
-    params:
+      q_keywords: "software"
       person_titles:
         - "Founder"
         - "Co-Founder"
         - "CEO"
-      organization_keyword_tags:
-        - "Y Combinator"
-      page: 1
-      per_page: 25
-
-  - name: illinois_startups
-    description: "Founder/exec at Illinois-based startups (breadth)"
-    enrich: true
-    params:
-      person_titles:
-        - "Founder"
-        - "CEO"
         - "CTO"
-      person_locations:
-        - "Illinois, US"
-        - "Chicago, IL"
-        - "Champaign, IL"
-      organization_num_employees_ranges:
-        - "1,200"
-      page: 1
       per_page: 25
 
   - name: cube_alumni
