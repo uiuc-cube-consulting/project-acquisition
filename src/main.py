@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
+from .dashboard import write_dashboard
 from .draft import draft_for_leads
 from .follow_up import prepare_follow_ups
 from .models import Lead, LeadStatus
@@ -216,7 +217,16 @@ def cmd_prepare(dry_run: bool) -> int:
         "on the rows to send, then `send` mails them: %s",
         len(drafts_to_write), len(follow_ups), sheet_url,
     )
+    _refresh_dashboard(sheets)
     return 0
+
+
+def _refresh_dashboard(sheets: SheetClient) -> None:
+    """Refresh the Dashboard tab; never let a stats error fail the main job."""
+    try:
+        write_dashboard(sheets)
+    except Exception as exc:
+        log.warning("Dashboard refresh failed (non-fatal): %s", exc)
 
 
 # ---------------- send ----------------
@@ -274,6 +284,7 @@ def cmd_send(dry_run: bool) -> int:
             follow_ups=follow_up_count,
             drafts_pending=drafts_pending,
         )
+        _refresh_dashboard(sheets)
     return 0
 
 
@@ -332,6 +343,7 @@ def main() -> int:
     p = sub.add_parser("send", help="Send approved drafts + check replies + digest")
     p.add_argument("--dry-run", action="store_true")
     p = sub.add_parser("bootstrap", help="Create Sheet tabs + headers")
+    p = sub.add_parser("stats", help="Refresh the Dashboard tab with current metrics")
     args = parser.parse_args()
 
     if args.cmd == "prepare":
@@ -342,6 +354,9 @@ def main() -> int:
         sheets = SheetClient()
         sheets.bootstrap()
         log.info("Sheet bootstrapped")
+        return 0
+    if args.cmd == "stats":
+        write_dashboard(SheetClient())
         return 0
     return 1
 

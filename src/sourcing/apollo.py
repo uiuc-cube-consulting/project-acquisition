@@ -252,10 +252,13 @@ def candidate_from_contact(
     """Build a pre-reveal Candidate from a hand-entered contact (name + company,
     optionally a LinkedIn URL). bulk_reveal resolves the email via Apollo
     enrichment — a LinkedIn URL matches best; name + company is the fallback."""
-    parts = name.split()
+    # Strip suffixes/commas and use first + last token (drop middle names) — this
+    # matches Apollo's index far better than passing the whole string as last name.
+    suffixes = {"jr", "sr", "ii", "iii", "iv", "v", "phd", "md", "mba", "esq"}
+    parts = [p for p in name.replace(",", " ").split() if p.lower().strip(".") not in suffixes]
     person: dict[str, Any] = {
         "first_name": parts[0] if parts else "",
-        "last_name": " ".join(parts[1:]) if len(parts) > 1 else "",
+        "last_name": parts[-1] if len(parts) > 1 else "",
         "organization": {"name": company},
     }
     if linkedin:
@@ -274,7 +277,9 @@ def bulk_reveal(client: ApolloClient, candidates: list[Candidate]) -> list[Lead 
     out: list[Lead | None] = []
     for i in range(0, len(candidates), 10):
         chunk = candidates[i:i + 10]
-        matches = client.bulk_match([c.person for c in chunk])
+        # reveal_personal_emails=True maximizes hit rate: _best_email still prefers
+        # the work email, falling back to a personal one only when no work email exists.
+        matches = client.bulk_match([c.person for c in chunk], reveal_personal_emails=True)
         for cand, person in zip(chunk, matches):
             out.append(
                 _to_lead(person, source=cand.source, assume_uiuc=cand.is_uiuc_alum)
