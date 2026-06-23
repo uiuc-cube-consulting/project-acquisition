@@ -21,15 +21,15 @@ jobs:
       ALUMNI_SHEET_ID: ${{ secrets.ALUMNI_SHEET_ID }}
       GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-      # Daily drafts + approval requests go to Mann; he approves by replying.
-      APPROVER_EMAIL: "mannat2@illinois.edu"
-      DIGEST_RECIPIENT: "mannat2@illinois.edu"
+      # Summary recipient (approval happens in the Sheet, not by email).
+      APPROVER_EMAIL: ${{ secrets.APPROVER_EMAIL }}
+      DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
       ORG_NAME: ${{ secrets.ORG_NAME }}
       ORG_PHYSICAL_ADDRESS: ${{ secrets.ORG_PHYSICAL_ADDRESS }}
       UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
       SENDER_NAME: ${{ secrets.SENDER_NAME }}
       SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
-      DAILY_PREPARE_TARGET: "15"
+      DAILY_PREPARE_TARGET: ${{ secrets.DAILY_PREPARE_TARGET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

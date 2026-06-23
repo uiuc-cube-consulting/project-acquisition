@@ -18,15 +18,15 @@ jobs:
       SHEET_ID: ${{ secrets.SHEET_ID }}
       GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-      # Mann replies to the morning digest to approve; the summary also goes to him.
-      APPROVER_EMAIL: "mannat2@illinois.edu"
-      DIGEST_RECIPIENT: "mannat2@illinois.edu"
+      # Summary recipient (approval happens in the Sheet, not by email).
+      APPROVER_EMAIL: ${{ secrets.APPROVER_EMAIL }}
+      DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
       ORG_NAME: ${{ secrets.ORG_NAME }}
       ORG_PHYSICAL_ADDRESS: ${{ secrets.ORG_PHYSICAL_ADDRESS }}
       UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
       SENDER_NAME: ${{ secrets.SENDER_NAME }}
       SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
-      DAILY_SEND_CAP: "10"
+      DAILY_SEND_CAP: ${{ secrets.DAILY_SEND_CAP }}
       SEND_INTERVAL_SECONDS: "30"
     steps:
       - uses: actions/checkout@v4
