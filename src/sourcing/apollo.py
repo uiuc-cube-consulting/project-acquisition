@@ -111,7 +111,9 @@ class ApolloClient:
         return r.json().get("matches", [None] * len(people))
 
 
-def _to_lead(person: dict[str, Any], source: str, assume_uiuc: bool = False) -> Lead | None:
+def _to_lead(
+    person: dict[str, Any], source: str, assume_uiuc: bool = False, is_cube_member: bool = False
+) -> Lead | None:
     email = person.get("email")
     if not email or "email_not_unlocked" in email or "domain.com" in email:
         return None
@@ -137,6 +139,7 @@ def _to_lead(person: dict[str, Any], source: str, assume_uiuc: bool = False) -> 
         location=location,
         company_stage=org.get("latest_funding_stage") or org.get("stage"),
         is_uiuc_alum=is_uiuc,
+        is_cube_member=is_cube_member,
         schools=schools,
         source=source,
         date_added=datetime.now(timezone.utc),
@@ -201,6 +204,8 @@ class Candidate:
     is_uiuc_alum: bool
     schools: list[str] = field(default_factory=list)
     score: float = 0.0
+    ref: int | None = None  # Alumni-tab row index, for writing the email back
+    is_cube_member: bool = False
 
 
 def _to_candidate(person: dict[str, Any], profile: dict[str, Any]) -> Candidate:
@@ -247,11 +252,14 @@ def candidate_from_contact(
     industry: str | None = None,
     location: str | None = None,
     is_uiuc_alum: bool = False,
+    is_cube_member: bool = False,
     source: str = "sheet",
+    ref: int | None = None,
 ) -> Candidate:
     """Build a pre-reveal Candidate from a hand-entered contact (name + company,
     optionally a LinkedIn URL). bulk_reveal resolves the email via Apollo
-    enrichment — a LinkedIn URL matches best; name + company is the fallback."""
+    enrichment — a LinkedIn URL matches best; name + company is the fallback.
+    `ref` is the source-sheet row index so the resolved email can be written back."""
     # Strip suffixes/commas and use first + last token (drop middle names) — this
     # matches Apollo's index far better than passing the whole string as last name.
     suffixes = {"jr", "sr", "ii", "iii", "iv", "v", "phd", "md", "mba", "esq"}
@@ -267,7 +275,7 @@ def candidate_from_contact(
         person=person, source=source, enrich=True, name=name, title=title,
         company=company or "", industry=industry, location=location,
         company_stage=None, linkedin=linkedin, apollo_id=None,
-        is_uiuc_alum=is_uiuc_alum, schools=[],
+        is_uiuc_alum=is_uiuc_alum, schools=[], ref=ref, is_cube_member=is_cube_member,
     )
 
 
@@ -282,7 +290,8 @@ def bulk_reveal(client: ApolloClient, candidates: list[Candidate]) -> list[Lead 
         matches = client.bulk_match([c.person for c in chunk], reveal_personal_emails=True)
         for cand, person in zip(chunk, matches):
             out.append(
-                _to_lead(person, source=cand.source, assume_uiuc=cand.is_uiuc_alum)
+                _to_lead(person, source=cand.source, assume_uiuc=cand.is_uiuc_alum,
+                         is_cube_member=cand.is_cube_member)
                 if person else None
             )
     return out

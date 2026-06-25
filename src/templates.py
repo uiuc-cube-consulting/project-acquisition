@@ -63,6 +63,18 @@ Thank you for your time,
 {your_name}"""
 
 
+CUBE_MEMBER = """Hi {contact_name},
+
+It's great to connect with a fellow CUBE alum — I'm {your_name}, the current President of CUBE Consulting at UIUC.
+
+Since you know firsthand the kind of work our teams take on, I'll keep this short. {credibility_line} I'd love to explore having a CUBE team partner with {company} this semester on {industry} initiatives.
+
+Would you be open to a quick call to catch up and hear what CUBE is working on now? You can reply here or reach me at {your_number}.
+
+Thank you,
+{your_name}"""
+
+
 FOLLOW_UP = """Hi {contact_name},
 
 Just floating this back to the top of your inbox in case it got buried. Happy to share more about CUBE's work with {company} at a time that works for you, or to send over a brief overview deck.

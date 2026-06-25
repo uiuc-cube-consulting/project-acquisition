@@ -64,7 +64,7 @@ PROSPECTS_HEADERS = [
 # company is enough (email is looked up via Apollo if blank). Every row here is
 # treated as a UIUC alum and ranked first.
 ALUMNI_HEADERS = [
-    "name", "company", "linkedin", "title", "industry", "location", "email",
+    "name", "company", "linkedin", "title", "industry", "location", "email", "cube_member",
 ]
 
 # One row per `prepare` run. Records the Gmail thread the approval digest was
@@ -183,7 +183,9 @@ class SheetClient:
         now = datetime.now(timezone.utc)
         leads: list[Lead] = []
         contacts: list[dict] = []
-        for row in ws.get_all_records():
+        skipped = 0
+        # start=2: row 1 is the header, so records line up with sheet row numbers.
+        for sheet_row, row in enumerate(ws.get_all_records(), start=2):
             keyed = {str(k).lower().strip(): (v if v is not None else "") for k, v in row.items()}
             name = str(keyed.get("name", "")).strip()
             if not name:
@@ -196,6 +198,7 @@ class SheetClient:
                 title=str(keyed.get("title", "")).strip() or None,
                 industry=str(keyed.get("industry", "")).strip() or None,
                 location=str(keyed.get("location", "")).strip() or None,
+                is_cube_member=_truthy(keyed.get("cube_member")),
             )
             email = str(keyed.get("email", "")).strip()
             if email and "@" in email:
@@ -207,10 +210,23 @@ class SheetClient:
                     source="alumni_input",
                     date_added=now,
                 ))
-            elif company:  # need at least name + company to look up the email
-                contacts.append(common)
-        log.info("Alumni tab: %d with email, %d to look up", len(leads), len(contacts))
+            elif email:
+                # Non-email marker (e.g. NOT_FOUND) written back on a prior run —
+                # already looked up and unresolvable, so don't spend a credit again.
+                skipped += 1
+            elif company:  # name + company: look up the email (record the row to write back)
+                contacts.append({**common, "_row": sheet_row})
+        log.info("Alumni tab: %d with email, %d to look up, %d already-processed (skipped)",
+                 len(leads), len(contacts), skipped)
         return leads, contacts
+
+    NOT_FOUND_MARKER = "NOT_FOUND"
+
+    def set_alumni_email(self, row_index: int, value: str) -> None:
+        """Write the resolved email (or NOT_FOUND) back to an Alumni row so it's
+        not looked up again on the next run."""
+        ws = self.book.worksheet("Alumni")
+        ws.update_cell(row_index, ALUMNI_HEADERS.index("email") + 1, value)
 
     # ---------------- Leads ----------------
 

@@ -99,10 +99,11 @@ def cmd_prepare(dry_run: bool) -> int:
         alum_leads, alum_contacts = sheets.fetch_alumni_targets()
         sheet_leads.extend(alum_leads)
         if alum_contacts and apollo:
-            candidates.extend(
-                candidate_from_contact(**c, is_uiuc_alum=True, source="alumni_input")
-                for c in alum_contacts
-            )
+            for c in alum_contacts:
+                ref = c.pop("_row", None)
+                candidates.append(
+                    candidate_from_contact(**c, is_uiuc_alum=True, source="alumni_input", ref=ref)
+                )
         elif alum_contacts:
             log.warning("%d alumni rows need an email lookup, but APOLLO_API_KEY is unset", len(alum_contacts))
 
@@ -159,6 +160,13 @@ def cmd_prepare(dry_run: bool) -> int:
         if to_reveal:
             for cand, lead in zip(to_reveal, bulk_reveal(apollo, to_reveal)):
                 revealed[id(cand)] = lead
+                # Cache the lookup back to the Alumni tab so we never re-spend a
+                # credit on this person: their email (or NOT_FOUND if unresolved).
+                if cand.ref is not None:
+                    try:
+                        sheets.set_alumni_email(cand.ref, lead.email if lead else sheets.NOT_FOUND_MARKER)
+                    except Exception as exc:
+                        log.warning("Alumni write-back failed for row %s: %s", cand.ref, exc)
             reveals += len(to_reveal)
         for it in window:
             if len(top) >= target:

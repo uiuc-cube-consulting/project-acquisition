@@ -44,6 +44,7 @@ class Lead(BaseModel):
     location: Optional[str] = None
     company_stage: Optional[str] = None
     is_uiuc_alum: bool = False
+    is_cube_member: bool = False  # former CUBE member — gets a warmer, familiar email
     schools: list[str] = Field(default_factory=list)
     source: str = "unknown"
     date_added: Optional[datetime] = None

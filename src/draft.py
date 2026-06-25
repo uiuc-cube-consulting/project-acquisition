@@ -16,6 +16,7 @@ from typing import Iterable
 from .llm import generate_json
 from .models import Draft, Lead, PastProject, TemplateType
 from .templates import (
+    CUBE_MEMBER,
     FOLLOW_UP,
     SUBJECT_TEMPLATE,
     TEMPLATES,
@@ -37,6 +38,7 @@ You are personalizing a base template. Keep its overall structure and signoff. P
    - Bad:  "As a fellow Illini, CUBE is ..."  (attaches the phrase to the company)
    - Bad:  "As a fellow Illini, if you're open to it ..."  (tacked onto the closing)
    Never add any UIUC/Illini mention for non-alumni.
+5. Former CUBE members: their template already greets them as a fellow CUBE alum who knows our work. Keep that warm, peer-to-peer tone, do NOT explain what CUBE is, and do NOT add a separate "fellow Illini" line (the CUBE-alum greeting already covers the shared connection).
 
 Rules:
 - Keep the body under 200 words and tight; every sentence must read naturally with correct grammar (especially where the alumni line joins the paragraph).
@@ -58,7 +60,7 @@ class Drafter:
         sender_phone: str,
         footer: str,
     ) -> Draft:
-        base_template = TEMPLATES[template_type]
+        base_template = CUBE_MEMBER if lead.is_cube_member else TEMPLATES[template_type]
         matches_block = "\n".join(
             f"- {p.client} ({p.semester}): keywords={', '.join(p.keywords)}; "
             f"deliverables={p.deliverables[:300]}"
@@ -74,6 +76,7 @@ class Drafter:
 - Location: {lead.location or 'unknown'}
 - LinkedIn: {lead.linkedin or 'unknown'}
 - UIUC alum: {lead.is_uiuc_alum}
+- Former CUBE member: {lead.is_cube_member}
 
 Matched past CUBE projects (use ONE of these for the credibility line):
 {matches_block}
