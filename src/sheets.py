@@ -305,6 +305,18 @@ class SheetClient:
             start = len(ws.col_values(1)) - len(rows) + 1
         return list(range(start, start + len(rows)))
 
+    def get_sent_emails(self) -> set[str]:
+        """Emails already contacted (a send recorded in Drafts or Leads) — used to
+        guard against re-emailing someone via a duplicate approved draft."""
+        out: set[str] = set()
+        for d in self.book.worksheet("Drafts").get_all_records():
+            if str(d.get("sent_at", "")).strip() and d.get("lead_email"):
+                out.add(str(d["lead_email"]).strip().lower())
+        for lead in self.book.worksheet("Leads").get_all_records():
+            if str(lead.get("sent_at", "")).strip() and lead.get("email"):
+                out.add(str(lead["email"]).strip().lower())
+        return out
+
     def list_approved_pending(self) -> list[tuple[int, Draft]]:
         """Returns (sheet_row_index, draft) for unsent, approved rows."""
         ws = self.book.worksheet("Drafts")

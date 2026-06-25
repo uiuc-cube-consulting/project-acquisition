@@ -245,14 +245,27 @@ def cmd_send(dry_run: bool) -> int:
 
     # Approval is the `approved` column in the Drafts tab (set it to yes/TRUE).
     approved = sheets.list_approved_pending()
-    log.info("%d drafts approved + pending", len(approved))
+    # Guard: never email anyone already contacted (skip duplicate approved drafts),
+    # and dedupe within this batch — protects against double-sends.
+    already = sheets.get_sent_emails()
+    queue: list = []
+    seen: set[str] = set()
+    for row_idx, draft in approved:
+        el = draft.lead_email.lower()
+        if el in already or el in seen:
+            log.info("Skipping %s: already contacted (duplicate draft)", draft.lead_email)
+            sheets.mark_draft_error(row_idx, "skipped: lead already contacted")
+            continue
+        seen.add(el)
+        queue.append((row_idx, draft))
+    log.info("%d approved; %d to send after dedupe (cap %d)", len(approved), len(queue), cap)
 
     from .gmail_send import GmailSender
     sender = GmailSender()
 
     sent_count = 0
     follow_up_count = 0
-    for row_idx, draft in approved[:cap]:
+    for row_idx, draft in queue[:cap]:
         try:
             msg_id, thread_id = sender.send(
                 to=draft.lead_email,
