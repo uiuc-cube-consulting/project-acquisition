@@ -12,13 +12,15 @@ Password (https://myaccount.google.com/apppasswords), then set:
 from __future__ import annotations
 
 import logging
+import mimetypes
 import os
 import smtplib
 import ssl
 import time
 from email.message import EmailMessage
 from email.utils import make_msgid
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Sequence
 
 log = logging.getLogger(__name__)
 
@@ -41,12 +43,17 @@ class GmailSender:
         in_reply_to: Optional[str] = None,
         thread_id: Optional[str] = None,
         dry_run: bool = False,
+        attachments: Optional[Sequence[str]] = None,
     ) -> tuple[str, str]:
         """Send an email via Gmail SMTP. Returns (message_id, thread_id).
 
         We don't read mailboxes, so thread_id is just the message-id (kept for
         signature compatibility and recorded in the Sheet). `in_reply_to` still
         threads follow-ups in the recipient's client via standard headers.
+
+        `attachments` is a list of file paths; each is attached with its
+        basename as the filename. Missing paths are logged and skipped so a
+        misconfigured attachment never blocks an outreach send.
         """
         msg = EmailMessage()
         msg["From"] = self.address
@@ -59,8 +66,13 @@ class GmailSender:
             msg["References"] = in_reply_to
         msg.set_content(body)
 
+        attached = self._attach(msg, attachments)
+
         if dry_run:
-            log.info("[DRY RUN] would send to=%s subject=%s len=%d", to, subject, len(body))
+            log.info(
+                "[DRY RUN] would send to=%s subject=%s len=%d attachments=%d",
+                to, subject, len(body), len(attached),
+            )
             return message_id, thread_id or message_id
 
         self._throttle()
@@ -70,6 +82,25 @@ class GmailSender:
             smtp.send_message(msg)
         log.info("Sent to %s", to)
         return message_id, thread_id or message_id
+
+    @staticmethod
+    def _attach(msg: EmailMessage, attachments: Optional[Sequence[str]]) -> list[str]:
+        """Attach each file path to `msg`. Returns the basenames actually added."""
+        added: list[str] = []
+        for path in attachments or []:
+            p = Path(path)
+            if not p.is_file():
+                log.warning("Attachment not found, skipping: %s", p)
+                continue
+            ctype, encoding = mimetypes.guess_type(p.name)
+            if ctype is None or encoding is not None:
+                ctype = "application/octet-stream"
+            maintype, subtype = ctype.split("/", 1)
+            msg.add_attachment(
+                p.read_bytes(), maintype=maintype, subtype=subtype, filename=p.name
+            )
+            added.append(p.name)
+        return added
 
     def _throttle(self) -> None:
         elapsed = time.time() - self._last_sent_at

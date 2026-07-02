@@ -30,6 +30,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -60,6 +61,21 @@ def _sender_identity() -> tuple[str, str]:
         os.environ.get("SENDER_NAME", "Raghav Taneja"),
         os.environ.get("SENDER_PHONE", "—"),
     )
+
+
+# Files attached to every outreach email. Resolved relative to the repo root so
+# the path works both locally and in the CI checkout; override with ATTACHMENT_PATH.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_ATTACHMENT = _REPO_ROOT / "CUBE Information Packet.pdf"
+
+
+def _outreach_attachments() -> list[str]:
+    override = os.environ.get("ATTACHMENT_PATH")
+    path = Path(override) if override else DEFAULT_ATTACHMENT
+    if not path.is_file():
+        log.warning("Outreach attachment not found, sending without it: %s", path)
+        return []
+    return [str(path)]
 
 
 # ---------------- prepare ----------------
@@ -262,6 +278,8 @@ def cmd_send(dry_run: bool) -> int:
 
     from .gmail_send import GmailSender
     sender = GmailSender()
+    # Attach the info packet on the first outreach email only, not follow-ups.
+    packet = _outreach_attachments()
 
     sent_count = 0
     follow_up_count = 0
@@ -273,6 +291,7 @@ def cmd_send(dry_run: bool) -> int:
                 body=draft.body,
                 in_reply_to=draft.in_reply_to,
                 dry_run=dry_run,
+                attachments=None if draft.is_follow_up else packet,
             )
         except Exception as exc:
             log.exception("Send failed for %s: %s", draft.lead_email, exc)
