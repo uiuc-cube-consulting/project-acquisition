@@ -229,8 +229,11 @@ def cmd_prepare(dry_run: bool) -> int:
     sheets.append_leads(leads_to_write)
     sheets.append_drafts(drafts_to_write)
 
-    # 6) Follow-ups for older sends (also written to Drafts for approval)
-    follow_ups = prepare_follow_ups(sender_name=sender_name)  # list[(row, Draft)]
+    # 6) Follow-ups are OFF by default — every slot goes to reaching NEW people;
+    #    re-emailing is handled manually. Set ENABLE_FOLLOW_UPS=1 to re-enable.
+    follow_ups: list = []
+    if os.environ.get("ENABLE_FOLLOW_UPS", "").strip().lower() in ("1", "true", "yes"):
+        follow_ups = prepare_follow_ups(sender_name=sender_name)  # list[(row, Draft)]
 
     # 7) Approval happens in the Sheet: review the Drafts tab and set the
     #    `approved` column to yes/TRUE on the rows to send. The send job mails
@@ -268,7 +271,8 @@ def cmd_send(dry_run: bool) -> int:
     seen: set[str] = set()
     for row_idx, draft in approved:
         el = draft.lead_email.lower()
-        if el in already or el in seen:
+        # Follow-ups are intentionally to already-contacted leads — let them through.
+        if not draft.is_follow_up and (el in already or el in seen):
             log.info("Skipping %s: already contacted (duplicate draft)", draft.lead_email)
             sheets.mark_draft_error(row_idx, "skipped: lead already contacted")
             continue
