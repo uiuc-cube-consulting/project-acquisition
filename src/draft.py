@@ -25,6 +25,19 @@ from .templates import (
 
 log = logging.getLogger(__name__)
 
+# Link to the CUBE info packet, appended to first-outreach emails (not follow-ups).
+# Replaces the old PDF attachment. Overridable so the URL can change per semester
+# without a code edit.
+PACKET_URL = os.environ.get("PACKET_URL", "http://tinyurl.com/cube-fall2026-packet")
+
+
+def _packet_line() -> str:
+    return (
+        "\n\nHere's our info packet with more about CUBE and our past work "
+        f"if you'd like to take a look: {PACKET_URL}"
+    )
+
+
 DRAFT_MODEL = "gemini-2.5-flash"
 DRAFT_SYSTEM = """You write cold outreach emails for CUBE Consulting, a student-run consulting group at the University of Illinois Urbana-Champaign (UIUC). Keep CUBE's voice: professional, warm, concise, and genuine — never salesy or stiff.
 
@@ -109,7 +122,7 @@ Return JSON only."""
             prepared_at=datetime.now(timezone.utc),
             template_used=template_type,
             subject=payload["subject"],
-            body=payload["body"] + footer,
+            body=payload["body"] + _packet_line() + footer,
         )
 
     def draft_follow_up(
