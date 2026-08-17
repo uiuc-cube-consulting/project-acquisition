@@ -1,8 +1,44 @@
 # CUBE Consulting — Project Acquisition Automation
 
-Automates CUBE's weekday client outreach: sources fresh leads, drafts personalized cold emails, writes them to a Google Sheet for review, and sends the ones you approve via Gmail — then emails you a short summary. Send-only: the pipeline never reads any inbox.
+Automates CUBE's weekday client outreach: sources fresh leads, drafts personalized cold emails, writes them to a Google Sheet for review, and sends the ones you approve via Gmail — then emails you a short summary. Afterwards it reads the mailbox (read-only) to record who replied, who bounced, and who was out of office, and turns all of it into a metrics dashboard.
 
 The only recurring human action required is **marking which drafts to send** in the Sheet each morning.
+
+## Metrics dashboard
+
+```bash
+python -m src.main replies      # scan the mailbox for replies + bounces (read-only)
+python -m src.main report       # build dashboard/index.html
+open dashboard/index.html
+```
+
+`report` writes a **single self-contained HTML file** — no server, no CDN, works
+offline — so it can be emailed, dropped in Slack, or published to GitHub Pages
+straight from `dashboard/`. It contains aggregate numbers and company names
+only: no contact names, no email addresses. `dashboard/data.json` holds the same
+figures for anything else you want to build.
+
+It answers the questions worth asking about the pipeline:
+
+| Metric | What it means |
+|---|---|
+| **Reply rate** | People who typed a real answer back, over **delivered** mail. Bounced addresses never reached a human, so counting them would understate the rate. |
+| **Interested replies** | Replies Gemini labelled positive — wants a call, asks a qualifying question, or names the right person. The front of the project pipeline. |
+| **Delivered / bounce rate** | How many sourced addresses actually exist. This is the accuracy half of lead sourcing, and it doubles as a sender-reputation warning: sustained bounce rates above ~5% get a sender throttled. |
+| **Apollo email find rate** | How often a lookup returns an address at all, and — multiplied by the delivered rate — the share of Apollo credits that reach a real person. |
+| **Funnel** | Sourced → drafted → sent → delivered → replied, with the conversion at each step. |
+| **Alumni bench / runway** | How many people are left on the Alumni tab and how many business days that lasts at the current pace. |
+
+Where the numbers come from: `replies` scans the sending mailbox over IMAP
+(read-only — it cannot delete, move, or mark anything), matches each message
+back to a lead by threading headers, subject, or sender, and sorts it into
+`bounce` / `auto_reply` / `human`. Results land in the **`Replies`** tab and are
+mirrored onto `Leads.status` / `Leads.replied_at`. Human replies are labelled
+positive / neutral / negative / unsubscribe by Gemini. The `send` job runs this
+automatically, so the numbers stay current without anyone remembering to.
+
+A plain-text version of the same figures is written to the **`Dashboard`** tab
+inside the Sheet (`python -m src.main stats`).
 
 ## How it works
 
@@ -11,7 +47,7 @@ Two GitHub Actions cron jobs run every weekday:
 | Job | Time (CT) | Does |
 |---|---|---|
 | `prepare` | 06:00 | Sources leads from Apollo (decision-makers) + the `Prospects`/CUBE alumni Sheets → dedupes → scores (UIUC alumni first) → drafts 15 personalized emails via Gemini → writes them to the `Drafts` tab for review |
-| `send` | 10:00 | Sends every `Drafts` row you marked `approved` (up to 10, throttled 1 every 30s) via Gmail SMTP → marks them sent → emails you a short summary |
+| `send` | 10:00 | Sends every `Drafts` row you marked `approved` (up to 10, throttled 1 every 30s) via Gmail SMTP → marks them sent → scans the mailbox for replies/bounces → emails you a short summary |
 
 This gives you a 4-hour window to review and approve before send.
 
@@ -20,15 +56,21 @@ This gives you a 4-hour window to review and approve before send.
 `prepare` writes each draft as a row in the **`Drafts`** tab. To approve one, set
 its **`approved`** column to `yes` (or `TRUE`). At 10am the `send` job mails
 exactly the rows marked approved and unsent — nothing else goes out; leave a row
-blank to skip it. The Sheet is the single source of truth, and the pipeline is
-**send-only** (it never reads any inbox, so there's no reply parsing).
+blank to skip it. The Sheet is the single source of truth. Sending is one-way
+(SMTP); the only inbox access anywhere in the pipeline is the read-only IMAP scan
+that records what came back, and it never approves or sends anything.
 
 ## Repository layout
 
 ```
 src/
-  main.py               # CLI: prepare / send / bootstrap
+  main.py               # CLI: prepare / send / replies / report / stats / bootstrap
   models.py             # Pydantic: Lead, Draft, Reply, TemplateType
+  metrics.py            # Every dashboard number, computed in one place
+  replies.py            # Read-only IMAP scan: replies / bounces / auto-replies
+  report.py             # Builds the standalone HTML dashboard
+  report_template.html  # That dashboard's markup, CSS and charts
+  dashboard.py          # Plain-text metrics into the Sheet's `Dashboard` tab
   templates.py          # 4 outreach templates copied from the docx
   past_projects.py      # Loads + matches past CUBE projects (credibility line)
   scoring.py            # Weighted lead scoring + hard filters
@@ -47,10 +89,25 @@ config/
   search_profiles.yaml  # Apollo search profiles (UIUC daily + rotated breadth)
 data/
   past_projects.json    # 102 past projects parsed from Past Projects.docx
+dashboard/
+  index.html            # Built by `report` — the shareable metrics page
+  data.json             # The same metrics as JSON
 .github/workflows/
   prepare.yml           # Cron 06:00 CT M-F
-  send.yml              # Cron 10:00 CT M-F
+  send.yml              # Cron 10:00 CT M-F (send + inbox scan)
 ```
+
+### Sheet tabs
+
+`Leads`, `Drafts`, `Alumni`, `Prospects`, `Suppression`, `Hot Leads`,
+`Approvals`, plus three the metrics rely on:
+
+- **`Replies`** — one row per person from the inbox scan: category (`human` /
+  `auto_reply` / `bounce`), sentiment, subject, snippet, bounce reason. Rebuilt
+  on every scan, so it is safe to delete.
+- **`Runs`** — one row per `prepare`: lookups attempted vs emails found. This is
+  what makes the Apollo find rate measured rather than inferred.
+- **`Dashboard`** — the plain-text metrics summary.
 
 ## One-time setup
 

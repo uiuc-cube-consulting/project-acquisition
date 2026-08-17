@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CUBE Outreach Metrics</title>
+<style>
+/* ------------------------------------------------------------------
+   Palette. Light values on :root; the dark steps are declared for both
+   the OS setting and an explicit toggle so neither can strand a color.
+   Categorical + ordinal ramps validated against both surfaces.
+------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+  --surface-1:      #fcfcfb;
+  --page:           #f9f9f7;
+  --text-primary:   #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted:     #898781;
+  --gridline:       #e1e0d9;
+  --baseline:       #c3c2b7;
+  --border:         rgba(11,11,11,0.10);
+  --series-1:       #2a78d6;
+  --series-2:       #eb6834;
+  --neutral-mark:   #c3c2b7;
+  --good:           #0ca30c;
+  --warning:        #fab219;
+  --critical:       #d03b3b;
+  --success-text:   #006300;
+  --ramp-1: #86b6ef; --ramp-2: #5598e7; --ramp-3: #2a78d6;
+  --ramp-4: #1c5cab; --ramp-5: #104281;
+  --shadow: 0 1px 2px rgba(11,11,11,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --series-2:       #d95926;
+    --neutral-mark:   #4a4a46;
+    --success-text:   #0ca30c;
+    --ramp-1: #184f95; --ramp-2: #256abf; --ramp-3: #3987e5;
+    --ramp-4: #6da7ec; --ramp-5: #9ec5f4;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1:      #1a1a19;
+  --page:           #0d0d0d;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --gridline:       #2c2c2a;
+  --baseline:       #383835;
+  --border:         rgba(255,255,255,0.10);
+  --series-1:       #3987e5;
+  --series-2:       #d95926;
+  --neutral-mark:   #4a4a46;
+  --success-text:   #0ca30c;
+  --ramp-1: #184f95; --ramp-2: #256abf; --ramp-3: #3987e5;
+  --ramp-4: #6da7ec; --ramp-5: #9ec5f4;
+  --shadow: none;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: 32px 20px 64px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; }
+
+/* ---------- header ---------- */
+header { margin-bottom: 28px; }
+.eyebrow {
+  font-size: 12px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 600; margin: 0 0 6px;
+}
+h1 { font-size: 27px; line-height: 1.2; margin: 0 0 8px; font-weight: 650; letter-spacing: -0.01em; }
+.subtitle { color: var(--text-secondary); margin: 0; font-size: 14px; }
+.header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+button.ghost {
+  font: inherit; font-size: 13px; color: var(--text-secondary);
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 13px; cursor: pointer; min-height: 34px;
+}
+button.ghost:hover { color: var(--text-primary); border-color: var(--baseline); }
+button.ghost[aria-pressed="true"] { color: var(--text-primary); border-color: var(--baseline); font-weight: 600; }
+
+/* ---------- cards ---------- */
+.card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; box-shadow: var(--shadow);
+}
+.card h3 { margin: 0 0 3px; font-size: 15px; font-weight: 640; letter-spacing: -0.005em; }
+.card .note { margin: 0 0 16px; font-size: 13px; color: var(--text-secondary); }
+.card .note.tight { margin-bottom: 8px; }
+
+/* ---------- hero ---------- */
+.hero { display: flex; gap: 40px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 18px; }
+.hero-figure { font-size: 60px; line-height: 1; font-weight: 660; letter-spacing: -0.025em; }
+.hero-label { font-size: 14px; color: var(--text-secondary); margin-top: 8px; }
+.hero-side { display: flex; gap: 34px; flex-wrap: wrap; padding-bottom: 4px; }
+.hero-side div span { display: block; }
+.hero-side .v { font-size: 21px; font-weight: 620; letter-spacing: -0.01em; }
+.hero-side .k { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ---------- stat tiles ---------- */
+/* Fixed column counts, not auto-fit: the tile rows are sized in threes so a
+   six-tile group never leaves a single orphan on its own row. */
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 30px; }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .kpis { grid-template-columns: 1fr; } }
+.tile .label { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 7px; }
+.tile .value { font-size: 30px; font-weight: 640; line-height: 1.05; letter-spacing: -0.02em; }
+.tile .sub { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
+.tile .delta { font-size: 12.5px; margin-top: 6px; font-weight: 560; }
+.delta.up { color: var(--success-text); }
+.delta.down { color: var(--critical); }
+
+/* ---------- sections ---------- */
+h2 {
+  font-size: 12px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 650;
+  margin: 34px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--gridline);
+}
+.grid { display: grid; gap: 16px; }
+/* align-items:start so a short chart card doesn't stretch to match a long
+   table beside it and end up mostly empty space. */
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); align-items: start; }
+.grid.wide { grid-template-columns: 1fr; }
+
+/* ---------- charts ---------- */
+.chart { width: 100%; overflow-x: auto; }
+.chart svg { display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; font-size: 12.5px; color: var(--text-secondary); }
+.legend span.item { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; flex: none; }
+
+/* ---------- table view ---------- */
+.table-view { display: none; margin-top: 16px; overflow-x: auto; }
+body.show-tables .table-view { display: block; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--gridline); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+th { color: var(--text-secondary); font-weight: 600; font-size: 12px; }
+td { font-variant-numeric: tabular-nums; color: var(--text-primary); }
+tbody tr:last-child td { border-bottom: none; }
+.always-table { display: block; }
+
+/* ---------- callout ---------- */
+.callout {
+  display: flex; gap: 12px; align-items: flex-start;
+  border-left: 3px solid var(--warning); background: var(--surface-1);
+  border-radius: 0 10px 10px 0; padding: 14px 18px; margin-bottom: 20px;
+  border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.callout.good { border-left-color: var(--good); }
+.callout .ico { font-size: 15px; line-height: 1.45; }
+.callout p { margin: 0; font-size: 13.5px; color: var(--text-secondary); }
+.callout strong { color: var(--text-primary); }
+
+/* ---------- tooltip ---------- */
+#tip {
+  position: fixed; pointer-events: none; opacity: 0; transition: opacity .1s;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 11px; font-size: 12.5px; color: var(--text-primary);
+  box-shadow: 0 4px 14px rgba(0,0,0,.14); z-index: 20; max-width: 260px;
+}
+#tip .t-title { font-weight: 620; margin-bottom: 3px; }
+#tip .t-row { color: var(--text-secondary); }
+.mark { cursor: default; }
+.mark:focus { outline: 2px solid var(--series-1); outline-offset: 2px; }
+
+footer { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--gridline); font-size: 12.5px; color: var(--text-muted); }
+footer p { margin: 0 0 7px; }
+footer code { font-size: 12px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+
+@media (max-width: 640px) {
+  body { padding: 22px 14px 44px; }
+  .hero-figure { font-size: 46px; }
+  .hero { gap: 22px; }
+}
+</style>
+</head>
+<body>
+<div id="tip" role="tooltip" aria-hidden="true"></div>
+<div class="wrap">
+  <header>
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">CUBE Consulting · Project acquisition</p>
+        <h1>Outreach performance</h1>
+        <p class="subtitle" id="subtitle"></p>
+      </div>
+      <button class="ghost" id="tableToggle" aria-pressed="false">Show data tables</button>
+    </div>
+  </header>
+
+  <section class="card hero-card" style="margin-bottom:14px">
+    <div class="hero">
+      <div>
+        <div class="hero-figure" id="heroValue">—</div>
+        <div class="hero-label" id="heroLabel"></div>
+      </div>
+      <div class="hero-side" id="heroSide"></div>
+    </div>
+  </section>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div id="alerts"></div>
+
+  <h2>Does the outreach land?</h2>
+  <div class="grid wide">
+    <section class="card">
+      <h3>What happened to every email we sent</h3>
+      <p class="note">Each of the <b id="outcomeTotal"></b> people we emailed, by the strongest response we got back. Bounced addresses never reached anyone — they are excluded from the reply-rate denominator everywhere else on this page.</p>
+      <div class="chart" id="outcomeChart"></div>
+      <div class="legend" id="outcomeLegend"></div>
+      <div class="table-view" id="outcomeTable"></div>
+    </section>
+  </div>
+
+  <div class="grid two" style="margin-top:16px">
+    <section class="card">
+      <h3>What the replies actually said</h3>
+      <p class="note">Every human reply, labelled by Gemini. "Interested" is the number that matters — it is the front of the project pipeline. Replies Gemini could not label fall into the neutral block.</p>
+      <div class="chart" id="sentimentChart"></div>
+      <div class="legend" id="sentimentLegend"></div>
+      <div class="table-view" id="sentimentTable"></div>
+    </section>
+    <section class="card">
+      <h3>Outreach funnel</h3>
+      <p class="note">Initial outreach only, from sourced lead to human reply.</p>
+      <div class="chart" id="funnelChart"></div>
+      <div class="table-view" id="funnelTable"></div>
+    </section>
+  </div>
+
+  <h2>Volume &amp; consistency</h2>
+  <div class="grid wide">
+    <section class="card">
+      <h3>Emails sent per week</h3>
+      <p class="note" id="volumeNote"></p>
+      <div class="chart" id="weeklyChart"></div>
+      <div class="table-view" id="weeklyTable"></div>
+    </section>
+  </div>
+
+  <h2>Can we find the emails?</h2>
+  <div class="grid two">
+    <section class="card">
+      <h3>Apollo email lookups</h3>
+      <p class="note" id="apolloNote"></p>
+      <div class="chart" id="apolloChart"></div>
+      <div class="legend" id="apolloLegend"></div>
+      <div class="table-view" id="apolloTable"></div>
+    </section>
+    <section class="card">
+      <h3>One Apollo credit, end to end</h3>
+      <p class="note">A credit is only worth spending if it returns an address that exists. These two rates multiply into the real yield.</p>
+      <div class="chart" id="yieldChart"></div>
+      <div class="table-view" id="yieldTable"></div>
+    </section>
+  </div>
+
+  <h2>Who responds</h2>
+  <div class="grid wide">
+    <section class="card">
+      <h3>Performance by lead source</h3>
+      <p class="note">Reply rate is measured against delivered mail, so a source is not punished for addresses that bounced — the bounce rate column carries that separately.</p>
+      <div class="always-table" id="segmentTable"></div>
+    </section>
+  </div>
+
+  <div class="grid two" style="margin-top:16px">
+    <section class="card">
+      <h3>Industries reached</h3>
+      <p class="note tight">People emailed, by their company's industry.</p>
+      <div class="chart" id="industryChart"></div>
+      <div class="table-view" id="industryTable"></div>
+    </section>
+    <section class="card">
+      <h3>Most-contacted companies</h3>
+      <p class="note tight">Where multiple people at one company were emailed.</p>
+      <div class="always-table" id="companyTable"></div>
+    </section>
+  </div>
+
+  <h2>Pipeline health</h2>
+  <div class="kpis" id="health"></div>
+
+  <footer>
+    <p id="footerGenerated"></p>
+    <p>Reply, bounce and auto-reply counts come from a read-only scan of the sending mailbox (<code>python -m src.main replies</code>), matched back to the leads we emailed. Everything else is computed from the outreach Sheet. Rebuild this page with <code>python -m src.main report</code>.</p>
+    <p>Rates use delivered mail as the denominator unless stated otherwise. One row per person: someone who auto-replied and later wrote back counts once, as a reply.</p>
+  </footer>
+</div>
+
+<script>
+const M = {"generated_at": "2026-08-17T16:09:26+00:00", "window": {"first_send": "2026-06-21", "last_send": "2026-08-17", "weekdays": 41}, "headline": {"emails_sent": 484, "people_reached": 479, "companies_reached": 400, "leads_sourced": 491, "drafts_written": 663, "follow_ups_sent": 5, "last_7": 65, "prior_7": 77, "last_30": 229, "active_days": 40, "avg_per_active_day": 12.1, "day_coverage": 0.975609756097561, "alumni_share": 0.8851774530271399}, "reply": {"tracked": true, "responses": 19, "rate": 0.04337899543378995, "interested": 10, "interested_rate": 0.0228310502283105, "auto_replies": 12, "engaged": 31, "engagement_rate": 0.07077625570776255, "sentiment": [{"label": "positive", "count": 10}, {"label": "neutral", "count": 6}, {"label": "negative", "count": 2}], "by_audience": [{"label": "UIUC alumni", "sent": 424, "delivered": 384, "bounced": 40, "replies": 17, "reply_rate": 0.044270833333333336, "bounce_rate": 0.09433962264150944}, {"label": "Non-alumni", "sent": 55, "delivered": 54, "bounced": 1, "replies": 2, "reply_rate": 0.037037037037037035, "bounce_rate": 0.01818181818181818}], "by_source": [{"label": "alumni_input", "sent": 424, "delivered": 384, "bounced": 40, "replies": 17, "reply_rate": 0.044270833333333336, "bounce_rate": 0.09433962264150944}, {"label": "tech_founders", "sent": 28, "delivered": 28, "bounced": 0, "replies": 1, "reply_rate": 0.03571428571428571, "bounce_rate": 0.0}, {"label": "illinois_executives", "sent": 26, "delivered": 25, "bounced": 1, "replies": 1, "reply_rate": 0.04, "bounce_rate": 0.038461538461538464}, {"label": "unknown", "sent": 1, "delivered": 1, "bounced": 0, "replies": 0, "reply_rate": 0.0, "bounce_rate": 0.0}]}, "deliverability": {"sent": 479, "delivered": 438, "bounced": 41, "bounce_rate": 0.08559498956158663, "delivered_rate": 0.9144050104384134}, "apollo": {"find_rate": 0.7453936348408711, "basis": "alumni_tab", "attempted": 597, "found": 445, "lookup_breakdown": [{"label": "Email found", "count": 445, "state": "good"}, {"label": "No email available", "count": 152, "state": "critical"}, {"label": "Not looked up yet", "count": 15, "state": "pending"}], "alumni_rows": 612, "discovery_leads": 58, "runs_logged": 0, "bounced": 41, "bounce_rate": 0.08559498956158663, "deliverable_rate": 0.9144050104384134, "usable_rate": 0.6815916744473935}, "funnel": [{"stage": "Leads sourced", "count": 491, "from_prev": null, "from_top": 1.0}, {"stage": "Emails drafted", "count": 491, "from_prev": 1.0, "from_top": 1.0}, {"stage": "Emails sent", "count": 479, "from_prev": 0.9755600814663951, "from_top": 0.9755600814663951}, {"stage": "Delivered", "count": 438, "from_prev": 0.9144050104384134, "from_top": 0.8920570264765784}, {"stage": "Replied", "count": 19, "from_prev": 0.04337899543378995, "from_top": 0.038696537678207736}], "timeline": {"weekly": [{"week_start": "2026-06-15", "label": "Jun 15", "sent": 1, "drafted": 4}, {"week_start": "2026-06-22", "label": "Jun 22", "sent": 82, "drafted": 103}, {"week_start": "2026-06-29", "label": "Jun 29", "sent": 60, "drafted": 167}, {"week_start": "2026-07-06", "label": "Jul 6", "sent": 72, "drafted": 117}, {"week_start": "2026-07-13", "label": "Jul 13", "sent": 40, "drafted": 35}, {"week_start": "2026-07-20", "label": "Jul 20", "sent": 55, "drafted": 55}, {"week_start": "2026-07-27", "label": "Jul 27", "sent": 24, "drafted": 30}, {"week_start": "2026-08-03", "label": "Aug 3", "sent": 70, "drafted": 64}, {"week_start": "2026-08-10", "label": "Aug 10", "sent": 73, "drafted": 73}, {"week_start": "2026-08-17", "label": "Aug 17", "sent": 7, "drafted": 15}], "daily": [{"date": "2026-06-21", "sent": 1}, {"date": "2026-06-22", "sent": 5}, {"date": "2026-06-23", "sent": 15}, {"date": "2026-06-24", "sent": 2}, {"date": "2026-06-25", "sent": 30}, {"date": "2026-06-26", "sent": 15}, {"date": "2026-06-27", "sent": 15}, {"date": "2026-06-29", "sent": 15}, {"date": "2026-06-30", "sent": 15}, {"date": "2026-07-01", "sent": 15}, {"date": "2026-07-02", "sent": 15}, {"date": "2026-07-06", "sent": 15}, {"date": "2026-07-07", "sent": 15}, {"date": "2026-07-08", "sent": 28}, {"date": "2026-07-09", "sent": 12}, {"date": "2026-07-10", "sent": 2}, {"date": "2026-07-13", "sent": 11}, {"date": "2026-07-14", "sent": 15}, {"date": "2026-07-15", "sent": 12}, {"date": "2026-07-16", "sent": 1}, {"date": "2026-07-17", "sent": 1}, {"date": "2026-07-20", "sent": 15}, {"date": "2026-07-21", "sent": 8}, {"date": "2026-07-22", "sent": 2}, {"date": "2026-07-23", "sent": 6}, {"date": "2026-07-24", "sent": 24}, {"date": "2026-07-27", "sent": 15}, {"date": "2026-07-28", "sent": 9}, {"date": "2026-08-03", "sent": 8}, {"date": "2026-08-04", "sent": 2}, {"date": "2026-08-05", "sent": 15}, {"date": "2026-08-06", "sent": 15}, {"date": "2026-08-07", "sent": 15}, {"date": "2026-08-09", "sent": 15}, {"date": "2026-08-10", "sent": 15}, {"date": "2026-08-11", "sent": 13}, {"date": "2026-08-12", "sent": 15}, {"date": "2026-08-13", "sent": 15}, {"date": "2026-08-14", "sent": 15}, {"date": "2026-08-17", "sent": 7}]}, "quality": {"approval_rate": 0.9918533604887984, "send_success_rate": 0.9897750511247444, "failed_sends": 5, "skipped_duplicates": 6, "errors": [{"label": "Username and Password not accepted", "count": 5}], "suppressed": 0}, "mix": {"sources": [{"label": "alumni_input", "sent": 424, "delivered": 384, "bounced": 40, "replies": 17, "reply_rate": 0.044270833333333336, "bounce_rate": 0.09433962264150944}, {"label": "tech_founders", "sent": 28, "delivered": 28, "bounced": 0, "replies": 1, "reply_rate": 0.03571428571428571, "bounce_rate": 0.0}, {"label": "illinois_executives", "sent": 26, "delivered": 25, "bounced": 1, "replies": 1, "reply_rate": 0.04, "bounce_rate": 0.038461538461538464}, {"label": "unknown", "sent": 1, "delivered": 1, "bounced": 0, "replies": 0, "reply_rate": 0.0, "bounce_rate": 0.0}], "templates": [{"label": "Business", "count": 390}, {"label": "Technical software", "count": 72}, {"label": "Technical engineering", "count": 21}, {"label": "Hybrid product", "count": 1}], "industries": [{"label": "Information Technology & Services", "count": 71}, {"label": "Management Consulting", "count": 44}, {"label": "Financial Services", "count": 43}, {"label": "Professional Training & Coaching", "count": 16}, {"label": "Hospital & Health Care", "count": 16}, {"label": "Marketing & Advertising", "count": 11}, {"label": "Real Estate", "count": 10}, {"label": "Accounting", "count": 8}], "companies": [{"label": "PwC", "count": 11}, {"label": "Deloitte", "count": 5}, {"label": "Microsoft", "count": 5}, {"label": "Medline", "count": 5}, {"label": "bp", "count": 4}, {"label": "United Airlines", "count": 4}, {"label": "Huron", "count": 4}, {"label": "Grainger", "count": 3}, {"label": "Northwestern Medicine", "count": 3}, {"label": "Starcom", "count": 3}, {"label": "Northern Trust", "count": 3}, {"label": "FTI Consulting", "count": 3}]}, "runway": {"bench_ready": 1, "bench_unlooked": 15, "projected_contacts": 12, "daily_pace": 10.4, "business_days_left": 1.2, "awaiting_approval": 4, "approved_unsent": 8, "stale_follow_up_drafts": 167}};
+
+/* ---------------- formatting ---------------- */
+const pct = (v, digits = 1) => v === null || v === undefined ? "—" : (v * 100).toFixed(digits).replace(/\.0$/, "") + "%";
+const num = v => (v === null || v === undefined) ? "—" : v.toLocaleString("en-US");
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const prettySource = s => ({
+  alumni_input: "UIUC alumni list",
+  illinois_executives: "Apollo — Illinois execs",
+  tech_founders: "Apollo — tech founders",
+  prospects_sheet: "Prospects tab",
+  cube_alumni_sheet: "CUBE alumni sheet",
+  unknown: "Unknown",
+}[s] || s.replace(/_/g, " "));
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmtDate = iso => {
+  if (!iso) return "—";
+  const d = new Date(iso + (iso.length === 10 ? "T12:00:00Z" : ""));
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+};
+
+/* ---------------- svg helpers ---------------- */
+const NS = "http://www.w3.org/2000/svg";
+function sv(tag, attrs = {}) {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) n.setAttribute(k, attrs[k]);
+  return n;
+}
+function txt(x, y, s, o = {}) {
+  const t = sv("text", { x, y, fill: o.fill || "var(--text-secondary)", "font-size": o.size || 12,
+    "text-anchor": o.anchor || "start", "font-weight": o.weight || 400,
+    "dominant-baseline": o.baseline || "auto" });
+  if (o.tabular) t.style.fontVariantNumeric = "tabular-nums";
+  t.textContent = s;
+  return t;
+}
+/* A rect with rounded ends only on the data end, square at the baseline. */
+function bar(x, y, w, h, r, dir) {
+  if (w <= 0 || h <= 0) return sv("rect", { x, y, width: Math.max(w, 0), height: Math.max(h, 0) });
+  r = Math.min(r, dir === "up" ? w / 2 : h / 2, dir === "up" ? h : w);
+  let d;
+  if (dir === "up") {
+    d = `M${x},${y + h} L${x},${y + r} Q${x},${y} ${x + r},${y} L${x + w - r},${y} Q${x + w},${y} ${x + w},${y + r} L${x + w},${y + h} Z`;
+  } else {
+    d = `M${x},${y} L${x + w - r},${y} Q${x + w},${y} ${x + w},${y + r} L${x + w},${y + h - r} Q${x + w},${y + h} ${x + w - r},${y + h} L${x},${y + h} Z`;
+  }
+  return sv("path", { d });
+}
+
+/* ---------------- tooltip ---------------- */
+const tip = document.getElementById("tip");
+/* The tip is position:fixed, so scrolling the page out from under the cursor
+   never fires mouseleave and would strand it on screen. */
+addEventListener("scroll", () => { tip.style.opacity = "0"; }, { passive: true });
+function attachTip(node, title, rows) {
+  node.classList.add("mark");
+  node.setAttribute("tabindex", "0");
+  node.setAttribute("role", "img");
+  node.setAttribute("aria-label", `${title}. ${rows.join(". ")}`);
+  const show = e => {
+    tip.innerHTML = `<div class="t-title"></div>${rows.map(() => '<div class="t-row"></div>').join("")}`;
+    tip.querySelector(".t-title").textContent = title;
+    tip.querySelectorAll(".t-row").forEach((el, i) => { el.textContent = rows[i]; });
+    tip.style.opacity = "1";
+    const box = node.getBoundingClientRect();
+    const x = e && e.clientX !== undefined ? e.clientX : box.left + box.width / 2;
+    const y = e && e.clientY !== undefined ? e.clientY : box.top;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.min(Math.max(8, x - w / 2), innerWidth - w - 8) + "px";
+    tip.style.top = (y - h - 12 < 8 ? y + 18 : y - h - 12) + "px";
+  };
+  const hide = () => { tip.style.opacity = "0"; };
+  node.addEventListener("mouseenter", show);
+  node.addEventListener("mousemove", show);
+  node.addEventListener("mouseleave", hide);
+  node.addEventListener("focus", show);
+  node.addEventListener("blur", hide);
+}
+
+/* ---------------- table view ---------------- */
+function renderTable(host, cols, rows) {
+  const t = document.createElement("table");
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  cols.forEach(c => { const th = document.createElement("th"); th.textContent = c; hr.appendChild(th); });
+  thead.appendChild(hr);
+  const tb = document.createElement("tbody");
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    r.forEach(v => { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); });
+    tb.appendChild(tr);
+  });
+  t.append(thead, tb);
+  host.replaceChildren(t);
+}
+function legend(host, items) {
+  host.replaceChildren(...items.map(it => {
+    const s = document.createElement("span");
+    s.className = "item";
+    const i = document.createElement("i");
+    i.style.background = it.color;
+    const label = document.createElement("span");
+    label.textContent = it.label;
+    s.append(i, label);
+    return s;
+  }));
+}
+
+/* ================= charts ================= */
+
+/* Single horizontal stacked bar — part-to-whole with a 2px surface gap. */
+function stackedBar(host, segments, opts = {}) {
+  const W = host.clientWidth || 640;
+  const H = opts.height || 74, barH = opts.barH || 42, GAP = 2;
+  const total = segments.reduce((a, s) => a + s.value, 0) || 1;
+  const svg = sv("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+  let x = 0;
+  segments.forEach((s, i) => {
+    const raw = (s.value / total) * W;
+    const w = Math.max(0, raw - (i < segments.length - 1 ? GAP : 0));
+    const g = sv("g");
+    const r = sv("rect", { x, y: 0, width: w, height: barH, rx: 4, fill: s.color });
+    g.appendChild(r);
+    /* Only label inside the segment when the text genuinely fits. */
+    const label = `${num(s.value)}`;
+    if (w > 34) {
+      g.appendChild(txt(x + w / 2, barH / 2 + 1, label, {
+        anchor: "middle", baseline: "middle", size: 12.5, weight: 600, fill: s.ink || "#fff",
+      }));
+    }
+    attachTip(g, s.label, [`${num(s.value)} people`, `${pct(s.value / total)} of ${num(total)}`]);
+    svg.appendChild(g);
+    /* Below-bar label for the wider segments; the rest live in the legend. */
+    if (w > 76) {
+      svg.appendChild(txt(x, barH + 20, s.label, { size: 12.5, fill: "var(--text-secondary)" }));
+      svg.appendChild(txt(x, barH + 36, pct(s.value / total), { size: 12, fill: "var(--text-muted)", tabular: true }));
+    }
+    x += raw;
+  });
+  host.replaceChildren(svg);
+}
+
+/* Diverging stacked bar centred on the neutral block. */
+function divergingBar(host, neg, neu, pos, colors) {
+  const W = host.clientWidth || 520;
+  const H = 96, barH = 40, GAP = 2, PAD = 4;
+  const total = neg + neu + pos || 1;
+  const usable = W - PAD * 2;
+  const svg = sv("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+  const unit = usable / total;
+  /* Centre = middle of the neutral block, so the two arms read against a fixed axis. */
+  const centre = W / 2;
+  const negW = neg * unit, neuW = neu * unit, posW = pos * unit;
+  const startX = centre - neuW / 2 - negW;
+
+  const blocks = [
+    { x: startX, w: negW, c: colors.negative, label: "Negative", v: neg },
+    { x: startX + negW, w: neuW, c: colors.neutral, label: "Neutral", v: neu },
+    { x: startX + negW + neuW, w: posW, c: colors.positive, label: "Interested", v: pos },
+  ];
+  svg.appendChild(sv("line", { x1: centre, y1: 0, x2: centre, y2: barH + 8, stroke: "var(--baseline)", "stroke-width": 1 }));
+  blocks.forEach((b, i) => {
+    if (b.w <= 0) return;
+    const w = Math.max(0, b.w - (i < 2 && blocks[i + 1].w > 0 ? GAP : 0));
+    const g = sv("g");
+    g.appendChild(sv("rect", { x: b.x, y: 4, width: w, height: barH, rx: 4, fill: b.c }));
+    if (w > 26) {
+      g.appendChild(txt(b.x + w / 2, 4 + barH / 2 + 1, String(b.v), {
+        anchor: "middle", baseline: "middle", size: 13, weight: 620,
+        fill: b.label === "Neutral" ? "var(--text-primary)" : "#fff",
+      }));
+    }
+    attachTip(g, b.label, [`${b.v} of ${total} replies`, pct(b.v / total)]);
+    svg.appendChild(g);
+  });
+  /* Under-bar labels only where the text fits the block without colliding. */
+  blocks.forEach(b => {
+    if (b.w > 0 && _measure(b.label, 12.5) + 8 <= b.w) {
+      svg.appendChild(txt(b.x + b.w / 2, barH + 26, b.label, { anchor: "middle", size: 12.5 }));
+    }
+  });
+  host.replaceChildren(svg);
+}
+
+/* Column chart over time — one series, so no legend box. */
+function columnChart(host, data, opts = {}) {
+  const W = Math.max(host.clientWidth || 640, data.length * 26);
+  const PAD = { t: 18, r: 12, b: 46, l: 40 };
+  const H = (opts.height || 260);
+  const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
+  const max = Math.max(...data.map(d => d.value), 1);
+  const ticks = niceTicks(max, 4);
+  const scale = v => plotH - (v / ticks[ticks.length - 1]) * plotH;
+  const band = plotW / data.length;
+  const bw = Math.min(24, band - 8);
+  const svg = sv("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+
+  ticks.forEach(t => {
+    const y = PAD.t + scale(t);
+    svg.appendChild(sv("line", { x1: PAD.l, y1: y, x2: W - PAD.r, y2: y,
+      stroke: t === 0 ? "var(--baseline)" : "var(--gridline)", "stroke-width": 1 }));
+    svg.appendChild(txt(PAD.l - 9, y + 4, num(t), { anchor: "end", size: 11.5, fill: "var(--text-muted)", tabular: true }));
+  });
+
+  const maxIdx = data.reduce((best, d, i) => d.value > data[best].value ? i : best, 0);
+  data.forEach((d, i) => {
+    const x = PAD.l + i * band + (band - bw) / 2;
+    const y = PAD.t + scale(d.value);
+    const h = plotH - scale(d.value);
+    const g = sv("g");
+    if (h > 0) {
+      const p = bar(x, y, bw, h, 4, "up");
+      p.setAttribute("fill", opts.color || "var(--series-1)");
+      g.appendChild(p);
+    }
+    /* Generous hit target: the whole band, not just the 24px column. */
+    const hit = sv("rect", { x: PAD.l + i * band, y: PAD.t, width: band, height: plotH, fill: "transparent" });
+    g.appendChild(hit);
+    attachTip(g, d.label, [`${num(d.value)} ${opts.unit || "emails"}`].concat(d.extra || []));
+    svg.appendChild(g);
+    /* Label the peak and the final column only. */
+    if ((i === maxIdx || i === data.length - 1) && d.value > 0) {
+      svg.appendChild(txt(x + bw / 2, y - 7, num(d.value), {
+        anchor: "middle", size: 12, weight: 620, fill: "var(--text-primary)", tabular: true }));
+    }
+    if (data.length <= 14 || i % Math.ceil(data.length / 12) === 0) {
+      svg.appendChild(txt(PAD.l + i * band + band / 2, H - PAD.b + 20, d.label,
+        { anchor: "middle", size: 11.5, fill: "var(--text-muted)" }));
+    }
+  });
+  if (opts.axisLabel) {
+    svg.appendChild(txt(PAD.l, H - 8, opts.axisLabel, { size: 11.5, fill: "var(--text-muted)" }));
+  }
+  host.replaceChildren(svg);
+}
+
+/* Measure text properly so a label is never clipped by its gutter. */
+const _measure = (() => {
+  const c = document.createElement("canvas").getContext("2d");
+  return (s, size = 12.5, weight = 400) => {
+    c.font = `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    return c.measureText(s).width;
+  };
+})();
+function ellipsize(s, maxW, size) {
+  if (_measure(s, size) <= maxW) return s;
+  let lo = 0, hi = s.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (_measure(s.slice(0, mid) + "…", size) <= maxW) lo = mid; else hi = mid - 1;
+  }
+  return s.slice(0, lo).trimEnd() + "…";
+}
+
+/* Horizontal bars. One hue for nominal categories; an ordinal ramp for stages. */
+function barChart(host, data, opts = {}) {
+  const W = host.clientWidth || 520;
+  const size = 12.5;
+  const rowH = opts.rowH || 34, barH = Math.min(20, rowH - 12);
+  const H = data.length * rowH + 8;
+  const valueW = Math.max(46, ...data.map(d => _measure(d.valueLabel || num(d.value), size, 560) + 14));
+  /* The label gutter takes what the longest label needs, capped at 42% of the
+     card so the bars keep room; anything longer is ellipsized (full text stays
+     in the tooltip and the table view). */
+  /* +18 keeps the widest label clear of the 10px gutter AND the 14px the
+     ellipsizer reserves — anything tighter clips the longest label by a hair. */
+  const longest = Math.max(...data.map(d => _measure(d.label, size)));
+  const labelW = Math.min(Math.max(opts.minLabelW || 90, longest + 18), W * 0.42);
+  const plotW = Math.max(60, W - labelW - valueW);
+  const max = opts.max || Math.max(...data.map(d => d.value), 1);
+  const svg = sv("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}` });
+  data.forEach((d, i) => {
+    const y = i * rowH + 6;
+    const w = (d.value / max) * plotW;
+    const g = sv("g");
+    const p = bar(labelW, y, w, barH, 4, "right");
+    p.setAttribute("fill", d.color || opts.color || "var(--series-1)");
+    g.appendChild(p);
+    g.appendChild(sv("rect", { x: 0, y: y - 6, width: W, height: rowH, fill: "transparent" }));
+    attachTip(g, d.label, (d.tip || [`${num(d.value)} ${opts.unit || ""}`.trim()]));
+    svg.appendChild(g);
+    svg.appendChild(txt(labelW - 10, y + barH / 2 + 1, ellipsize(d.label, labelW - 14, size),
+      { anchor: "end", baseline: "middle", size, fill: "var(--text-secondary)" }));
+    svg.appendChild(txt(labelW + w + 8, y + barH / 2 + 1, d.valueLabel || num(d.value),
+      { baseline: "middle", size, weight: 560, fill: "var(--text-primary)", tabular: true }));
+  });
+  host.replaceChildren(svg);
+}
+
+function niceTicks(max, count) {
+  const raw = max / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || mag * 10;
+  const out = [];
+  for (let v = 0; v <= max + step * 0.001; v += step) out.push(Math.round(v * 100) / 100);
+  if (out[out.length - 1] < max) out.push(out[out.length - 1] + step);
+  return out;
+}
+
+/* ================= page ================= */
+function tile(label, value, sub, delta) {
+  const d = document.createElement("div");
+  d.className = "card tile";
+  const l = document.createElement("div"); l.className = "label"; l.textContent = label;
+  const v = document.createElement("div"); v.className = "value"; v.textContent = value;
+  d.append(l, v);
+  if (sub) { const s = document.createElement("div"); s.className = "sub"; s.textContent = sub; d.appendChild(s); }
+  if (delta) {
+    const s = document.createElement("div");
+    s.className = "delta " + delta.dir;
+    s.textContent = delta.text;
+    d.appendChild(s);
+  }
+  return d;
+}
+
+function renderStatic() {
+  const h = M.headline, w = M.window, r = M.reply, dl = M.deliverability, ap = M.apollo, q = M.quality, rw = M.runway;
+
+  document.getElementById("subtitle").textContent =
+    `${fmtDate(w.first_send)} – ${fmtDate(w.last_send)} · ${num(h.active_days)} sending days`;
+  document.getElementById("footerGenerated").textContent =
+    "Generated " + new Date(M.generated_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) +
+    ". This page is a snapshot — the numbers do not update on their own.";
+
+  document.getElementById("heroValue").textContent = num(h.emails_sent);
+  document.getElementById("heroLabel").textContent = "emails sent since " + fmtDate(w.first_send);
+  const side = [
+    ["People reached", num(h.people_reached)],
+    ["Companies", num(h.companies_reached)],
+    ["Avg / sending day", h.avg_per_active_day],
+    ["UIUC alumni share", pct(h.alumni_share, 0)],
+  ];
+  document.getElementById("heroSide").replaceChildren(...side.map(([k, v]) => {
+    const d = document.createElement("div");
+    const a = document.createElement("span"); a.className = "v"; a.textContent = v;
+    const b = document.createElement("span"); b.className = "k"; b.textContent = k;
+    d.append(a, b);
+    return d;
+  }));
+
+  /* --- KPI row --- */
+  const weekDelta = h.last_7 - h.prior_7;
+  document.getElementById("kpis").replaceChildren(
+    tile("Reply rate", pct(r.rate), `${num(r.responses)} people replied of ${num(dl.delivered)} delivered`),
+    tile("Interested replies", num(r.interested), `${pct(r.interested_rate)} of delivered · wants a call or more info`),
+    tile("Engagement", pct(r.engagement_rate), `${num(r.engaged)} replied or auto-replied`),
+    tile("Delivered", pct(dl.delivered_rate), `${num(dl.bounced)} of ${num(dl.sent)} addresses bounced`),
+    tile("Apollo email find rate", pct(ap.find_rate), `${num(ap.found)} of ${num(ap.attempted)} lookups resolved`),
+    tile("Sent last 7 days", num(h.last_7), `vs ${num(h.prior_7)} the week before`,
+      weekDelta === 0 ? null : { dir: weekDelta > 0 ? "up" : "down", text: `${weekDelta > 0 ? "+" : ""}${num(weekDelta)} vs prior week` }),
+  );
+
+  /* --- alerts --- */
+  const alerts = [];
+  if (dl.bounce_rate !== null && dl.bounce_rate >= 0.05) {
+    alerts.push({
+      kind: "", icon: "⚠",
+      html: `<strong>${pct(dl.bounce_rate)} of sourced addresses bounced</strong> (${num(dl.bounced)} of ${num(dl.sent)}). Above roughly 5%, mailbox providers start treating the sender as a spam risk, which quietly hurts delivery for everyone else on the list. The bounces are concentrated in the alumni list, where emails are guessed from a name and company.`,
+    });
+  }
+  if (rw.projected_contacts !== null && rw.business_days_left !== null && rw.business_days_left < 10) {
+    alerts.push({
+      kind: "", icon: "⚠",
+      html: `<strong>The alumni bench is nearly empty</strong> — about ${num(rw.projected_contacts)} contactable people left (${num(rw.bench_ready)} with an email, ${num(rw.bench_unlooked)} still to look up), roughly ${rw.business_days_left} business days at the current pace of ${rw.daily_pace}/day. Paste more UIUC alumni into the Alumni tab to keep the ramp going.`,
+    });
+  }
+  if (q.failed_sends) {
+    alerts.push({
+      kind: "", icon: "⚠",
+      html: `<strong>${num(q.failed_sends)} sends failed outright</strong> (not bounces — the send itself errored). Most recent cause: ${q.errors.length ? q.errors[0].label : "unknown"}.`,
+    });
+  }
+  document.getElementById("alerts").replaceChildren(...alerts.map(a => {
+    const d = document.createElement("div");
+    d.className = "callout " + a.kind;
+    d.innerHTML = `<span class="ico">${a.icon}</span><p>${a.html}</p>`;
+    return d;
+  }));
+
+  /* --- pipeline health --- */
+  document.getElementById("health").replaceChildren(
+    tile("Alumni bench left", num(rw.projected_contacts), `${num(rw.bench_ready)} ready · ${num(rw.bench_unlooked)} awaiting lookup`),
+    tile("Days of runway", rw.business_days_left === null ? "—" : String(rw.business_days_left), `at ${rw.daily_pace} emails/business day`),
+    tile("Approved, not yet sent", num(rw.approved_unsent), "goes out on the next send run"),
+    tile("Awaiting approval", num(rw.awaiting_approval), "drafts needing the approved column set"),
+    tile("Send success rate", pct(q.send_success_rate), `${num(q.failed_sends)} failed · ${num(q.skipped_duplicates)} skipped as duplicates`),
+    tile("Sending-day coverage", pct(h.day_coverage, 0), `sent on ${num(h.active_days)} of ${num(w.weekdays)} weekdays`),
+  );
+}
+
+function renderCharts() {
+  const r = M.reply, dl = M.deliverability, ap = M.apollo, h = M.headline;
+  const C = {
+    good: cssVar("--good"), warning: cssVar("--warning"), critical: cssVar("--critical"),
+    neutral: cssVar("--neutral-mark"), s1: cssVar("--series-1"), s2: cssVar("--series-2"),
+    ramp: [cssVar("--ramp-1"), cssVar("--ramp-2"), cssVar("--ramp-3"), cssVar("--ramp-4"), cssVar("--ramp-5")],
+  };
+
+  /* --- outcome of every send --- */
+  const silent = Math.max(0, dl.delivered - r.responses - r.auto_replies);
+  const outcome = [
+    { label: "Replied", value: r.responses, color: C.good },
+    { label: "Auto-reply only", value: r.auto_replies, color: C.warning, ink: "#0b0b0b" },
+    { label: "No response", value: silent, color: C.neutral, ink: "var(--text-primary)" },
+    { label: "Bounced", value: dl.bounced, color: C.critical },
+  ];
+  document.getElementById("outcomeTotal").textContent = num(dl.sent);
+  stackedBar(document.getElementById("outcomeChart"), outcome, { height: 96 });
+  legend(document.getElementById("outcomeLegend"), outcome.map(o => ({ label: `${o.label} — ${num(o.value)}`, color: o.color })));
+  renderTable(document.getElementById("outcomeTable"), ["Outcome", "People", "Share of sent"],
+    outcome.map(o => [o.label, num(o.value), pct(o.value / dl.sent)]));
+
+  /* --- sentiment --- */
+  const sent = Object.fromEntries(r.sentiment.map(s => [s.label, s.count]));
+  const pos = sent.positive || 0, neg = (sent.negative || 0) + (sent.unsubscribe || 0);
+  const neu = Math.max(0, r.responses - pos - neg);
+  divergingBar(document.getElementById("sentimentChart"), neg, neu, pos,
+    { negative: C.critical, neutral: C.neutral, positive: C.s1 });
+  legend(document.getElementById("sentimentLegend"), [
+    { label: `Interested — ${pos}`, color: C.s1 },
+    { label: `Neutral / not now — ${neu}`, color: C.neutral },
+    { label: `Declined — ${neg}`, color: C.critical },
+  ]);
+  renderTable(document.getElementById("sentimentTable"), ["Reply type", "Count", "Share of replies"],
+    [["Interested", pos, pct(pos / (r.responses || 1))],
+     ["Neutral / not now", neu, pct(neu / (r.responses || 1))],
+     ["Declined", neg, pct(neg / (r.responses || 1))]]);
+
+  /* --- funnel: ordinal ramp, deeper stage = stronger step --- */
+  const funnel = M.funnel.map((f, i) => ({
+    label: f.stage, value: f.count, color: C.ramp[i],
+    valueLabel: num(f.count),
+    tip: [`${num(f.count)} people`,
+          f.from_prev === null ? "start of funnel" : `${pct(f.from_prev)} of the previous stage`,
+          `${pct(f.from_top)} of all sourced leads`],
+  }));
+  barChart(document.getElementById("funnelChart"), funnel, { rowH: 40 });
+  renderTable(document.getElementById("funnelTable"), ["Stage", "Count", "From previous", "From sourced"],
+    M.funnel.map(f => [f.stage, num(f.count), f.from_prev === null ? "—" : pct(f.from_prev), pct(f.from_top)]));
+
+  /* --- weekly volume --- */
+  const weekly = M.timeline.weekly.map(w => ({
+    label: w.label, value: w.sent,
+    extra: [`${num(w.drafted)} drafted that week`, `week of ${fmtDate(w.week_start)}`],
+  }));
+  columnChart(document.getElementById("weeklyChart"), weekly, { height: 250 });
+  const peak = weekly.reduce((a, b) => b.value > a.value ? b : a, weekly[0] || { value: 0, label: "—" });
+  document.getElementById("volumeNote").textContent =
+    `${num(h.emails_sent)} emails over ${num(M.timeline.weekly.length)} weeks — peak week ${peak.label} at ${num(peak.value)}. Sent on ${num(h.active_days)} of ${num(M.window.weekdays)} weekdays in the window.`;
+  renderTable(document.getElementById("weeklyTable"), ["Week of", "Sent", "Drafted"],
+    M.timeline.weekly.map(w => [fmtDate(w.week_start), num(w.sent), num(w.drafted)]));
+
+  /* --- apollo lookups --- */
+  const lookupColor = { good: C.good, critical: C.critical, pending: C.neutral };
+  const lookups = ap.lookup_breakdown.map(b => ({
+    label: b.label, value: b.count, color: lookupColor[b.state],
+    ink: b.state === "pending" ? "var(--text-primary)" : "#fff",
+  }));
+  stackedBar(document.getElementById("apolloChart"), lookups, { height: 96 });
+  legend(document.getElementById("apolloLegend"), lookups.map(l => ({ label: `${l.label} — ${num(l.value)}`, color: l.color })));
+  document.getElementById("apolloNote").textContent =
+    `Every name on the Alumni tab that Apollo has tried to resolve into an email address (${num(ap.alumni_rows)} rows total). ` +
+    (ap.basis === "runs"
+      ? `Rate measured across ${num(ap.runs_logged)} logged sourcing runs.`
+      : `Per-run logging starts with the next prepare; until then this is the all-time tally.`);
+  renderTable(document.getElementById("apolloTable"), ["Lookup outcome", "People", "Share"],
+    lookups.map(l => [l.label, num(l.value), pct(l.value / (ap.alumni_rows || 1))]));
+
+  /* --- credit yield --- */
+  const yieldRows = [
+    { label: "Email found", value: ap.find_rate || 0, valueLabel: pct(ap.find_rate),
+      tip: [`${num(ap.found)} of ${num(ap.attempted)} lookups returned an address`] },
+    { label: "Address valid", value: ap.deliverable_rate || 0, valueLabel: pct(ap.deliverable_rate),
+      tip: [`${num(dl.delivered)} of ${num(dl.sent)} sent addresses accepted the mail`] },
+    { label: "Both — real yield", value: ap.usable_rate || 0, valueLabel: pct(ap.usable_rate),
+      tip: ["find rate × valid rate", "the share of credits that reach a human"] },
+  ];
+  /* max:1 so each bar reads as its true share of 100%, not of the biggest rate. */
+  barChart(document.getElementById("yieldChart"), yieldRows, { rowH: 44, max: 1 });
+  renderTable(document.getElementById("yieldTable"), ["Measure", "Rate"],
+    yieldRows.map(y => [y.label, y.valueLabel]));
+
+  /* --- segments table --- */
+  const seg = document.getElementById("segmentTable");
+  const rows = M.reply.by_source.filter(s => s.sent > 1).map(s => [
+    prettySource(s.label), num(s.sent), num(s.delivered), num(s.bounced),
+    pct(s.bounce_rate), num(s.replies), pct(s.reply_rate),
+  ]);
+  /* The alumni audience is fed by a single source, so its row would repeat that
+     source verbatim. Only add an audience row that says something new. */
+  const seen = new Set(M.reply.by_source.map(s => `${s.sent}|${s.replies}|${s.bounced}`));
+  M.reply.by_audience.forEach(s => {
+    if (seen.has(`${s.sent}|${s.replies}|${s.bounced}`)) return;
+    rows.push([
+      s.label + " (all sources)", num(s.sent), num(s.delivered), num(s.bounced),
+      pct(s.bounce_rate), num(s.replies), pct(s.reply_rate),
+    ]);
+  });
+  renderTable(seg, ["Source", "Sent", "Delivered", "Bounced", "Bounce rate", "Replies", "Reply rate"], rows);
+
+  /* --- industries --- */
+  const inds = M.mix.industries.map(i => ({ label: i.label, value: i.count, tip: [`${num(i.count)} people emailed`] }));
+  barChart(document.getElementById("industryChart"), inds, { rowH: 30, unit: "people" });
+  renderTable(document.getElementById("industryTable"), ["Industry", "People emailed"],
+    M.mix.industries.map(i => [i.label, num(i.count)]));
+
+  /* --- companies --- */
+  renderTable(document.getElementById("companyTable"), ["Company", "People emailed"],
+    M.mix.companies.map(c => [c.label, num(c.count)]));
+}
+
+function renderAll() { renderStatic(); renderCharts(); }
+renderAll();
+
+let t = null;
+addEventListener("resize", () => { clearTimeout(t); t = setTimeout(renderCharts, 140); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => setTimeout(renderCharts, 40));
+
+const toggle = document.getElementById("tableToggle");
+toggle.addEventListener("click", () => {
+  const on = document.body.classList.toggle("show-tables");
+  toggle.setAttribute("aria-pressed", String(on));
+  toggle.textContent = on ? "Hide data tables" : "Show data tables";
+});
+</script>
+</body>
+</html>

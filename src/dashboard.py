@@ -1,132 +1,108 @@
-"""Stats dashboard.
+"""Stats dashboard — the `Dashboard` tab inside the Sheet.
 
-Computes pipeline metrics from the Leads + Drafts tabs and writes a readable
-`Dashboard` tab in the same Sheet. Run via `python -m src.main stats`; also
-refreshed automatically at the end of `prepare` and `send`.
+A plain-text mirror of the numbers in `metrics.py`, written into the workbook so
+anyone with the Sheet open can see how outreach is doing without opening
+anything else. Refreshed automatically at the end of `prepare`, `send` and
+`replies`, or on demand with `python -m src.main stats`.
 
-Response metrics come from the Leads `status` column (replied / hot / closed).
-Since the pipeline is send-only, update a lead's status when someone replies
-(or run the optional inbox checker) for those numbers to populate.
+For the shareable version — charts, trends, the whole story in one file you can
+email — build the standalone page instead: `python -m src.main report`.
 """
 from __future__ import annotations
 
 import logging
-from collections import Counter
 from datetime import datetime, timezone
 
 import gspread
 
-from .models import LeadStatus
-from .sheets import SheetClient, _truthy
+from .metrics import collect
 
 log = logging.getLogger(__name__)
 
-# Statuses that indicate the recipient responded in some way.
-RESPONSE_STATUSES = {LeadStatus.REPLIED.value, LeadStatus.HOT.value, LeadStatus.CLOSED.value}
+
+def _pct(value: float | None) -> str:
+    """Percentages that aren't measurable read as '—', never as 0%."""
+    return "—" if value is None else f"{value * 100:.1f}%"
 
 
-def _week(iso_ts: str) -> str:
-    """ISO date string -> 'YYYY-Www' (the Monday-based ISO week)."""
-    try:
-        dt = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        return ""
-    y, w, _ = dt.isocalendar()
-    return f"{y}-W{w:02d}"
-
-
-def compute_stats(sheets: SheetClient) -> dict:
-    leads = sheets.book.worksheet("Leads").get_all_records()
-    drafts = sheets.book.worksheet("Drafts").get_all_records()
-    try:
-        suppression = len(sheets.book.worksheet("Suppression").get_all_records())
-    except gspread.WorksheetNotFound:
-        suppression = 0
-
-    email_alum = {
-        str(l.get("email", "")).strip().lower(): _truthy(l.get("is_uiuc_alum"))
-        for l in leads if l.get("email")
-    }
-
-    sent_drafts = [d for d in drafts if str(d.get("sent_at", "")).strip()]
-    approved = [d for d in drafts if _truthy(d.get("approved"))]
-    sent_alumni = sum(1 for d in sent_drafts if email_alum.get(str(d.get("lead_email", "")).strip().lower()))
-
-    by_status = Counter(str(l.get("status", "")).strip() or "(blank)" for l in leads)
-    by_source = Counter(str(l.get("source", "")).strip() or "(blank)" for l in leads)
-    sent_by_week = Counter(w for d in sent_drafts if (w := _week(str(d.get("sent_at", "")))))
-
-    alumni = sum(1 for l in leads if _truthy(l.get("is_uiuc_alum")))
-    responses = sum(1 for l in leads if str(l.get("status", "")).strip() in RESPONSE_STATUSES)
-    hot = by_status.get(LeadStatus.HOT.value, 0)
-    sent_count = len(sent_drafts)
-
-    return {
-        "leads_total": len(leads),
-        "drafts_total": len(drafts),
-        "approved": len(approved),
-        "sent": sent_count,
-        "pending_approval": sum(1 for d in approved if not str(d.get("sent_at", "")).strip()),
-        "send_errors": sum(1 for d in drafts if str(d.get("send_error", "")).strip()),
-        "alumni": alumni,
-        "non_alumni": len(leads) - alumni,
-        "sent_alumni": sent_alumni,
-        "sent_non_alumni": sent_count - sent_alumni,
-        "responses": responses,
-        "hot": hot,
-        "response_rate": (responses / sent_count) if sent_count else 0.0,
-        "alumni_response_rate": None,  # filled below if we can compute it
-        "suppression": suppression,
-        "by_status": by_status.most_common(),
-        "by_source": by_source.most_common(),
-        "sent_by_week": sorted(sent_by_week.items()),
-    }
-
-
-def write_dashboard(sheets: SheetClient) -> None:
-    s = compute_stats(sheets)
+def write_dashboard(sheets) -> None:
+    m = collect(sheets)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    pct = f"{s['response_rate'] * 100:.0f}%"
+    h, r, d, a, q, rw = (
+        m["headline"], m["reply"], m["deliverability"],
+        m["apollo"], m["quality"], m["runway"],
+    )
 
     rows: list[list] = [
         ["CUBE Outreach — Dashboard", f"updated {now}"],
+        ["", f"{m['window']['first_send'] or '—'} to {m['window']['last_send'] or '—'}"],
         [],
-        ["FUNNEL", ""],
-        ["Leads sourced", s["leads_total"]],
-        ["Drafts created", s["drafts_total"]],
-        ["Approved", s["approved"]],
-        ["Sent", s["sent"]],
-        ["Pending approval (approved, unsent)", s["pending_approval"]],
-        ["Send errors", s["send_errors"]],
-        ["Suppressed (do-not-contact)", s["suppression"]],
+        ["HEADLINE", ""],
+        ["Emails sent", h["emails_sent"]],
+        ["People reached", h["people_reached"]],
+        ["Companies reached", h["companies_reached"]],
+        ["Sent in the last 7 days", h["last_7"]],
+        ["Avg per sending day", h["avg_per_active_day"]],
         [],
-        ["ALUMNI", ""],
-        ["UIUC alumni (leads)", s["alumni"]],
-        ["Non-alumni (leads)", s["non_alumni"]],
-        ["Sent to alumni", s["sent_alumni"]],
-        ["Sent to non-alumni", s["sent_non_alumni"]],
+        ["RESPONSES  (from the inbox scan — run `replies` to refresh)", ""],
+        ["Replies from a human", r["responses"]],
+        ["Reply rate (of delivered)", _pct(r["rate"])],
+        ["Interested replies", r["interested"]],
+        ["Interested rate (of delivered)", _pct(r["interested_rate"])],
+        ["Auto-replies / out-of-office", r["auto_replies"]],
+        ["Engagement rate (replied or auto-replied)", _pct(r["engagement_rate"])],
+        *[[f"  reply sentiment — {s['label']}", s["count"]] for s in r["sentiment"]],
         [],
-        ["RESPONSES  (from Leads status — set status=replied/hot when they reply)", ""],
-        ["Responses (replied + hot + closed)", s["responses"]],
-        ["Hot leads", s["hot"]],
-        ["Response rate (of sent)", pct],
+        ["DELIVERABILITY", ""],
+        ["Delivered", d["delivered"]],
+        ["Bounced (bad address)", d["bounced"]],
+        ["Bounce rate", _pct(d["bounce_rate"])],
         [],
-        ["BY SOURCE", "leads"],
-        *[[src, n] for src, n in s["by_source"]],
+        ["SOURCING (Apollo)", ""],
+        ["Email lookups attempted", a["attempted"]],
+        ["Emails found", a["found"]],
+        ["Find rate", _pct(a["find_rate"])],
+        ["Usable rate (found AND deliverable)", _pct(a["usable_rate"])],
         [],
-        ["BY STATUS", "leads"],
-        *[[st, n] for st, n in s["by_status"]],
+        ["FUNNEL", "count"],
+        *[[f["stage"], f["count"]] for f in m["funnel"]],
         [],
-        ["SENT BY WEEK", "count"],
-        *([[wk, n] for wk, n in s["sent_by_week"]] or [["(none yet)", 0]]),
+        ["PIPELINE HEALTH", ""],
+        ["Alumni bench left (contactable)", rw["projected_contacts"]],
+        ["  with an email ready", rw["bench_ready"]],
+        ["  still to look up", rw["bench_unlooked"]],
+        ["Business days of runway", rw["business_days_left"] if rw["business_days_left"] is not None else "—"],
+        ["Approved, not yet sent", rw["approved_unsent"]],
+        ["Awaiting approval", rw["awaiting_approval"]],
+        ["Send success rate", _pct(q["send_success_rate"])],
+        ["Failed sends", q["failed_sends"]],
+        ["Suppressed (do-not-contact)", q["suppressed"]],
+        [],
+        ["BY SOURCE", "sent", "delivered", "bounced", "replies", "reply rate"],
+        *[
+            [s["label"], s["sent"], s["delivered"], s["bounced"], s["replies"], _pct(s["reply_rate"])]
+            for s in r["by_source"]
+        ],
+        [],
+        ["BY AUDIENCE", "sent", "delivered", "bounced", "replies", "reply rate"],
+        *[
+            [s["label"], s["sent"], s["delivered"], s["bounced"], s["replies"], _pct(s["reply_rate"])]
+            for s in r["by_audience"]
+        ],
+        [],
+        ["SENT BY WEEK", "sent", "drafted"],
+        *([[w["week_start"], w["sent"], w["drafted"]] for w in m["timeline"]["weekly"]]
+          or [["(none yet)", 0, 0]]),
     ]
 
     try:
         ws = sheets.book.worksheet("Dashboard")
         ws.clear()
     except gspread.WorksheetNotFound:
-        ws = sheets.book.add_worksheet(title="Dashboard", rows=max(60, len(rows) + 10), cols=4)
+        ws = sheets.book.add_worksheet(title="Dashboard", rows=max(80, len(rows) + 10), cols=6)
 
     ws.update(range_name="A1", values=rows)
-    log.info("Dashboard refreshed: %d sourced, %d sent, %d alumni, %s response rate",
-             s["leads_total"], s["sent"], s["alumni"], pct)
+    log.info(
+        "Dashboard refreshed: %d sent, %s reply rate, %s delivered, %s Apollo find rate",
+        h["emails_sent"], _pct(r["rate"]), _pct(d["delivered_rate"]), _pct(a["find_rate"]),
+    )

@@ -36,3 +36,8 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: python -m src.main send
+      # Read-only inbox scan: records replies, out-of-office notices and bounces
+      # so the reply rate and deliverability numbers stay current. Never fails
+      # the job — the sending above is what matters.
+      - run: python -m src.main replies
+        continue-on-error: true

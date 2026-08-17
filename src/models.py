@@ -17,6 +17,7 @@ class LeadStatus(str, Enum):
     HOT = "hot"
     CLOSED = "closed"
     SUPPRESSED = "suppressed"
+    BOUNCED = "bounced"  # the address rejected us — set by the inbox scan
 
 
 class TemplateType(str, Enum):

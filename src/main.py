@@ -84,6 +84,7 @@ def cmd_prepare(dry_run: bool) -> int:
     apollo: ApolloClient | None = ApolloClient() if (not dry_run and os.environ.get("APOLLO_API_KEY")) else None
     sheet_leads: list[Lead] = []
     candidates: list[Candidate] = []
+    secondary: dict | None = None  # today's Apollo discovery profile, if any
     if dry_run:
         log.info("[DRY RUN] skipping live sourcing — using fixtures")
         sheet_leads = _dry_run_fixture_leads()
@@ -148,6 +149,10 @@ def cmd_prepare(dry_run: bool) -> int:
     top: list[Lead] = []
     revealed: dict[int, Lead | None] = {}
     reveals = 0
+    # Reveal outcomes, logged to the `Runs` tab so the Apollo find rate is
+    # measured rather than guessed at (see metrics.py).
+    reveals_found = 0
+    alumni_attempted = alumni_found = 0
     reveal_budget = target * 2
     idx = 0
     while len(top) < target and idx < len(filtered) and reveals < reveal_budget:
@@ -160,9 +165,12 @@ def cmd_prepare(dry_run: bool) -> int:
         if to_reveal:
             for cand, lead in zip(to_reveal, bulk_reveal(apollo, to_reveal)):
                 revealed[id(cand)] = lead
+                reveals_found += 1 if lead else 0
                 # Cache the lookup back to the Alumni tab so we never re-spend a
                 # credit on this person: their email (or NOT_FOUND if unresolved).
                 if cand.ref is not None:
+                    alumni_attempted += 1
+                    alumni_found += 1 if lead else 0
                     try:
                         sheets.set_alumni_email(cand.ref, lead.email if lead else sheets.NOT_FOUND_MARKER)
                     except Exception as exc:
@@ -212,6 +220,19 @@ def cmd_prepare(dry_run: bool) -> int:
         drafts_to_write.append(draft)
     sheets.append_leads(leads_to_write)
     sheets.append_drafts(drafts_to_write)
+
+    # Sourcing telemetry for the dashboards — how many credits we spent and how
+    # many of them actually produced an email.
+    sheets.log_run(
+        profile=(secondary or {}).get("name", ""),
+        candidates_seen=len(candidates),
+        reveals_attempted=reveals,
+        emails_found=reveals_found,
+        alumni_attempted=alumni_attempted,
+        alumni_found=alumni_found,
+        leads_selected=len(top),
+        drafts_created=len(drafts_to_write),
+    )
 
     # 6) Follow-ups are OFF by default — every slot goes to reaching NEW people;
     #    re-emailing is handled manually. Set ENABLE_FOLLOW_UPS=1 to re-enable.
@@ -315,6 +336,47 @@ def cmd_send(dry_run: bool) -> int:
     return 0
 
 
+# ---------------- replies ----------------
+
+def cmd_replies(dry_run: bool, since: str | None, classify: bool) -> int:
+    """Read the sending mailbox and record what came back.
+
+    Read-only on the mailbox; writes the `Replies` tab and the matching
+    `status` / `replied_at` cells on Leads.
+    """
+    from datetime import date
+
+    from .replies import sync_replies
+
+    since_date = date.fromisoformat(since) if since else None
+    sheets = SheetClient()
+    summary = sync_replies(sheets, since=since_date, classify=classify, dry_run=dry_run)
+    log.info(
+        "Inbox scan: %d matched — %d replies, %d auto-replies, %d bounced (%d scanned)",
+        summary["matched"], summary["human"], summary["auto_reply"],
+        summary["bounce"], summary["scanned"],
+    )
+    if summary["by_classification"]:
+        log.info("Reply sentiment: %s", summary["by_classification"])
+    if not dry_run:
+        _refresh_dashboard(sheets)
+    return 0
+
+
+# ---------------- report ----------------
+
+def cmd_report(out_dir: str, open_browser: bool) -> int:
+    from .report import build_report
+
+    path = build_report(SheetClient(), out_dir=out_dir)
+    log.info("Dashboard written to %s", path)
+    if open_browser:
+        import webbrowser
+
+        webbrowser.open(path.resolve().as_uri())
+    return 0
+
+
 # ---------------- dry-run fixture ----------------
 
 def _dry_run_fixture_leads():
@@ -371,6 +433,13 @@ def main() -> int:
     p.add_argument("--dry-run", action="store_true")
     p = sub.add_parser("bootstrap", help="Create Sheet tabs + headers")
     p = sub.add_parser("stats", help="Refresh the Dashboard tab with current metrics")
+    p = sub.add_parser("replies", help="Scan the mailbox for replies/bounces (read-only)")
+    p.add_argument("--dry-run", action="store_true", help="Print what was found; write nothing")
+    p.add_argument("--since", help="Only scan mail on/after this date (YYYY-MM-DD)")
+    p.add_argument("--no-classify", action="store_true", help="Skip Gemini sentiment labelling")
+    p = sub.add_parser("report", help="Build the standalone HTML metrics dashboard")
+    p.add_argument("--out", default="dashboard", help="Output directory (default: dashboard/)")
+    p.add_argument("--open", action="store_true", help="Open the dashboard in a browser when done")
     args = parser.parse_args()
 
     if args.cmd == "prepare":
@@ -385,6 +454,12 @@ def main() -> int:
     if args.cmd == "stats":
         write_dashboard(SheetClient())
         return 0
+    if args.cmd == "replies":
+        return cmd_replies(
+            dry_run=args.dry_run, since=args.since, classify=not args.no_classify
+        )
+    if args.cmd == "report":
+        return cmd_report(out_dir=args.out, open_browser=args.open)
     return 1
 
 

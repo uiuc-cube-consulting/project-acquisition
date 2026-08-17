@@ -30,6 +30,19 @@ MAX_RETRIES = 6
 DEFAULT_BACKOFF_SECONDS = 30
 
 
+def _thinking_config(model: str) -> types.ThinkingConfig:
+    """Turn thinking down as far as the model family allows.
+
+    The 2.x models take a token budget (`thinking_budget=0` switches thinking
+    off). The 3.x models replaced that with `thinking_level` and reject a budget
+    outright with 400 INVALID_ARGUMENT, so the control has to be picked per
+    family or every 3.x call fails.
+    """
+    if re.match(r"gemini-([3-9]|\d{2,})", model):
+        return types.ThinkingConfig(thinking_level="LOW")
+    return types.ThinkingConfig(thinking_budget=0)
+
+
 @lru_cache(maxsize=1)
 def _client() -> genai.Client:
     return genai.Client(api_key=os.environ["GEMINI_API_KEY"])
@@ -56,7 +69,7 @@ def generate_json(
         system_instruction=system,
         max_output_tokens=max_tokens,
         response_mime_type="application/json",
-        thinking_config=types.ThinkingConfig(thinking_budget=0),
+        thinking_config=_thinking_config(model),
     )
     for attempt in range(MAX_RETRIES):
         try:

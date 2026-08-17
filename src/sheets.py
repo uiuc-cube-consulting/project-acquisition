@@ -72,6 +72,21 @@ ALUMNI_HEADERS = [
 # resolve "approve 1,3" from the approver's reply back to the right rows.
 APPROVALS_HEADERS = ["digest_at", "thread_id", "message_id", "items_json", "processed_at"]
 
+# What came back from the mailbox, one row per person (see replies.py). Rebuilt
+# on every `replies` run — derived data, safe to delete.
+REPLIES_HEADERS = [
+    "received_at", "lead_email", "category", "classification",
+    "subject", "snippet", "bounce_reason", "from_email", "reason",
+]
+
+# One row per `prepare` run: how many email lookups we spent and how many
+# actually resolved. This is what makes the Apollo find rate measurable rather
+# than inferred.
+RUNS_HEADERS = [
+    "run_at", "profile", "candidates_seen", "reveals_attempted", "emails_found",
+    "alumni_attempted", "alumni_found", "leads_selected", "drafts_created",
+]
+
 TAB_HEADERS = {
     "Leads": LEADS_HEADERS,
     "Drafts": DRAFTS_HEADERS,
@@ -80,6 +95,8 @@ TAB_HEADERS = {
     "Prospects": PROSPECTS_HEADERS,
     "Alumni": ALUMNI_HEADERS,
     "Approvals": APPROVALS_HEADERS,
+    "Replies": REPLIES_HEADERS,
+    "Runs": RUNS_HEADERS,
 }
 
 
@@ -288,6 +305,88 @@ class SheetClient:
                         v = v.isoformat(timespec="seconds")
                     ws.update_cell(i, col_idx, v if v is not None else "")
                 return
+
+    def bulk_update_leads(self, updates: dict[str, dict]) -> int:
+        """Apply {email: {column: value}} to the Leads tab in ONE write.
+
+        `update_lead_status` re-reads the whole tab and writes a cell at a time,
+        which blows the API quota when a scan touches ~80 leads at once. This
+        reads once and batches every cell into a single batch_update.
+        """
+        if not updates:
+            return 0
+        ws = self.book.worksheet("Leads")
+        records = ws.get_all_records()
+        wanted = {e.strip().lower(): v for e, v in updates.items()}
+        payload: list[dict] = []
+        touched = 0
+        for i, row in enumerate(records, start=2):  # row 1 is the header
+            email = str(row.get("email") or "").strip().lower()
+            fields = wanted.get(email)
+            if not fields:
+                continue
+            touched += 1
+            for key, value in fields.items():
+                if key not in LEADS_HEADERS:
+                    continue
+                if isinstance(value, datetime):
+                    value = value.isoformat(timespec="seconds")
+                cell = gspread.utils.rowcol_to_a1(i, LEADS_HEADERS.index(key) + 1)
+                payload.append({"range": f"Leads!{cell}", "values": [[value if value is not None else ""]]})
+        if payload:
+            self.book.values_batch_update({
+                "valueInputOption": "USER_ENTERED",
+                "data": payload,
+            })
+        return touched
+
+    # ---------------- Replies (inbox scan) ----------------
+
+    def replace_replies(self, records: Iterable) -> int:
+        """Rewrite the `Replies` tab from a fresh scan. Derived data, so the tab
+        is replaced wholesale rather than merged."""
+        ws = self._ensure_tab("Replies")
+        rows = [
+            [
+                r.received_at.isoformat(timespec="seconds"),
+                r.lead_email,
+                r.category,
+                r.classification or "",
+                r.subject,
+                r.snippet,
+                r.bounce_reason,
+                r.from_email,
+                r.classification_reason,
+            ]
+            for r in records
+        ]
+        ws.clear()
+        ws.update(range_name="A1", values=[REPLIES_HEADERS, *rows])
+        return len(rows)
+
+    # ---------------- Runs (sourcing telemetry) ----------------
+
+    def log_run(self, **fields) -> None:
+        """Append one row of per-run sourcing stats. Never raises — telemetry
+        must not be able to fail a `prepare`."""
+        try:
+            ws = self._ensure_tab("Runs")
+            ws.append_row(
+                [fields.get(h, "") if h != "run_at" else _now_iso() for h in RUNS_HEADERS],
+                value_input_option="USER_ENTERED",
+            )
+        except Exception as exc:
+            log.warning("Run logging failed (non-fatal): %s", exc)
+
+    def _ensure_tab(self, title: str):
+        """Fetch a tab, creating it with its headers if it doesn't exist yet."""
+        headers = TAB_HEADERS[title]
+        try:
+            return self.book.worksheet(title)
+        except gspread.WorksheetNotFound:
+            ws = self.book.add_worksheet(title=title, rows=1000, cols=max(len(headers), 8))
+            ws.update(range_name="A1", values=[headers])
+            return ws
 
     # ---------------- Drafts ----------------
 
