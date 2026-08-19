@@ -83,6 +83,13 @@ REPLIES_HEADERS = [
 # One row per `prepare` run: how many email lookups we spent and how many
 # actually resolved. This is what makes the Apollo find rate measurable rather
 # than inferred.
+# The running list of companies we've already contacted — one row per company.
+# Written by `prepare`, read back as an exclusion set so we never pitch the same
+# organization twice. Hand-adding a row here permanently blocks that company.
+COMPANIES_HEADERS = [
+    "company", "normalized", "domain", "first_contacted_at", "people_contacted", "source",
+]
+
 RUNS_HEADERS = [
     "run_at", "profile", "candidates_seen", "reveals_attempted", "emails_found",
     "alumni_attempted", "alumni_found", "leads_selected", "drafts_created",
@@ -99,6 +106,7 @@ TAB_HEADERS = {
     "Approvals": APPROVALS_HEADERS,
     "Replies": REPLIES_HEADERS,
     "Runs": RUNS_HEADERS,
+    "Companies": COMPANIES_HEADERS,
 }
 
 
@@ -364,6 +372,40 @@ class SheetClient:
         ]
         ws.clear()
         ws.update(range_name="A1", values=[REPLIES_HEADERS, *rows])
+        return len(rows)
+
+    # ---------------- Companies (one company, one conversation) ----------------
+
+    def fetch_company_rows(self) -> list[dict]:
+        """The `Companies` tab, or [] if it doesn't exist yet."""
+        try:
+            return self.book.worksheet("Companies").get_all_records()
+        except gspread.WorksheetNotFound:
+            return []
+
+    def record_companies(self, entries: Iterable[dict]) -> int:
+        """Append newly-contacted companies to the running list.
+
+        Only rows whose `normalized` key isn't already present are added, so
+        this is safe to call on every run.
+        """
+        ws = self._ensure_tab("Companies")
+        existing = {
+            str(r.get("normalized") or "").strip().lower()
+            for r in ws.get_all_records()
+        }
+        rows = []
+        for e in entries:
+            key = str(e.get("normalized") or "").strip().lower()
+            if not key or key in existing:
+                continue
+            existing.add(key)
+            rows.append([
+                e.get("company", ""), key, e.get("domain", ""),
+                _now_iso(), e.get("people_contacted", 1), e.get("source", ""),
+            ])
+        if rows:
+            ws.append_rows(rows, value_input_option="USER_ENTERED")
         return len(rows)
 
     # ---------------- Runs (sourcing telemetry) ----------------

@@ -451,6 +451,12 @@ def compute(
     ]
 
     # ---- reach ----
+    # Keyed by normalized company so "PwC", "PwC US LLP" and
+    # "PricewaterhouseCoopers" count as the one organization they are.
+    from .companies import normalize_company
+
+    company_keys = Counter()
+    company_label: dict[str, str] = {}
     companies = Counter()
     industries = Counter()
     for email in contacted:
@@ -460,6 +466,10 @@ def compute(
         company = _s(lead, "company")
         if company:
             companies[company] += 1
+            key = normalize_company(company)
+            if key:
+                company_keys[key] += 1
+                company_label.setdefault(key, company)
         industry = _s(lead, "industry")
         if industry:
             industries[industry.title()] += 1
@@ -567,6 +577,21 @@ def compute(
             "skipped_duplicates": skipped,
             "errors": _top(real_errors, 5),
             "suppressed": len(suppression),
+        },
+        "companies": {
+            "distinct": len(company_keys),
+            "people": sum(company_keys.values()),
+            # People emailed at a company we had already pitched. The whole point
+            # of the Companies tab is driving this to zero going forward.
+            "duplicate_sends": sum(n - 1 for n in company_keys.values() if n > 1),
+            "multi_contact": sum(1 for n in company_keys.values() if n > 1),
+            "people_per_company": (
+                sum(company_keys.values()) / len(company_keys) if company_keys else None
+            ),
+            "top": [
+                {"label": company_label[k], "count": n}
+                for k, n in company_keys.most_common(12)
+            ],
         },
         "mix": {
             "sources": by_source,

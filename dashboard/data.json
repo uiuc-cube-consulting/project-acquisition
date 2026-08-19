@@ -1,19 +1,19 @@
 {
-  "generated_at": "2026-08-18T19:02:27+00:00",
+  "generated_at": "2026-08-19T16:29:27+00:00",
   "campaign": {
     "start": "2026-08-18",
-    "sent": 15,
-    "delivered": 13,
+    "sent": 19,
+    "delivered": 17,
     "bounced": 2,
     "replies": 0,
     "interested": 0,
     "auto_replies": 0,
     "reply_rate": 0.0,
     "interested_rate": 0.0,
-    "bounce_rate": 0.13333333333333333,
+    "bounce_rate": 0.10526315789473684,
     "alumni_sent": 11,
-    "non_alumni_sent": 4,
-    "non_alumni_share": 0.26666666666666666,
+    "non_alumni_sent": 8,
+    "non_alumni_share": 0.42105263157894735,
     "by_audience": [
       {
         "label": "UIUC alumni",
@@ -27,8 +27,8 @@
       },
       {
         "label": "Non-alumni",
-        "sent": 4,
-        "delivered": 4,
+        "sent": 8,
+        "delivered": 8,
         "bounced": 0,
         "replies": 0,
         "interested": 0,
@@ -44,12 +44,24 @@
       {
         "label": "illinois_executives",
         "count": 4
+      },
+      {
+        "label": "startup_founders",
+        "count": 3
+      },
+      {
+        "label": "tech_founders",
+        "count": 1
       }
     ],
     "daily": [
       {
         "date": "2026-08-18",
         "sent": 15
+      },
+      {
+        "date": "2026-08-19",
+        "sent": 4
       }
     ],
     "name": "Spring 2027",
@@ -57,33 +69,33 @@
   },
   "window": {
     "first_send": "2026-06-21",
-    "last_send": "2026-08-18",
-    "weekdays": 42
+    "last_send": "2026-08-19",
+    "weekdays": 43
   },
   "headline": {
-    "emails_sent": 506,
-    "people_reached": 501,
-    "companies_reached": 414,
-    "leads_sourced": 510,
-    "drafts_written": 682,
+    "emails_sent": 510,
+    "people_reached": 505,
+    "companies_reached": 418,
+    "leads_sourced": 511,
+    "drafts_written": 683,
     "follow_ups_sent": 5,
-    "last_7": 74,
+    "last_7": 63,
     "prior_7": 88,
-    "last_30": 251,
-    "active_days": 41,
-    "avg_per_active_day": 12.3,
-    "day_coverage": 0.9761904761904762,
-    "alumni_share": 0.8822355289421158
+    "last_30": 240,
+    "active_days": 42,
+    "avg_per_active_day": 12.1,
+    "day_coverage": 0.9767441860465116,
+    "alumni_share": 0.8752475247524752
   },
   "reply": {
     "tracked": true,
-    "responses": 20,
-    "rate": 0.043859649122807015,
+    "responses": 21,
+    "rate": 0.04565217391304348,
     "interested": 11,
-    "interested_rate": 0.02412280701754386,
-    "auto_replies": 12,
-    "engaged": 32,
-    "engagement_rate": 0.07017543859649122,
+    "interested_rate": 0.02391304347826087,
+    "auto_replies": 13,
+    "engaged": 34,
+    "engagement_rate": 0.07391304347826087,
     "sentiment": [
       {
         "label": "positive",
@@ -95,7 +107,7 @@
       },
       {
         "label": "negative",
-        "count": 2
+        "count": 3
       }
     ],
     "by_audience": [
@@ -104,18 +116,18 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 18,
-        "reply_rate": 0.04522613065326633,
+        "replies": 19,
+        "reply_rate": 0.04773869346733668,
         "bounce_rate": 0.09954751131221719
       },
       {
         "label": "Non-alumni",
-        "sent": 59,
-        "delivered": 58,
+        "sent": 63,
+        "delivered": 62,
         "bounced": 1,
         "replies": 2,
-        "reply_rate": 0.034482758620689655,
-        "bounce_rate": 0.01694915254237288
+        "reply_rate": 0.03225806451612903,
+        "bounce_rate": 0.015873015873015872
       }
     ],
     "by_source": [
@@ -124,8 +136,8 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 18,
-        "reply_rate": 0.04522613065326633,
+        "replies": 19,
+        "reply_rate": 0.04773869346733668,
         "bounce_rate": 0.09954751131221719
       },
       {
@@ -139,11 +151,20 @@
       },
       {
         "label": "tech_founders",
-        "sent": 28,
-        "delivered": 28,
+        "sent": 29,
+        "delivered": 29,
         "bounced": 0,
         "replies": 1,
-        "reply_rate": 0.03571428571428571,
+        "reply_rate": 0.034482758620689655,
+        "bounce_rate": 0.0
+      },
+      {
+        "label": "startup_founders",
+        "sent": 3,
+        "delivered": 3,
+        "bounced": 0,
+        "replies": 0,
+        "reply_rate": 0.0,
         "bounce_rate": 0.0
       },
       {
@@ -158,17 +179,17 @@
     ]
   },
   "deliverability": {
-    "sent": 501,
-    "delivered": 456,
+    "sent": 505,
+    "delivered": 460,
     "bounced": 45,
-    "bounce_rate": 0.08982035928143713,
-    "delivered_rate": 0.9101796407185628
+    "bounce_rate": 0.0891089108910891,
+    "delivered_rate": 0.9108910891089109
   },
   "apollo": {
-    "find_rate": 0.7272727272727273,
+    "find_rate": 0.7625,
     "basis": "runs",
-    "attempted": 55,
-    "found": 40,
+    "attempted": 80,
+    "found": 61,
     "lookup_breakdown": [
       {
         "label": "Email found",
@@ -187,43 +208,43 @@
       }
     ],
     "alumni_rows": 612,
-    "discovery_leads": 66,
-    "runs_logged": 2,
+    "discovery_leads": 67,
+    "runs_logged": 3,
     "bounced": 45,
-    "bounce_rate": 0.08982035928143713,
-    "deliverable_rate": 0.9101796407185628,
-    "usable_rate": 0.6619488296135002
+    "bounce_rate": 0.0891089108910891,
+    "deliverable_rate": 0.9108910891089109,
+    "usable_rate": 0.6945544554455445
   },
   "funnel": [
     {
       "stage": "Leads sourced",
-      "count": 510,
+      "count": 511,
       "from_prev": null,
       "from_top": 1.0
     },
     {
       "stage": "Emails drafted",
-      "count": 510,
+      "count": 511,
       "from_prev": 1.0,
       "from_top": 1.0
     },
     {
       "stage": "Emails sent",
-      "count": 501,
-      "from_prev": 0.9823529411764705,
-      "from_top": 0.9823529411764705
+      "count": 505,
+      "from_prev": 0.9882583170254403,
+      "from_top": 0.9882583170254403
     },
     {
       "stage": "Delivered",
-      "count": 456,
-      "from_prev": 0.9101796407185628,
-      "from_top": 0.8941176470588236
+      "count": 460,
+      "from_prev": 0.9108910891089109,
+      "from_top": 0.9001956947162426
     },
     {
       "stage": "Replied",
-      "count": 20,
-      "from_prev": 0.043859649122807015,
-      "from_top": 0.0392156862745098
+      "count": 21,
+      "from_prev": 0.04565217391304348,
+      "from_top": 0.0410958904109589
     }
   ],
   "timeline": {
@@ -285,8 +306,8 @@
       {
         "week_start": "2026-08-17",
         "label": "Aug 17",
-        "sent": 29,
-        "drafted": 34
+        "sent": 33,
+        "drafted": 35
       }
     ],
     "daily": [
@@ -453,21 +474,86 @@
       {
         "date": "2026-08-18",
         "sent": 15
+      },
+      {
+        "date": "2026-08-19",
+        "sent": 4
       }
     ]
   },
   "quality": {
-    "approval_rate": 0.9921568627450981,
-    "send_success_rate": 0.9902152641878669,
-    "failed_sends": 5,
+    "approval_rate": 0.9921722113502935,
+    "send_success_rate": 0.9883720930232558,
+    "failed_sends": 6,
     "skipped_duplicates": 6,
     "errors": [
       {
         "label": "Username and Password not accepted",
         "count": 5
+      },
+      {
+        "label": "Mail server temporarily rejected message",
+        "count": 1
       }
     ],
     "suppressed": 0
+  },
+  "companies": {
+    "distinct": 414,
+    "people": 497,
+    "duplicate_sends": 83,
+    "multi_contact": 42,
+    "people_per_company": 1.2004830917874396,
+    "top": [
+      {
+        "label": "PwC",
+        "count": 11
+      },
+      {
+        "label": "Deloitte",
+        "count": 7
+      },
+      {
+        "label": "Microsoft",
+        "count": 5
+      },
+      {
+        "label": "United Airlines",
+        "count": 5
+      },
+      {
+        "label": "RSM US LLP",
+        "count": 5
+      },
+      {
+        "label": "Medline",
+        "count": 5
+      },
+      {
+        "label": "Huron",
+        "count": 4
+      },
+      {
+        "label": "HealthScape Advisors, a Chartis Company",
+        "count": 4
+      },
+      {
+        "label": "bp",
+        "count": 4
+      },
+      {
+        "label": "Goldman Sachs",
+        "count": 3
+      },
+      {
+        "label": "Starcom",
+        "count": 3
+      },
+      {
+        "label": "Accenture",
+        "count": 3
+      }
+    ]
   },
   "mix": {
     "sources": [
@@ -476,8 +562,8 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 18,
-        "reply_rate": 0.04522613065326633,
+        "replies": 19,
+        "reply_rate": 0.04773869346733668,
         "bounce_rate": 0.09954751131221719
       },
       {
@@ -491,11 +577,20 @@
       },
       {
         "label": "tech_founders",
-        "sent": 28,
-        "delivered": 28,
+        "sent": 29,
+        "delivered": 29,
         "bounced": 0,
         "replies": 1,
-        "reply_rate": 0.03571428571428571,
+        "reply_rate": 0.034482758620689655,
+        "bounce_rate": 0.0
+      },
+      {
+        "label": "startup_founders",
+        "sent": 3,
+        "delivered": 3,
+        "bounced": 0,
+        "replies": 0,
+        "reply_rate": 0.0,
         "bounce_rate": 0.0
       },
       {
@@ -511,15 +606,15 @@
     "templates": [
       {
         "label": "Business",
-        "count": 406
+        "count": 408
       },
       {
         "label": "Technical software",
-        "count": 76
+        "count": 77
       },
       {
         "label": "Technical engineering",
-        "count": 23
+        "count": 24
       },
       {
         "label": "Hybrid product",
@@ -529,11 +624,11 @@
     "industries": [
       {
         "label": "Information Technology & Services",
-        "count": 75
+        "count": 76
       },
       {
         "label": "Management Consulting",
-        "count": 48
+        "count": 49
       },
       {
         "label": "Financial Services",
@@ -541,7 +636,7 @@
       },
       {
         "label": "Hospital & Health Care",
-        "count": 16
+        "count": 17
       },
       {
         "label": "Professional Training & Coaching",
@@ -570,6 +665,10 @@
         "count": 7
       },
       {
+        "label": "Microsoft",
+        "count": 5
+      },
+      {
         "label": "United Airlines",
         "count": 5
       },
@@ -578,15 +677,11 @@
         "count": 5
       },
       {
-        "label": "Microsoft",
-        "count": 5
-      },
-      {
-        "label": "bp",
+        "label": "Huron",
         "count": 4
       },
       {
-        "label": "Huron",
+        "label": "bp",
         "count": 4
       },
       {
@@ -594,15 +689,15 @@
         "count": 3
       },
       {
-        "label": "FTI Consulting",
+        "label": "Starcom",
         "count": 3
       },
       {
-        "label": "Chicago Trading Company",
+        "label": "Accenture",
         "count": 3
       },
       {
-        "label": "Northern Trust",
+        "label": "HealthScape Advisors, a Chartis Company",
         "count": 3
       },
       {
@@ -614,11 +709,11 @@
   "runway": {
     "bench_ready": 0,
     "bench_unlooked": 4,
-    "projected_contacts": 2,
-    "daily_pace": 11.4,
-    "business_days_left": 0.2,
+    "projected_contacts": 3,
+    "daily_pace": 10.9,
+    "business_days_left": 0.3,
     "awaiting_approval": 4,
-    "approved_unsent": 5,
+    "approved_unsent": 2,
     "stale_follow_up_drafts": 167
   }
 }

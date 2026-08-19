@@ -313,7 +313,7 @@ footer code { font-size: 12px; background: var(--surface-1); border: 1px solid v
     </section>
     <section class="card">
       <h3>Most-contacted companies</h3>
-      <p class="note tight">Where multiple people at one company were emailed.</p>
+      <p class="note tight" id="companyNote"></p>
       <div class="always-table" id="companyTable"></div>
     </section>
   </div>
@@ -737,6 +737,12 @@ function renderStatic() {
     tile("Awaiting approval", num(rw.awaiting_approval), "drafts needing the approved column set"),
     tile("Send success rate", pct(q.send_success_rate), `${num(q.failed_sends)} failed · ${num(q.skipped_duplicates)} skipped as duplicates`),
     tile("Sending-day coverage", pct(h.day_coverage, 0), `sent on ${num(h.active_days)} of ${num(w.weekdays)} weekdays`),
+    tile("Distinct companies", num(M.companies.distinct),
+      M.companies.duplicate_sends
+        ? `${num(M.companies.duplicate_sends)} duplicate sends before dedupe`
+        : "no company emailed twice"),
+    tile("People per company", M.companies.people_per_company === null
+      ? "—" : M.companies.people_per_company.toFixed(2), "target is 1.00"),
   );
 }
 
@@ -892,9 +898,15 @@ function renderCharts() {
   renderTable(document.getElementById("industryTable"), ["Industry", "People emailed"],
     M.mix.industries.map(i => [i.label, num(i.count)]));
 
-  /* --- companies --- */
+  /* --- companies: keyed by normalized name, so aliases count once --- */
+  const co = M.companies;
+  document.getElementById("companyNote").textContent =
+    `${num(co.distinct)} distinct companies reached. ` +
+    (co.duplicate_sends
+      ? `${num(co.duplicate_sends)} email${co.duplicate_sends === 1 ? "" : "s"} went to a company we had already pitched (${num(co.multi_contact)} companies) — company dedupe now blocks that.`
+      : "No company has been emailed twice.");
   renderTable(document.getElementById("companyTable"), ["Company", "People emailed"],
-    M.mix.companies.map(c => [c.label, num(c.count)]));
+    co.top.map(c => [c.label, num(c.count)]));
 }
 
 function renderAll() { renderStatic(); renderCharts(); }

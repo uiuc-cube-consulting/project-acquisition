@@ -14,6 +14,7 @@ the workflow env (no code change needed to roll to the next term):
 | `CAMPAIGN_START` | `2026-08-18` | Anyone first emailed on/after this date counts toward the Spring 2027 numbers on the dashboard. |
 | `ALUMNI_TARGET_SHARE` | `0.35` | 35% of each batch to UIUC alumni, **65% to everyone else**. |
 | `AUTO_APPROVE` | `1` | Drafts are written pre-approved; `send` mails them unattended. |
+| `COMPANY_DEDUPE` | on | Never email two people at the same company. |
 | `PACKET_URL` | *(not set — code default)* | Info-packet link in every first email. Deliberately **not** a GitHub secret: it is a public URL that appears in every email we send. The `fall2026` slug is intentional — the packet's contents are unchanged for Spring 2027, and the tinyurl is a redirect the team owns, so re-pointing it updates emails already sent. |
 
 **Sending is unattended.** `prepare` writes drafts already marked approved and
@@ -52,6 +53,37 @@ per run on a daily rotation:
 
 The dashboard's Spring 2027 section tracks the non-alumni share against the 65%
 target so this cannot silently regress again.
+
+### One company, one conversation
+
+Dedupe used to be per-person (email address + LinkedIn URL), so nothing stopped
+the pipeline from working through **eleven people at PwC**, seven at Deloitte and
+five each at Microsoft, RSM and United Airlines. Across the Fall cycle, 83 of 497
+emails (17%) went to a company already pitched. That reads as spam from the
+prospect's side and burns Apollo credits and send slots on an account we had
+already contacted.
+
+`src/companies.py` now tracks two identifiers, because neither alone is enough:
+
+- **Normalized name** — works *before* an Apollo reveal, so a known company is
+  dropped without spending a credit. Legal suffixes, region tags and generic
+  descriptors are stripped, so `RSM US LLP`, `Deloitte Consulting LLP` and
+  `Huron Consulting Group` collapse onto `rsm`, `deloitte`, `huron`. Descriptor
+  stripping is guarded by `MIN_CORE_LEN`, so `Apex Systems` and `Apex Capital`
+  stay distinct rather than both becoming `apex`.
+- **Email domain** — only available after the reveal, but catches what a name
+  never will: `PwC` and `PricewaterhouseCoopers` both land on `pwc.com`. Free
+  providers (gmail, outlook, …) are ignored — they identify a person, not an
+  employer.
+
+The running list lives in the Sheet's **`Companies`** tab, seeded with all 420
+companies contacted to date. It is auditable and hand-editable: **add a row by
+hand and that company is permanently blocked.** Dedupe applies at three points —
+the pre-reveal pool filter, within each reveal batch (two founders at the same
+new company no longer both cost a credit), and at selection once the domain is
+known. Set `COMPANY_DEDUPE=0` to disable.
+
+The dashboard tracks `people per company`, whose target is 1.00.
 
 ### Gemini quota (why drafting is batched)
 
@@ -169,6 +201,7 @@ src/
   report_template.html  # That dashboard's markup, CSS and charts
   dashboard.py          # Plain-text metrics into the Sheet's `Dashboard` tab
   env.py                # Env readers that treat a blank value as unset
+  companies.py          # Company-level dedupe: normalization + the running list
   templates.py          # 4 outreach templates copied from the docx
   past_projects.py      # Loads + matches past CUBE projects (credibility line)
   scoring.py            # Weighted lead scoring + hard filters

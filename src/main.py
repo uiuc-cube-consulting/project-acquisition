@@ -52,6 +52,7 @@ from .sourcing.apollo import (
 from .sourcing.cube_alumni import fetch_alumni_leads
 from .summary import send_daily_summary
 from .template import TemplateRouter
+from .companies import CompanyRegistry, email_domain, normalize_company
 from .env import env_flag, env_float, env_int, env_str
 
 logging.basicConfig(
@@ -89,6 +90,11 @@ def _auto_approve() -> bool:
     return env_flag("AUTO_APPROVE")
 
 
+def _company_dedupe() -> bool:
+    """Whether to enforce one-company-one-conversation (COMPANY_DEDUPE, default on)."""
+    return env_flag("COMPANY_DEDUPE", default=True)
+
+
 def _discovery_profile_count() -> int:
     """How many Apollo breadth profiles to search per run."""
     return max(1, env_int("DISCOVERY_PROFILES_PER_RUN", 3))
@@ -103,7 +109,8 @@ class _Selector:
     budget is enforced across the whole run, not per queue.
     """
 
-    def __init__(self, *, apollo, sheets, scorer, known, suppression, contacted, budget):
+    def __init__(self, *, apollo, sheets, scorer, known, suppression, contacted, budget,
+                 companies=None):
         self.apollo = apollo
         self.sheets = sheets
         self.scorer = scorer
@@ -111,6 +118,8 @@ class _Selector:
         self.suppression = suppression
         self.contacted = contacted
         self.budget = budget
+        # Companies already contacted (plus any claimed earlier in this run).
+        self.companies = companies
         self.revealed: dict[int, Lead | None] = {}
         self.reveals = 0
         self.reveals_found = 0
@@ -141,23 +150,46 @@ class _Selector:
                 email_lc = lead.email.lower()
                 if email_lc in self.known or email_lc in self.suppression:
                     continue
+                # Second company check, now that the email (and so the domain) is
+                # known — this catches what the name alone can't, e.g. "PwC" vs
+                # "PricewaterhouseCoopers" both resolving to pwc.com.
+                if self.companies is not None and self.companies.seen(lead.company, lead.email):
+                    log.info("Skipping %s: %s already contacted", email_lc, lead.company)
+                    continue
                 excluded, reason = self.scorer.is_excluded(lead, self.suppression, self.contacted)
                 if excluded:
                     log.info("Skipping %s: %s", email_lc, reason)
                     continue
                 if isinstance(it, Candidate):
                     lead.score = it.score
-                # Claim the address so the other queue can't pick it up twice.
+                # Claim the address and the company so nothing later in this run
+                # — including the other quota — takes either again.
                 self.known.add(email_lc)
+                if self.companies is not None:
+                    self.companies.claim(lead.company, lead.email)
                 picked.append(lead)
         self._cursors[id(queue)] = idx
         return picked
 
     def _reveal(self, window: list) -> None:
-        to_reveal = [
-            it for it in window
-            if isinstance(it, Candidate) and id(it) not in self.revealed
-        ]
+        # Filtering on the company name BEFORE the reveal is the whole point: an
+        # already-contacted company costs us nothing instead of a credit. The
+        # `batch_seen` set extends that within the window itself — two founders
+        # at the same new company would otherwise both be revealed, and the
+        # second rejected immediately afterwards.
+        to_reveal: list[Candidate] = []
+        batch_seen: set[str] = set()
+        for it in window:
+            if not isinstance(it, Candidate) or id(it) in self.revealed:
+                continue
+            if self.companies is not None and self.companies.seen(it.company):
+                continue
+            key = normalize_company(it.company)
+            if key and key in batch_seen:
+                continue
+            if key:
+                batch_seen.add(key)
+            to_reveal.append(it)
         if not to_reveal or self.apollo is None:
             return
         for cand, lead in zip(to_reveal, bulk_reveal(self.apollo, to_reveal)):
@@ -188,6 +220,14 @@ def cmd_prepare(dry_run: bool) -> int:
     known = sheets.get_known_emails()
     known_li = sheets.get_known_linkedins()
     contacted = sheets.get_contacted_dates()
+    # One company, one conversation: every company already in Leads (or listed
+    # by hand on the Companies tab) is off the table. See companies.py.
+    companies = CompanyRegistry.from_rows(
+        sheets.book.worksheet("Leads").get_all_records(),
+        sheets.fetch_company_rows(),
+    ) if _company_dedupe() else None
+    if companies is not None:
+        log.info("Company dedupe on: %d companies already contacted", len(companies))
     scorer = Scorer()
     past_index = PastProjectIndex.load()
     past_kw = {kw.lower() for p in past_index.projects for kw in p.keywords}
@@ -252,6 +292,10 @@ def cmd_prepare(dry_run: bool) -> int:
         li = (getattr(item, "linkedin", None) or "").strip().lower()
         if li and li in known_li:
             continue
+        if companies is not None and companies.seen(
+            getattr(item, "company", None), getattr(item, "email", None)
+        ):
+            continue  # already pitched this company
         if isinstance(item, Lead):
             if item.email.lower() in known:
                 continue
@@ -283,6 +327,7 @@ def cmd_prepare(dry_run: bool) -> int:
     selector = _Selector(
         apollo=apollo, sheets=sheets, scorer=scorer, known=known,
         suppression=suppression, contacted=contacted, budget=target * 2,
+        companies=companies,
     )
     # Whichever pool runs short hands its unused slots to the other, so a thin
     # alumni bench never costs us total volume.
@@ -338,6 +383,19 @@ def cmd_prepare(dry_run: bool) -> int:
         drafts_to_write.append(draft)
     sheets.append_leads(leads_to_write)
     sheets.append_drafts(drafts_to_write)
+
+    # Extend the running company list so tomorrow's run skips these outright.
+    if _company_dedupe() and leads_to_write:
+        added = sheets.record_companies(
+            {
+                "company": lead.company,
+                "normalized": normalize_company(lead.company),
+                "domain": email_domain(lead.email),
+                "source": lead.source,
+            }
+            for lead in leads_to_write if normalize_company(lead.company)
+        )
+        log.info("Company list: %d new companies recorded", added)
 
     # Sourcing telemetry for the dashboards — how many credits we spent and how
     # many of them actually produced an email.
