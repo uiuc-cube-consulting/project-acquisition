@@ -23,6 +23,7 @@ from typing import Iterable
 import gspread
 from google.oauth2.service_account import Credentials
 
+from .env import env_str
 from .models import Draft, Lead, LeadStatus
 
 log = logging.getLogger(__name__)
@@ -85,6 +86,7 @@ REPLIES_HEADERS = [
 RUNS_HEADERS = [
     "run_at", "profile", "candidates_seen", "reveals_attempted", "emails_found",
     "alumni_attempted", "alumni_found", "leads_selected", "drafts_created",
+    "drafts_failed",
 ]
 
 TAB_HEADERS = {
@@ -104,7 +106,7 @@ def load_service_account_info() -> dict:
     raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
     if raw:
         return json.loads(raw)
-    path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
+    path = env_str("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
     with open(path) as f:
         return json.load(f)
 
@@ -536,7 +538,10 @@ def _draft_to_row(d: Draft) -> list:
     return [
         d.prepared_at.isoformat(timespec="seconds"),
         d.lead_email, d.template_used.value, d.subject, d.body,
-        "FALSE",  # approved: starts unchecked
+        # Normally starts unchecked and a human ticks it. With AUTO_APPROVE the
+        # orchestrator sets Draft.approved itself and this writes TRUE, so the
+        # send job picks the row up without anyone in the loop.
+        "TRUE" if d.approved else "FALSE",
         d.sent_at.isoformat(timespec="seconds") if d.sent_at else "",
         d.send_error or "", d.message_id or "",
         "TRUE" if d.is_follow_up else "FALSE",

@@ -12,7 +12,11 @@ on:
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Gemini's free tier is ~5 req/min and drafting is one call per lead, so a
+    # 15-lead batch needs ~3-4 minutes of paced calls plus sourcing. The old
+    # 15-minute cap could kill the job mid-batch, losing drafts whose Apollo
+    # credits were already spent.
+    timeout-minutes: 45
     env:
       APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -30,6 +34,17 @@ jobs:
       SENDER_NAME: ${{ secrets.SENDER_NAME }}
       SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
       DAILY_PREPARE_TARGET: ${{ secrets.DAILY_PREPARE_TARGET }}
+      # --- Spring 2027 campaign ---
+      # The semester the outreach pitches (appears in the subject and body).
+      TARGET_TERM: "Spring 2027"
+      CAMPAIGN_START: "2026-08-18"
+      # Reserve 65% of every batch for NON-alumni discovery. Before quotas, the
+      # alumni-first sort took every slot on any day the Alumni tab was full, so
+      # founders / Chicago businesses / big tech were never reached at all.
+      ALUMNI_TARGET_SHARE: "0.35"
+      DISCOVERY_PROFILES_PER_RUN: "3"
+      # Drafts are written pre-approved; the send job mails them unattended.
+      AUTO_APPROVE: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

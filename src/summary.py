@@ -9,6 +9,7 @@ import logging
 import os
 from datetime import datetime, timezone
 
+from .env import env_flag
 from .gmail_send import GmailSender
 from .sheets import SheetClient
 
@@ -41,5 +42,5 @@ def send_daily_summary(sent_count: int, follow_ups: int, drafts_pending: int) ->
         to=_recipient(),
         subject=f"CUBE Outreach Summary — {today}",
         body=body,
-        dry_run=bool(int(os.environ.get("DRY_RUN", "0"))),
+        dry_run=env_flag("DRY_RUN"),
     )

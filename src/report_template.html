@@ -208,6 +208,25 @@ footer code { font-size: 12px; background: var(--surface-1); border: 1px solid v
     </div>
   </header>
 
+  <h2 id="campaignHeading">Current campaign</h2>
+  <div class="kpis" id="campaignKpis"></div>
+  <div class="grid two" style="margin-bottom:8px">
+    <section class="card">
+      <h3>Who we're reaching this campaign</h3>
+      <p class="note" id="mixNote"></p>
+      <div class="chart" id="mixChart"></div>
+      <div class="legend" id="mixLegend"></div>
+      <div class="always-table" id="mixTable"></div>
+    </section>
+    <section class="card">
+      <h3>Sends per day this campaign</h3>
+      <p class="note" id="campaignDailyNote"></p>
+      <div class="chart" id="campaignDaily"></div>
+      <div class="table-view" id="campaignDailyTable"></div>
+    </section>
+  </div>
+
+  <h2>All time — both cycles</h2>
   <section class="card hero-card" style="margin-bottom:14px">
     <div class="hero">
       <div>
@@ -690,6 +709,26 @@ function renderStatic() {
     return d;
   }));
 
+  /* --- current campaign --- */
+  const cp = M.campaign;
+  document.getElementById("campaignHeading").textContent =
+    `${cp.name} campaign — since ${fmtDate(cp.start)}`;
+  const shareGap = (cp.non_alumni_share === null)
+    ? null : cp.non_alumni_share - cp.target_non_alumni_share;
+  document.getElementById("campaignKpis").replaceChildren(
+    tile("Emails sent", num(cp.sent), `for ${cp.name} projects`),
+    tile("Non-alumni reach", pct(cp.non_alumni_share, 0),
+      `${num(cp.non_alumni_sent)} non-alumni · ${num(cp.alumni_sent)} alumni · target ${pct(cp.target_non_alumni_share, 0)}`,
+      shareGap === null ? null : {
+        dir: shareGap >= 0 ? "up" : "down",
+        text: `${shareGap >= 0 ? "+" : ""}${(shareGap * 100).toFixed(0)} pts vs target`,
+      }),
+    tile("Reply rate", pct(cp.reply_rate), `${num(cp.replies)} replied of ${num(cp.delivered)} delivered`),
+    tile("Interested", num(cp.interested), `${pct(cp.interested_rate)} of delivered`),
+    tile("Delivered", num(cp.delivered), `of ${num(cp.sent)} sent`),
+    tile("Bounce rate", pct(cp.bounce_rate), `${num(cp.bounced)} bad addresses`),
+  );
+
   /* --- pipeline health --- */
   document.getElementById("health").replaceChildren(
     tile("Alumni bench left", num(rw.projected_contacts), `${num(rw.bench_ready)} ready · ${num(rw.bench_unlooked)} awaiting lookup`),
@@ -708,6 +747,42 @@ function renderCharts() {
     neutral: cssVar("--neutral-mark"), s1: cssVar("--series-1"), s2: cssVar("--series-2"),
     ramp: [cssVar("--ramp-1"), cssVar("--ramp-2"), cssVar("--ramp-3"), cssVar("--ramp-4"), cssVar("--ramp-5")],
   };
+
+  /* --- campaign audience mix --- */
+  const cpn = M.campaign;
+  const mix = [
+    { label: "Non-alumni", value: cpn.non_alumni_sent, color: C.s1 },
+    { label: "UIUC alumni", value: cpn.alumni_sent, color: C.s2 },
+  ];
+  if (cpn.sent > 0) {
+    stackedBar(document.getElementById("mixChart"), mix, { height: 96 });
+    legend(document.getElementById("mixLegend"),
+      mix.map(m => ({ label: `${m.label} — ${num(m.value)}`, color: m.color })));
+  } else {
+    document.getElementById("mixChart").replaceChildren();
+    document.getElementById("mixLegend").replaceChildren();
+  }
+  document.getElementById("mixNote").textContent =
+    `Breaking out of the alumni-only pattern is the point of this cycle: the target is ` +
+    `${pct(cpn.target_non_alumni_share, 0)} non-alumni — startup founders, Chicago businesses, ` +
+    `and big tech/consulting — with the rest from the UIUC alumni list.`;
+  renderTable(document.getElementById("mixTable"),
+    ["Audience", "Sent", "Delivered", "Bounced", "Replies", "Reply rate", "Interested"],
+    cpn.by_audience.map(s => [
+      s.label, num(s.sent), num(s.delivered), num(s.bounced),
+      num(s.replies), pct(s.reply_rate), num(s.interested),
+    ]));
+
+  /* --- campaign daily volume --- */
+  const cDaily = cpn.daily.map(d => ({ label: fmtDate(d.date).replace(/, \d{4}$/, ""), value: d.sent }));
+  if (cDaily.length) {
+    columnChart(document.getElementById("campaignDaily"), cDaily, { height: 220 });
+  }
+  document.getElementById("campaignDailyNote").textContent = cDaily.length
+    ? `${num(cpn.sent)} emails over ${cDaily.length} sending ${cDaily.length === 1 ? "day" : "days"} since the campaign opened.`
+    : "No sends recorded for this campaign yet.";
+  renderTable(document.getElementById("campaignDailyTable"), ["Date", "Sent"],
+    cpn.daily.map(d => [fmtDate(d.date), num(d.sent)]));
 
   /* --- outcome of every send --- */
   const silent = Math.max(0, dl.delivered - r.responses - r.auto_replies);

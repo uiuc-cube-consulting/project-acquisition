@@ -2,7 +2,104 @@
 
 Automates CUBE's weekday client outreach: sources fresh leads, drafts personalized cold emails, writes them to a Google Sheet for review, and sends the ones you approve via Gmail — then emails you a short summary. Afterwards it reads the mailbox (read-only) to record who replied, who bounced, and who was out of office, and turns all of it into a metrics dashboard.
 
-The only recurring human action required is **marking which drafts to send** in the Sheet each morning.
+## Current campaign: Spring 2027
+
+Outreach runs a semester ahead — the Fall 2026 cycle is underway, so these emails
+source projects for **Spring 2027**. Two things define the campaign, both set in
+the workflow env (no code change needed to roll to the next term):
+
+| Setting | Value | Effect |
+|---|---|---|
+| `TARGET_TERM` | `Spring 2027` | Named in the subject line and twice in the body. Substituted in Python, never by the model, so it cannot be paraphrased away. |
+| `CAMPAIGN_START` | `2026-08-18` | Anyone first emailed on/after this date counts toward the Spring 2027 numbers on the dashboard. |
+| `ALUMNI_TARGET_SHARE` | `0.35` | 35% of each batch to UIUC alumni, **65% to everyone else**. |
+| `AUTO_APPROVE` | `1` | Drafts are written pre-approved; `send` mails them unattended. |
+| `PACKET_URL` | *(not set — code default)* | Info-packet link in every first email. Deliberately **not** a GitHub secret: it is a public URL that appears in every email we send. The `fall2026` slug is intentional — the packet's contents are unchanged for Spring 2027, and the tinyurl is a redirect the team owns, so re-pointing it updates emails already sent. |
+
+**Sending is unattended.** `prepare` writes drafts already marked approved and
+`send` mails them the same morning, capped at `DAILY_SEND_CAP`. The suppression
+list and the already-contacted dedupe still apply, so auto-approval cannot cause
+a re-email. To put a human back in the loop, drop `AUTO_APPROVE` from
+`.github/workflows/prepare.yml`.
+
+### Reaching beyond UIUC alumni
+
+This was broken, silently, for the whole Fall cycle. Selection used a single
+alumni-first sort:
+
+```python
+filtered.sort(key=lambda x: (x.is_uiuc_alum, x.score), reverse=True)   # every alum outranks every non-alum
+```
+
+with a hard stop at `DAILY_PREPARE_TARGET`. Any day the Alumni tab held 15+
+people — nearly every day — all 15 slots went to alumni and Apollo discovery
+contributed **zero**. The result over two months: 444 alumni vs 62 non-alumni,
+and the non-alumni only got through on the handful of days the alumni bench ran
+dry. Nothing was failing in CI; the queue was simply never reached.
+
+Selection now fills **two independent quotas** (`_Selector` in `src/main.py`),
+so discovery gets guaranteed slots every day. Whichever pool comes up short
+hands its slots to the other, so total volume never drops. The non-alumni half
+comes from these Apollo profiles (`config/search_profiles.yaml`), three searched
+per run on a daily rotation:
+
+- `chicago_businesses` — Chicago-area owners and founders, 11–500 employees
+- `startup_founders` — early-stage founders nationally
+- `tech_founders` — software/tech founders and execs
+- `big_tech` — product/eng/strategy leaders at 1,000+ employee tech companies
+- `big_consulting` — practice leaders at consulting and professional-services firms
+- `illinois_executives` — statewide Illinois decision-makers
+
+The dashboard's Spring 2027 section tracks the non-alumni share against the 65%
+target so this cannot silently regress again.
+
+### Gemini quota (why drafting is batched)
+
+The free tier caps both requests/minute and requests/day, and the daily cap is
+the binding one. One Gemini call per lead exhausted it mid-batch: a 15-lead run
+lost 11 drafts to 429s **after** their Apollo credits had been spent, and spent
+18 minutes asleep in retry backoff — past the workflow's old 15-minute timeout.
+
+Three changes make the daily run fit:
+
+- **Batched drafting** (`DRAFT_BATCH_SIZE`, default 5) — one call drafts five
+  contacts, cutting daily requests ~5x. Anything the batch omits is retried
+  individually, so a malformed entry costs one email, not the batch.
+- **Proactive pacing** (`GEMINI_MIN_INTERVAL_SECONDS`, default 12.5) — stay under
+  the per-minute limit instead of tripping it and eating a 60s backoff.
+- **`timeout-minutes: 45`** on `prepare`, so a slow run finishes instead of dying.
+
+A drafting shortfall now logs at ERROR and is recorded in the `Runs` tab's
+`drafts_failed` column, because every lost draft is a wasted Apollo credit.
+
+### Settings, secrets, and the empty-string trap
+
+Only genuine credentials belong in GitHub secrets: `APOLLO_API_KEY`,
+`GEMINI_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `GMAIL_APP_PASSWORD`,
+`GMAIL_ADDRESS`, `SHEET_ID`. Tuning knobs (`TARGET_TERM`, `ALUMNI_TARGET_SHARE`,
+`AUTO_APPROVE`, …) are plain literals in the workflow so they are reviewable in
+a diff, and non-secret values like `PACKET_URL` just use the code default.
+
+This matters more than it looks. **A missing GitHub secret is exported as an
+empty string, not as "unset"** — so `${{ secrets.NOPE }}` gives `NOPE=""`, and
+`os.environ.get("NOPE", default)` returns `""` because the key does exist. The
+damage ranged from loud to silent:
+
+| Setting unset | Old behaviour |
+|---|---|
+| `DAILY_PREPARE_TARGET` | `int("")` → **ValueError, `prepare` dies on startup** |
+| `DAILY_SEND_CAP` | `int("")` → **ValueError, `send` dies on startup** |
+| `SENDER_NAME` / `SENDER_PHONE` | outreach signed by nobody, "reach me at ." |
+| `ORG_NAME` / `ORG_PHYSICAL_ADDRESS` / `UNSUBSCRIBE_MAILTO` | broken CAN-SPAM footer on real mail |
+| `PACKET_URL` | "take a look:" followed by nothing |
+
+`src/env.py` (`env_str` / `env_int` / `env_float` / `env_flag`) treats blank as
+absent, so every one of those now falls back to its documented default. Anything
+a workflow might pass should be read through those helpers, not
+`os.environ.get`.
+
+The only recurring human action required is **keeping the Alumni tab stocked** —
+everything else runs unattended.
 
 ## Metrics dashboard
 
@@ -46,17 +143,17 @@ Two GitHub Actions cron jobs run every weekday:
 
 | Job | Time (CT) | Does |
 |---|---|---|
-| `prepare` | 06:00 | Sources leads from Apollo (decision-makers) + the `Prospects`/CUBE alumni Sheets → dedupes → scores (UIUC alumni first) → drafts 15 personalized emails via Gemini → writes them to the `Drafts` tab for review |
-| `send` | 10:00 | Sends every `Drafts` row you marked `approved` (up to 10, throttled 1 every 30s) via Gmail SMTP → marks them sent → scans the mailbox for replies/bounces → emails you a short summary |
+| `prepare` | 06:00 M–F | Sources leads from Apollo discovery + the Alumni/`Prospects` Sheets → dedupes → scores → fills the alumni and non-alumni quotas → drafts 15 personalized emails via Gemini → writes them to `Drafts`, pre-approved |
+| `send` | 10:00 M–F | Mails every approved, unsent `Drafts` row (up to `DAILY_SEND_CAP`, throttled 1 every 30s) via Gmail SMTP → marks them sent → scans the mailbox for replies/bounces → emails a short summary |
+| `dashboard` | 08:00 Mon | Rescans the mailbox, rebuilds `dashboard/index.html`, and commits it — the weekly metrics refresh |
 
-This gives you a 4-hour window to review and approve before send.
+### The `approved` column
 
-### Approving in the Sheet
-
-`prepare` writes each draft as a row in the **`Drafts`** tab. To approve one, set
-its **`approved`** column to `yes` (or `TRUE`). At 10am the `send` job mails
-exactly the rows marked approved and unsent — nothing else goes out; leave a row
-blank to skip it. The Sheet is the single source of truth. Sending is one-way
+`prepare` writes each draft as a row in the **`Drafts`** tab. With `AUTO_APPROVE=1`
+(the current setting) those rows arrive already ticked and the 10am `send` job
+mails them. Without it, a human sets **`approved`** to `yes`/`TRUE` and only
+those rows go out. Either way `send` mails exactly the rows that are approved
+and unsent — clearing a checkbox before 10am pulls that email. The Sheet is the single source of truth. Sending is one-way
 (SMTP); the only inbox access anywhere in the pipeline is the read-only IMAP scan
 that records what came back, and it never approves or sends anything.
 
@@ -71,11 +168,12 @@ src/
   report.py             # Builds the standalone HTML dashboard
   report_template.html  # That dashboard's markup, CSS and charts
   dashboard.py          # Plain-text metrics into the Sheet's `Dashboard` tab
+  env.py                # Env readers that treat a blank value as unset
   templates.py          # 4 outreach templates copied from the docx
   past_projects.py      # Loads + matches past CUBE projects (credibility line)
   scoring.py            # Weighted lead scoring + hard filters
   template.py           # Industry → template router
-  draft.py              # Claude personalization
+  draft.py              # Gemini personalization (fills {term} in Python)
   sheets.py             # Google Sheets data layer
   gmail_send.py         # Gmail SMTP send (App Password, send-only)
   follow_up.py          # 3-business-day follow-up drafter
@@ -93,8 +191,9 @@ dashboard/
   index.html            # Built by `report` — the shareable metrics page
   data.json             # The same metrics as JSON
 .github/workflows/
-  prepare.yml           # Cron 06:00 CT M-F
+  prepare.yml           # Cron 06:00 CT M-F (source + draft, auto-approved)
   send.yml              # Cron 10:00 CT M-F (send + inbox scan)
+  dashboard.yml         # Cron 08:00 CT Mon (weekly metrics refresh + commit)
 ```
 
 ### Sheet tabs

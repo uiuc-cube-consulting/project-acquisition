@@ -158,14 +158,36 @@ def get_uiuc_profile(profiles: list[dict[str, Any]]) -> dict[str, Any] | None:
     return None
 
 
-def pick_profile_for_today(profiles: list[dict[str, Any]], day_index: int) -> dict[str, Any]:
-    """Rotate the *secondary* (breadth) profiles by day. The UIUC profile is
-    excluded here because it runs every day, not on rotation."""
-    apollo_profiles = [
+def discovery_profiles(profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The Apollo-searchable breadth profiles (everything sheet-sourced or
+    UIUC-only is handled elsewhere)."""
+    return [
         p for p in profiles
         if p.get("source") != "cube_alumni_sheet" and not p.get("uiuc_only")
     ]
-    return apollo_profiles[day_index % len(apollo_profiles)]
+
+
+def pick_profile_for_today(profiles: list[dict[str, Any]], day_index: int) -> dict[str, Any]:
+    """Rotate the *secondary* (breadth) profiles by day. The UIUC profile is
+    excluded here because it runs every day, not on rotation."""
+    return discovery_profiles(profiles)[day_index % len(discovery_profiles(profiles))]
+
+
+def pick_profiles_for_today(
+    profiles: list[dict[str, Any]], day_index: int, count: int = 3
+) -> list[dict[str, Any]]:
+    """`count` breadth profiles for today, starting at the daily rotation point.
+
+    Rotating the starting index means every profile leads the batch every few
+    days, so no segment is permanently stuck behind the others — while still
+    searching enough profiles per run to actually fill the discovery quota.
+    """
+    pool = discovery_profiles(profiles)
+    if not pool:
+        return []
+    count = max(1, min(count, len(pool)))
+    start = day_index % len(pool)
+    return [pool[(start + i) % len(pool)] for i in range(count)]
 
 
 def _parse_location(person: dict[str, Any]) -> str | None:

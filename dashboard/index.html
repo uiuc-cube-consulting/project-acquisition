@@ -208,6 +208,25 @@ footer code { font-size: 12px; background: var(--surface-1); border: 1px solid v
     </div>
   </header>
 
+  <h2 id="campaignHeading">Current campaign</h2>
+  <div class="kpis" id="campaignKpis"></div>
+  <div class="grid two" style="margin-bottom:8px">
+    <section class="card">
+      <h3>Who we're reaching this campaign</h3>
+      <p class="note" id="mixNote"></p>
+      <div class="chart" id="mixChart"></div>
+      <div class="legend" id="mixLegend"></div>
+      <div class="always-table" id="mixTable"></div>
+    </section>
+    <section class="card">
+      <h3>Sends per day this campaign</h3>
+      <p class="note" id="campaignDailyNote"></p>
+      <div class="chart" id="campaignDaily"></div>
+      <div class="table-view" id="campaignDailyTable"></div>
+    </section>
+  </div>
+
+  <h2>All time — both cycles</h2>
   <section class="card hero-card" style="margin-bottom:14px">
     <div class="hero">
       <div>
@@ -310,7 +329,7 @@ footer code { font-size: 12px; background: var(--surface-1); border: 1px solid v
 </div>
 
 <script>
-const M = {"generated_at": "2026-08-17T16:09:26+00:00", "window": {"first_send": "2026-06-21", "last_send": "2026-08-17", "weekdays": 41}, "headline": {"emails_sent": 484, "people_reached": 479, "companies_reached": 400, "leads_sourced": 491, "drafts_written": 663, "follow_ups_sent": 5, "last_7": 65, "prior_7": 77, "last_30": 229, "active_days": 40, "avg_per_active_day": 12.1, "day_coverage": 0.975609756097561, "alumni_share": 0.8851774530271399}, "reply": {"tracked": true, "responses": 19, "rate": 0.04337899543378995, "interested": 10, "interested_rate": 0.0228310502283105, "auto_replies": 12, "engaged": 31, "engagement_rate": 0.07077625570776255, "sentiment": [{"label": "positive", "count": 10}, {"label": "neutral", "count": 6}, {"label": "negative", "count": 2}], "by_audience": [{"label": "UIUC alumni", "sent": 424, "delivered": 384, "bounced": 40, "replies": 17, "reply_rate": 0.044270833333333336, "bounce_rate": 0.09433962264150944}, {"label": "Non-alumni", "sent": 55, "delivered": 54, "bounced": 1, "replies": 2, "reply_rate": 0.037037037037037035, "bounce_rate": 0.01818181818181818}], "by_source": [{"label": "alumni_input", "sent": 424, "delivered": 384, "bounced": 40, "replies": 17, "reply_rate": 0.044270833333333336, "bounce_rate": 0.09433962264150944}, {"label": "tech_founders", "sent": 28, "delivered": 28, "bounced": 0, "replies": 1, "reply_rate": 0.03571428571428571, "bounce_rate": 0.0}, {"label": "illinois_executives", "sent": 26, "delivered": 25, "bounced": 1, "replies": 1, "reply_rate": 0.04, "bounce_rate": 0.038461538461538464}, {"label": "unknown", "sent": 1, "delivered": 1, "bounced": 0, "replies": 0, "reply_rate": 0.0, "bounce_rate": 0.0}]}, "deliverability": {"sent": 479, "delivered": 438, "bounced": 41, "bounce_rate": 0.08559498956158663, "delivered_rate": 0.9144050104384134}, "apollo": {"find_rate": 0.7453936348408711, "basis": "alumni_tab", "attempted": 597, "found": 445, "lookup_breakdown": [{"label": "Email found", "count": 445, "state": "good"}, {"label": "No email available", "count": 152, "state": "critical"}, {"label": "Not looked up yet", "count": 15, "state": "pending"}], "alumni_rows": 612, "discovery_leads": 58, "runs_logged": 0, "bounced": 41, "bounce_rate": 0.08559498956158663, "deliverable_rate": 0.9144050104384134, "usable_rate": 0.6815916744473935}, "funnel": [{"stage": "Leads sourced", "count": 491, "from_prev": null, "from_top": 1.0}, {"stage": "Emails drafted", "count": 491, "from_prev": 1.0, "from_top": 1.0}, {"stage": "Emails sent", "count": 479, "from_prev": 0.9755600814663951, "from_top": 0.9755600814663951}, {"stage": "Delivered", "count": 438, "from_prev": 0.9144050104384134, "from_top": 0.8920570264765784}, {"stage": "Replied", "count": 19, "from_prev": 0.04337899543378995, "from_top": 0.038696537678207736}], "timeline": {"weekly": [{"week_start": "2026-06-15", "label": "Jun 15", "sent": 1, "drafted": 4}, {"week_start": "2026-06-22", "label": "Jun 22", "sent": 82, "drafted": 103}, {"week_start": "2026-06-29", "label": "Jun 29", "sent": 60, "drafted": 167}, {"week_start": "2026-07-06", "label": "Jul 6", "sent": 72, "drafted": 117}, {"week_start": "2026-07-13", "label": "Jul 13", "sent": 40, "drafted": 35}, {"week_start": "2026-07-20", "label": "Jul 20", "sent": 55, "drafted": 55}, {"week_start": "2026-07-27", "label": "Jul 27", "sent": 24, "drafted": 30}, {"week_start": "2026-08-03", "label": "Aug 3", "sent": 70, "drafted": 64}, {"week_start": "2026-08-10", "label": "Aug 10", "sent": 73, "drafted": 73}, {"week_start": "2026-08-17", "label": "Aug 17", "sent": 7, "drafted": 15}], "daily": [{"date": "2026-06-21", "sent": 1}, {"date": "2026-06-22", "sent": 5}, {"date": "2026-06-23", "sent": 15}, {"date": "2026-06-24", "sent": 2}, {"date": "2026-06-25", "sent": 30}, {"date": "2026-06-26", "sent": 15}, {"date": "2026-06-27", "sent": 15}, {"date": "2026-06-29", "sent": 15}, {"date": "2026-06-30", "sent": 15}, {"date": "2026-07-01", "sent": 15}, {"date": "2026-07-02", "sent": 15}, {"date": "2026-07-06", "sent": 15}, {"date": "2026-07-07", "sent": 15}, {"date": "2026-07-08", "sent": 28}, {"date": "2026-07-09", "sent": 12}, {"date": "2026-07-10", "sent": 2}, {"date": "2026-07-13", "sent": 11}, {"date": "2026-07-14", "sent": 15}, {"date": "2026-07-15", "sent": 12}, {"date": "2026-07-16", "sent": 1}, {"date": "2026-07-17", "sent": 1}, {"date": "2026-07-20", "sent": 15}, {"date": "2026-07-21", "sent": 8}, {"date": "2026-07-22", "sent": 2}, {"date": "2026-07-23", "sent": 6}, {"date": "2026-07-24", "sent": 24}, {"date": "2026-07-27", "sent": 15}, {"date": "2026-07-28", "sent": 9}, {"date": "2026-08-03", "sent": 8}, {"date": "2026-08-04", "sent": 2}, {"date": "2026-08-05", "sent": 15}, {"date": "2026-08-06", "sent": 15}, {"date": "2026-08-07", "sent": 15}, {"date": "2026-08-09", "sent": 15}, {"date": "2026-08-10", "sent": 15}, {"date": "2026-08-11", "sent": 13}, {"date": "2026-08-12", "sent": 15}, {"date": "2026-08-13", "sent": 15}, {"date": "2026-08-14", "sent": 15}, {"date": "2026-08-17", "sent": 7}]}, "quality": {"approval_rate": 0.9918533604887984, "send_success_rate": 0.9897750511247444, "failed_sends": 5, "skipped_duplicates": 6, "errors": [{"label": "Username and Password not accepted", "count": 5}], "suppressed": 0}, "mix": {"sources": [{"label": "alumni_input", "sent": 424, "delivered": 384, "bounced": 40, "replies": 17, "reply_rate": 0.044270833333333336, "bounce_rate": 0.09433962264150944}, {"label": "tech_founders", "sent": 28, "delivered": 28, "bounced": 0, "replies": 1, "reply_rate": 0.03571428571428571, "bounce_rate": 0.0}, {"label": "illinois_executives", "sent": 26, "delivered": 25, "bounced": 1, "replies": 1, "reply_rate": 0.04, "bounce_rate": 0.038461538461538464}, {"label": "unknown", "sent": 1, "delivered": 1, "bounced": 0, "replies": 0, "reply_rate": 0.0, "bounce_rate": 0.0}], "templates": [{"label": "Business", "count": 390}, {"label": "Technical software", "count": 72}, {"label": "Technical engineering", "count": 21}, {"label": "Hybrid product", "count": 1}], "industries": [{"label": "Information Technology & Services", "count": 71}, {"label": "Management Consulting", "count": 44}, {"label": "Financial Services", "count": 43}, {"label": "Professional Training & Coaching", "count": 16}, {"label": "Hospital & Health Care", "count": 16}, {"label": "Marketing & Advertising", "count": 11}, {"label": "Real Estate", "count": 10}, {"label": "Accounting", "count": 8}], "companies": [{"label": "PwC", "count": 11}, {"label": "Deloitte", "count": 5}, {"label": "Microsoft", "count": 5}, {"label": "Medline", "count": 5}, {"label": "bp", "count": 4}, {"label": "United Airlines", "count": 4}, {"label": "Huron", "count": 4}, {"label": "Grainger", "count": 3}, {"label": "Northwestern Medicine", "count": 3}, {"label": "Starcom", "count": 3}, {"label": "Northern Trust", "count": 3}, {"label": "FTI Consulting", "count": 3}]}, "runway": {"bench_ready": 1, "bench_unlooked": 15, "projected_contacts": 12, "daily_pace": 10.4, "business_days_left": 1.2, "awaiting_approval": 4, "approved_unsent": 8, "stale_follow_up_drafts": 167}};
+const M = {"generated_at": "2026-08-18T19:02:27+00:00", "campaign": {"start": "2026-08-18", "sent": 15, "delivered": 13, "bounced": 2, "replies": 0, "interested": 0, "auto_replies": 0, "reply_rate": 0.0, "interested_rate": 0.0, "bounce_rate": 0.13333333333333333, "alumni_sent": 11, "non_alumni_sent": 4, "non_alumni_share": 0.26666666666666666, "by_audience": [{"label": "UIUC alumni", "sent": 11, "delivered": 9, "bounced": 2, "replies": 0, "interested": 0, "reply_rate": 0.0, "bounce_rate": 0.18181818181818182}, {"label": "Non-alumni", "sent": 4, "delivered": 4, "bounced": 0, "replies": 0, "interested": 0, "reply_rate": 0.0, "bounce_rate": 0.0}], "by_source": [{"label": "alumni_input", "count": 11}, {"label": "illinois_executives", "count": 4}], "daily": [{"date": "2026-08-18", "sent": 15}], "name": "Spring 2027", "target_non_alumni_share": 0.65}, "window": {"first_send": "2026-06-21", "last_send": "2026-08-18", "weekdays": 42}, "headline": {"emails_sent": 506, "people_reached": 501, "companies_reached": 414, "leads_sourced": 510, "drafts_written": 682, "follow_ups_sent": 5, "last_7": 74, "prior_7": 88, "last_30": 251, "active_days": 41, "avg_per_active_day": 12.3, "day_coverage": 0.9761904761904762, "alumni_share": 0.8822355289421158}, "reply": {"tracked": true, "responses": 20, "rate": 0.043859649122807015, "interested": 11, "interested_rate": 0.02412280701754386, "auto_replies": 12, "engaged": 32, "engagement_rate": 0.07017543859649122, "sentiment": [{"label": "positive", "count": 11}, {"label": "neutral", "count": 6}, {"label": "negative", "count": 2}], "by_audience": [{"label": "UIUC alumni", "sent": 442, "delivered": 398, "bounced": 44, "replies": 18, "reply_rate": 0.04522613065326633, "bounce_rate": 0.09954751131221719}, {"label": "Non-alumni", "sent": 59, "delivered": 58, "bounced": 1, "replies": 2, "reply_rate": 0.034482758620689655, "bounce_rate": 0.01694915254237288}], "by_source": [{"label": "alumni_input", "sent": 442, "delivered": 398, "bounced": 44, "replies": 18, "reply_rate": 0.04522613065326633, "bounce_rate": 0.09954751131221719}, {"label": "illinois_executives", "sent": 30, "delivered": 29, "bounced": 1, "replies": 1, "reply_rate": 0.034482758620689655, "bounce_rate": 0.03333333333333333}, {"label": "tech_founders", "sent": 28, "delivered": 28, "bounced": 0, "replies": 1, "reply_rate": 0.03571428571428571, "bounce_rate": 0.0}, {"label": "unknown", "sent": 1, "delivered": 1, "bounced": 0, "replies": 0, "reply_rate": 0.0, "bounce_rate": 0.0}]}, "deliverability": {"sent": 501, "delivered": 456, "bounced": 45, "bounce_rate": 0.08982035928143713, "delivered_rate": 0.9101796407185628}, "apollo": {"find_rate": 0.7272727272727273, "basis": "runs", "attempted": 55, "found": 40, "lookup_breakdown": [{"label": "Email found", "count": 455, "state": "good"}, {"label": "No email available", "count": 153, "state": "critical"}, {"label": "Not looked up yet", "count": 4, "state": "pending"}], "alumni_rows": 612, "discovery_leads": 66, "runs_logged": 2, "bounced": 45, "bounce_rate": 0.08982035928143713, "deliverable_rate": 0.9101796407185628, "usable_rate": 0.6619488296135002}, "funnel": [{"stage": "Leads sourced", "count": 510, "from_prev": null, "from_top": 1.0}, {"stage": "Emails drafted", "count": 510, "from_prev": 1.0, "from_top": 1.0}, {"stage": "Emails sent", "count": 501, "from_prev": 0.9823529411764705, "from_top": 0.9823529411764705}, {"stage": "Delivered", "count": 456, "from_prev": 0.9101796407185628, "from_top": 0.8941176470588236}, {"stage": "Replied", "count": 20, "from_prev": 0.043859649122807015, "from_top": 0.0392156862745098}], "timeline": {"weekly": [{"week_start": "2026-06-15", "label": "Jun 15", "sent": 1, "drafted": 4}, {"week_start": "2026-06-22", "label": "Jun 22", "sent": 82, "drafted": 103}, {"week_start": "2026-06-29", "label": "Jun 29", "sent": 60, "drafted": 167}, {"week_start": "2026-07-06", "label": "Jul 6", "sent": 72, "drafted": 117}, {"week_start": "2026-07-13", "label": "Jul 13", "sent": 40, "drafted": 35}, {"week_start": "2026-07-20", "label": "Jul 20", "sent": 55, "drafted": 55}, {"week_start": "2026-07-27", "label": "Jul 27", "sent": 24, "drafted": 30}, {"week_start": "2026-08-03", "label": "Aug 3", "sent": 70, "drafted": 64}, {"week_start": "2026-08-10", "label": "Aug 10", "sent": 73, "drafted": 73}, {"week_start": "2026-08-17", "label": "Aug 17", "sent": 29, "drafted": 34}], "daily": [{"date": "2026-06-21", "sent": 1}, {"date": "2026-06-22", "sent": 5}, {"date": "2026-06-23", "sent": 15}, {"date": "2026-06-24", "sent": 2}, {"date": "2026-06-25", "sent": 30}, {"date": "2026-06-26", "sent": 15}, {"date": "2026-06-27", "sent": 15}, {"date": "2026-06-29", "sent": 15}, {"date": "2026-06-30", "sent": 15}, {"date": "2026-07-01", "sent": 15}, {"date": "2026-07-02", "sent": 15}, {"date": "2026-07-06", "sent": 15}, {"date": "2026-07-07", "sent": 15}, {"date": "2026-07-08", "sent": 28}, {"date": "2026-07-09", "sent": 12}, {"date": "2026-07-10", "sent": 2}, {"date": "2026-07-13", "sent": 11}, {"date": "2026-07-14", "sent": 15}, {"date": "2026-07-15", "sent": 12}, {"date": "2026-07-16", "sent": 1}, {"date": "2026-07-17", "sent": 1}, {"date": "2026-07-20", "sent": 15}, {"date": "2026-07-21", "sent": 8}, {"date": "2026-07-22", "sent": 2}, {"date": "2026-07-23", "sent": 6}, {"date": "2026-07-24", "sent": 24}, {"date": "2026-07-27", "sent": 15}, {"date": "2026-07-28", "sent": 9}, {"date": "2026-08-03", "sent": 8}, {"date": "2026-08-04", "sent": 2}, {"date": "2026-08-05", "sent": 15}, {"date": "2026-08-06", "sent": 15}, {"date": "2026-08-07", "sent": 15}, {"date": "2026-08-09", "sent": 15}, {"date": "2026-08-10", "sent": 15}, {"date": "2026-08-11", "sent": 13}, {"date": "2026-08-12", "sent": 15}, {"date": "2026-08-13", "sent": 15}, {"date": "2026-08-14", "sent": 15}, {"date": "2026-08-17", "sent": 14}, {"date": "2026-08-18", "sent": 15}]}, "quality": {"approval_rate": 0.9921568627450981, "send_success_rate": 0.9902152641878669, "failed_sends": 5, "skipped_duplicates": 6, "errors": [{"label": "Username and Password not accepted", "count": 5}], "suppressed": 0}, "mix": {"sources": [{"label": "alumni_input", "sent": 442, "delivered": 398, "bounced": 44, "replies": 18, "reply_rate": 0.04522613065326633, "bounce_rate": 0.09954751131221719}, {"label": "illinois_executives", "sent": 30, "delivered": 29, "bounced": 1, "replies": 1, "reply_rate": 0.034482758620689655, "bounce_rate": 0.03333333333333333}, {"label": "tech_founders", "sent": 28, "delivered": 28, "bounced": 0, "replies": 1, "reply_rate": 0.03571428571428571, "bounce_rate": 0.0}, {"label": "unknown", "sent": 1, "delivered": 1, "bounced": 0, "replies": 0, "reply_rate": 0.0, "bounce_rate": 0.0}], "templates": [{"label": "Business", "count": 406}, {"label": "Technical software", "count": 76}, {"label": "Technical engineering", "count": 23}, {"label": "Hybrid product", "count": 1}], "industries": [{"label": "Information Technology & Services", "count": 75}, {"label": "Management Consulting", "count": 48}, {"label": "Financial Services", "count": 45}, {"label": "Hospital & Health Care", "count": 16}, {"label": "Professional Training & Coaching", "count": 16}, {"label": "Marketing & Advertising", "count": 12}, {"label": "Real Estate", "count": 10}, {"label": "Accounting", "count": 8}], "companies": [{"label": "PwC", "count": 11}, {"label": "Deloitte", "count": 7}, {"label": "United Airlines", "count": 5}, {"label": "Medline", "count": 5}, {"label": "Microsoft", "count": 5}, {"label": "bp", "count": 4}, {"label": "Huron", "count": 4}, {"label": "Goldman Sachs", "count": 3}, {"label": "FTI Consulting", "count": 3}, {"label": "Chicago Trading Company", "count": 3}, {"label": "Northern Trust", "count": 3}, {"label": "RSM US LLP", "count": 3}]}, "runway": {"bench_ready": 0, "bench_unlooked": 4, "projected_contacts": 2, "daily_pace": 11.4, "business_days_left": 0.2, "awaiting_approval": 4, "approved_unsent": 5, "stale_follow_up_drafts": 167}};
 
 /* ---------------- formatting ---------------- */
 const pct = (v, digits = 1) => v === null || v === undefined ? "—" : (v * 100).toFixed(digits).replace(/\.0$/, "") + "%";
@@ -690,6 +709,26 @@ function renderStatic() {
     return d;
   }));
 
+  /* --- current campaign --- */
+  const cp = M.campaign;
+  document.getElementById("campaignHeading").textContent =
+    `${cp.name} campaign — since ${fmtDate(cp.start)}`;
+  const shareGap = (cp.non_alumni_share === null)
+    ? null : cp.non_alumni_share - cp.target_non_alumni_share;
+  document.getElementById("campaignKpis").replaceChildren(
+    tile("Emails sent", num(cp.sent), `for ${cp.name} projects`),
+    tile("Non-alumni reach", pct(cp.non_alumni_share, 0),
+      `${num(cp.non_alumni_sent)} non-alumni · ${num(cp.alumni_sent)} alumni · target ${pct(cp.target_non_alumni_share, 0)}`,
+      shareGap === null ? null : {
+        dir: shareGap >= 0 ? "up" : "down",
+        text: `${shareGap >= 0 ? "+" : ""}${(shareGap * 100).toFixed(0)} pts vs target`,
+      }),
+    tile("Reply rate", pct(cp.reply_rate), `${num(cp.replies)} replied of ${num(cp.delivered)} delivered`),
+    tile("Interested", num(cp.interested), `${pct(cp.interested_rate)} of delivered`),
+    tile("Delivered", num(cp.delivered), `of ${num(cp.sent)} sent`),
+    tile("Bounce rate", pct(cp.bounce_rate), `${num(cp.bounced)} bad addresses`),
+  );
+
   /* --- pipeline health --- */
   document.getElementById("health").replaceChildren(
     tile("Alumni bench left", num(rw.projected_contacts), `${num(rw.bench_ready)} ready · ${num(rw.bench_unlooked)} awaiting lookup`),
@@ -708,6 +747,42 @@ function renderCharts() {
     neutral: cssVar("--neutral-mark"), s1: cssVar("--series-1"), s2: cssVar("--series-2"),
     ramp: [cssVar("--ramp-1"), cssVar("--ramp-2"), cssVar("--ramp-3"), cssVar("--ramp-4"), cssVar("--ramp-5")],
   };
+
+  /* --- campaign audience mix --- */
+  const cpn = M.campaign;
+  const mix = [
+    { label: "Non-alumni", value: cpn.non_alumni_sent, color: C.s1 },
+    { label: "UIUC alumni", value: cpn.alumni_sent, color: C.s2 },
+  ];
+  if (cpn.sent > 0) {
+    stackedBar(document.getElementById("mixChart"), mix, { height: 96 });
+    legend(document.getElementById("mixLegend"),
+      mix.map(m => ({ label: `${m.label} — ${num(m.value)}`, color: m.color })));
+  } else {
+    document.getElementById("mixChart").replaceChildren();
+    document.getElementById("mixLegend").replaceChildren();
+  }
+  document.getElementById("mixNote").textContent =
+    `Breaking out of the alumni-only pattern is the point of this cycle: the target is ` +
+    `${pct(cpn.target_non_alumni_share, 0)} non-alumni — startup founders, Chicago businesses, ` +
+    `and big tech/consulting — with the rest from the UIUC alumni list.`;
+  renderTable(document.getElementById("mixTable"),
+    ["Audience", "Sent", "Delivered", "Bounced", "Replies", "Reply rate", "Interested"],
+    cpn.by_audience.map(s => [
+      s.label, num(s.sent), num(s.delivered), num(s.bounced),
+      num(s.replies), pct(s.reply_rate), num(s.interested),
+    ]));
+
+  /* --- campaign daily volume --- */
+  const cDaily = cpn.daily.map(d => ({ label: fmtDate(d.date).replace(/, \d{4}$/, ""), value: d.sent }));
+  if (cDaily.length) {
+    columnChart(document.getElementById("campaignDaily"), cDaily, { height: 220 });
+  }
+  document.getElementById("campaignDailyNote").textContent = cDaily.length
+    ? `${num(cpn.sent)} emails over ${cDaily.length} sending ${cDaily.length === 1 ? "day" : "days"} since the campaign opened.`
+    : "No sends recorded for this campaign yet.";
+  renderTable(document.getElementById("campaignDailyTable"), ["Date", "Sent"],
+    cpn.daily.map(d => [fmtDate(d.date), num(d.sent)]));
 
   /* --- outcome of every send --- */
   const silent = Math.max(0, dl.delivered - r.responses - r.auto_replies);

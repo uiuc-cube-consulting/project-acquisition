@@ -21,6 +21,7 @@ from email.message import EmailMessage
 from email.utils import make_msgid
 from pathlib import Path
 from typing import Optional, Sequence
+from .env import env_int
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class GmailSender:
     def __init__(self, send_interval_seconds: int | None = None) -> None:
         self.address = os.environ["GMAIL_ADDRESS"]
         self.password = os.environ["GMAIL_APP_PASSWORD"]
-        self.interval = int(send_interval_seconds or os.environ.get("SEND_INTERVAL_SECONDS", "30"))
+        self.interval = int(send_interval_seconds or env_int("SEND_INTERVAL_SECONDS", 30))
         self._last_sent_at: float = 0.0
 
     def send(

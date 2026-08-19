@@ -28,6 +28,9 @@ jobs:
       SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
       DAILY_SEND_CAP: ${{ secrets.DAILY_SEND_CAP }}
       SEND_INTERVAL_SECONDS: "30"
+      TARGET_TERM: "Spring 2027"
+      CAMPAIGN_START: "2026-08-18"
+      ALUMNI_TARGET_SHARE: "0.35"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

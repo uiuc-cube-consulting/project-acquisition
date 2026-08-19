@@ -1,27 +1,32 @@
 """Orchestrator CLI.
 
-Two commands wired into separate GitHub Actions workflows:
+Commands, and the GitHub Actions workflows that run them:
 
-  prepare  — 06:00 CT M-F
-      1. Source new leads (free Prospects + CUBE alumni Sheets; Apollo optional)
-      2. Dedup against existing Leads + suppression list
-      3. Score and keep the top DAILY_PREPARE_TARGET (default 15)
-      4. Draft personalized emails via Gemini
-      5. Write Leads + Drafts to the Sheet
-      6. Prepare follow-up drafts for leads sent 3 business days ago
-      7. Email the approver (APPROVER_EMAIL) a numbered list of every draft,
-         inline. They approve by replying ("approve all", "approve 1,3", ...).
+  prepare  — 06:00 CT M-F (prepare.yml)
+      1. Source leads: the Alumni/Prospects Sheet tabs plus Apollo discovery
+         (DISCOVERY_PROFILES_PER_RUN breadth profiles, rotated daily)
+      2. Dedupe against existing Leads, LinkedIn URLs and the suppression list
+      3. Score, then fill TWO quotas — ALUMNI_TARGET_SHARE of the batch to UIUC
+         alumni, the rest to non-alumni discovery. Apollo emails are revealed
+         only for the leads actually selected. Either quota backfills the other.
+      4. Draft the batch via Gemini (batched, see draft.py)
+      5. Write Leads + Drafts, pre-approved when AUTO_APPROVE is set
+      6. Log the run's sourcing stats to the `Runs` tab
+      7. Refresh the Sheet's Dashboard tab
 
-  send     — 10:00 CT M-F
-      1. Read the approver's reply to the digest; flip approved Drafts rows
-      2. Read approved-but-unsent rows from Drafts
-      3. Send each via Gmail, throttled (max DAILY_SEND_CAP)
-      4. Update Leads.status -> sent, write thread/message IDs
-      5. Poll Gmail for replies on prior threads; classify; route to
-         Hot Leads / Suppression / closed as appropriate
-      6. Email the approver a daily summary
+  send     — 10:00 CT M-F (send.yml)
+      1. Read approved-but-unsent rows from Drafts
+      2. Skip anyone already contacted (dedupe guard) and anyone suppressed
+      3. Send each via Gmail SMTP, throttled, up to DAILY_SEND_CAP
+      4. Update Leads.status -> sent, write message IDs
+      5. Email a daily summary, then scan the inbox (`replies`)
 
-Both commands accept --dry-run for safe local smoke testing.
+  replies  — read-only IMAP scan: records replies, auto-replies and bounces
+  report   — build the standalone HTML dashboard in dashboard/
+  stats    — refresh the Sheet's Dashboard tab
+  bootstrap— create the Sheet tabs + headers
+
+`prepare` and `send` accept --dry-run for safe local smoke testing.
 """
 from __future__ import annotations
 
@@ -42,11 +47,12 @@ from .scoring import Scorer
 from .sheets import SheetClient
 from .sourcing.apollo import (
     ApolloClient, Candidate, bulk_reveal, candidate_from_contact, load_profiles,
-    pick_profile_for_today, search_candidates,
+    pick_profiles_for_today, search_candidates,
 )
 from .sourcing.cube_alumni import fetch_alumni_leads
 from .summary import send_daily_summary
 from .template import TemplateRouter
+from .env import env_flag, env_float, env_int, env_str
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,15 +63,124 @@ log = logging.getLogger("cube.main")
 
 def _sender_identity() -> tuple[str, str]:
     return (
-        os.environ.get("SENDER_NAME", "Sujan Sriram"),
-        os.environ.get("SENDER_PHONE", "—"),
+        env_str("SENDER_NAME", "Sujan Sriram"),
+        env_str("SENDER_PHONE", "—"),
     )
+
+
+def _alumni_share() -> float:
+    """Fraction of each day's batch reserved for UIUC alumni (rest is discovery).
+
+    Default 0.35: alumni still convert best, but the whole point of the Spring
+    2027 push is breadth — founders, Chicago businesses, big tech and big
+    consulting. Set ALUMNI_TARGET_SHARE to retune without a code change.
+    """
+    return min(1.0, max(0.0, env_float("ALUMNI_TARGET_SHARE", 0.35)))
+
+
+def _auto_approve() -> bool:
+    """Whether `prepare` should mark its drafts approved without a human.
+
+    Off by default — the Sheet's `approved` column stays the gate. Turned on for
+    the Spring 2027 campaign (AUTO_APPROVE=1 in the prepare workflow) so the
+    daily batch goes out unattended. The send job's own guards still apply:
+    the suppression list, the already-contacted dedupe, and DAILY_SEND_CAP.
+    """
+    return env_flag("AUTO_APPROVE")
+
+
+def _discovery_profile_count() -> int:
+    """How many Apollo breadth profiles to search per run."""
+    return max(1, env_int("DISCOVERY_PROFILES_PER_RUN", 3))
+
+
+class _Selector:
+    """Walks a scored queue and takes the first N contactable leads.
+
+    Apollo emails are revealed here and ONLY here — one credit per candidate —
+    in bulk (10 per call) and only for people we are actually about to email.
+    One instance is shared across the alumni and discovery queues so the reveal
+    budget is enforced across the whole run, not per queue.
+    """
+
+    def __init__(self, *, apollo, sheets, scorer, known, suppression, contacted, budget):
+        self.apollo = apollo
+        self.sheets = sheets
+        self.scorer = scorer
+        self.known = known
+        self.suppression = suppression
+        self.contacted = contacted
+        self.budget = budget
+        self.revealed: dict[int, Lead | None] = {}
+        self.reveals = 0
+        self.reveals_found = 0
+        self.alumni_attempted = 0
+        self.alumni_found = 0
+        self._cursors: dict[int, int] = {}
+
+    def take(self, queue: list, slots: int) -> list[Lead]:
+        """Pull up to `slots` usable leads off `queue`, resuming where the last
+        call on that queue stopped (so backfill never re-walks the same people)."""
+        picked: list[Lead] = []
+        if slots <= 0:
+            return picked
+        idx = self._cursors.get(id(queue), 0)
+        while len(picked) < slots and idx < len(queue) and self.reveals < self.budget:
+            # Size each batch to what we still need (+2 for ones that get
+            # filtered out), capped at 10 per call and by the remaining budget.
+            batch = max(1, min(10, (slots - len(picked)) + 2, self.budget - self.reveals))
+            window = queue[idx:idx + batch]
+            idx += batch
+            self._reveal(window)
+            for it in window:
+                if len(picked) >= slots:
+                    break
+                lead = it if isinstance(it, Lead) else self.revealed.get(id(it))
+                if lead is None:
+                    continue  # no email revealed
+                email_lc = lead.email.lower()
+                if email_lc in self.known or email_lc in self.suppression:
+                    continue
+                excluded, reason = self.scorer.is_excluded(lead, self.suppression, self.contacted)
+                if excluded:
+                    log.info("Skipping %s: %s", email_lc, reason)
+                    continue
+                if isinstance(it, Candidate):
+                    lead.score = it.score
+                # Claim the address so the other queue can't pick it up twice.
+                self.known.add(email_lc)
+                picked.append(lead)
+        self._cursors[id(queue)] = idx
+        return picked
+
+    def _reveal(self, window: list) -> None:
+        to_reveal = [
+            it for it in window
+            if isinstance(it, Candidate) and id(it) not in self.revealed
+        ]
+        if not to_reveal or self.apollo is None:
+            return
+        for cand, lead in zip(to_reveal, bulk_reveal(self.apollo, to_reveal)):
+            self.revealed[id(cand)] = lead
+            self.reveals_found += 1 if lead else 0
+            # Cache the lookup back to the Alumni tab so we never re-spend a
+            # credit on this person: their email (or NOT_FOUND if unresolved).
+            if cand.ref is not None:
+                self.alumni_attempted += 1
+                self.alumni_found += 1 if lead else 0
+                try:
+                    self.sheets.set_alumni_email(
+                        cand.ref, lead.email if lead else self.sheets.NOT_FOUND_MARKER
+                    )
+                except Exception as exc:
+                    log.warning("Alumni write-back failed for row %s: %s", cand.ref, exc)
+        self.reveals += len(to_reveal)
 
 
 # ---------------- prepare ----------------
 
 def cmd_prepare(dry_run: bool) -> int:
-    target = int(os.environ.get("DAILY_PREPARE_TARGET", "15"))
+    target = env_int("DAILY_PREPARE_TARGET", 15)
     sheets = SheetClient()
     sheets.bootstrap()
 
@@ -84,7 +199,7 @@ def cmd_prepare(dry_run: bool) -> int:
     apollo: ApolloClient | None = ApolloClient() if (not dry_run and os.environ.get("APOLLO_API_KEY")) else None
     sheet_leads: list[Lead] = []
     candidates: list[Candidate] = []
-    secondary: dict | None = None  # today's Apollo discovery profile, if any
+    profiles_used: list[str] = []  # today's Apollo discovery profiles, for the Runs log
     if dry_run:
         log.info("[DRY RUN] skipping live sourcing — using fixtures")
         sheet_leads = _dry_run_fixture_leads()
@@ -108,13 +223,23 @@ def cmd_prepare(dry_run: bool) -> int:
         elif alum_contacts:
             log.warning("%d alumni rows need an email lookup, but APOLLO_API_KEY is unset", len(alum_contacts))
 
-        # Apollo discovery for breadth/volume (ranked below confirmed alumni).
+        # Apollo discovery — the non-alumni half of the batch. We search SEVERAL
+        # profiles per run (rotating which ones lead) rather than one: a single
+        # profile's top hits are mostly people we already emailed, so one profile
+        # cannot reliably fill the discovery quota once the pipeline has run for
+        # a while. Searching costs no credits — only the reveals do.
         if apollo:
             profiles = load_profiles()
             day_index = datetime.now(timezone.utc).timetuple().tm_yday
-            secondary = pick_profile_for_today(profiles, day_index)
-            log.info("Apollo discovery profile: %s", secondary["name"])
-            candidates.extend(search_candidates(apollo, secondary, max_results=50))
+            for profile in pick_profiles_for_today(profiles, day_index, count=_discovery_profile_count()):
+                log.info("Apollo discovery profile: %s", profile["name"])
+                profiles_used.append(profile["name"])
+                try:
+                    candidates.extend(search_candidates(apollo, profile, max_results=50))
+                except Exception as exc:
+                    # One bad profile (bad filter, transient 5xx) must not cost us
+                    # the whole day's discovery pool.
+                    log.warning("Apollo search failed for %s: %s", profile["name"], exc)
         else:
             log.info("APOLLO_API_KEY not set — sourcing from the sheet sources only")
 
@@ -136,64 +261,46 @@ def cmd_prepare(dry_run: bool) -> int:
                 continue
         filtered.append(item)
 
-    # 3) Score, rank alumni-first, then select the top `target`. Apollo emails are
-    #    revealed here and ONLY here — one credit per selected lead, capped at
-    #    `target * 2` reveals so a single run can't burn through credits.
+    # 3) Score, then fill two SEPARATE quotas — alumni and everyone else.
+    #
+    #    This used to be one alumni-first sort over a single queue, which starved
+    #    non-alumni completely: any day the Alumni tab held >= `target` people,
+    #    every slot went to alumni and Apollo discovery contributed zero. Quotas
+    #    guarantee the outreach reaches founders, Chicago businesses and big
+    #    tech/consulting every day, not just on days the alumni bench runs dry.
     for item in filtered:
         item.score = scorer.score(item, past_kw)
-    filtered.sort(key=lambda x: (x.is_uiuc_alum, x.score), reverse=True)
 
-    # Walk in alumni-first order, revealing Apollo candidates' emails in BULK
-    # (10 per call) and only for leads we actually take. Cap total reveals at
-    # target*2 to protect credits.
-    top: list[Lead] = []
-    revealed: dict[int, Lead | None] = {}
-    reveals = 0
-    # Reveal outcomes, logged to the `Runs` tab so the Apollo find rate is
-    # measured rather than guessed at (see metrics.py).
-    reveals_found = 0
-    alumni_attempted = alumni_found = 0
-    reveal_budget = target * 2
-    idx = 0
-    while len(top) < target and idx < len(filtered) and reveals < reveal_budget:
-        # Reveal in bulk, but size each batch to what we still need (+2 buffer for
-        # ones that get filtered out), capped at 10/call and the overall budget.
-        batch_size = max(1, min(10, (target - len(top)) + 2, reveal_budget - reveals))
-        window = filtered[idx:idx + batch_size]
-        idx += batch_size
-        to_reveal = [it for it in window if isinstance(it, Candidate) and id(it) not in revealed]
-        if to_reveal:
-            for cand, lead in zip(to_reveal, bulk_reveal(apollo, to_reveal)):
-                revealed[id(cand)] = lead
-                reveals_found += 1 if lead else 0
-                # Cache the lookup back to the Alumni tab so we never re-spend a
-                # credit on this person: their email (or NOT_FOUND if unresolved).
-                if cand.ref is not None:
-                    alumni_attempted += 1
-                    alumni_found += 1 if lead else 0
-                    try:
-                        sheets.set_alumni_email(cand.ref, lead.email if lead else sheets.NOT_FOUND_MARKER)
-                    except Exception as exc:
-                        log.warning("Alumni write-back failed for row %s: %s", cand.ref, exc)
-            reveals += len(to_reveal)
-        for it in window:
-            if len(top) >= target:
-                break
-            lead = it if isinstance(it, Lead) else revealed.get(id(it))
-            if lead is None:
-                continue  # no email revealed
-            email_lc = lead.email.lower()
-            if email_lc in known or email_lc in suppression:
-                continue
-            excluded, reason = scorer.is_excluded(lead, suppression, contacted)
-            if excluded:
-                log.info("Skipping %s: %s", email_lc, reason)
-                continue
-            if isinstance(it, Candidate):
-                lead.score = it.score
-            top.append(lead)
+    alumni_queue = sorted(
+        (x for x in filtered if x.is_uiuc_alum), key=lambda x: x.score, reverse=True
+    )
+    discovery_queue = sorted(
+        (x for x in filtered if not x.is_uiuc_alum), key=lambda x: x.score, reverse=True
+    )
+    alumni_slots = round(target * _alumni_share())
+    discovery_slots = target - alumni_slots
 
-    log.info("Selected %d leads for drafting (alumni-first); %d Apollo reveals used", len(top), reveals)
+    selector = _Selector(
+        apollo=apollo, sheets=sheets, scorer=scorer, known=known,
+        suppression=suppression, contacted=contacted, budget=target * 2,
+    )
+    # Whichever pool runs short hands its unused slots to the other, so a thin
+    # alumni bench never costs us total volume.
+    alumni_picked = selector.take(alumni_queue, alumni_slots)
+    discovery_picked = selector.take(discovery_queue, target - len(alumni_picked))
+    if len(alumni_picked) + len(discovery_picked) < target:
+        alumni_picked += selector.take(
+            alumni_queue, target - len(alumni_picked) - len(discovery_picked)
+        )
+    top: list[Lead] = alumni_picked + discovery_picked
+    reveals, reveals_found = selector.reveals, selector.reveals_found
+    alumni_attempted, alumni_found = selector.alumni_attempted, selector.alumni_found
+
+    log.info(
+        "Selected %d leads: %d alumni (%d slots) + %d discovery (%d slots); %d Apollo reveals used",
+        len(top), len(alumni_picked), alumni_slots,
+        len(discovery_picked), discovery_slots, reveals,
+    )
 
     sender_name, sender_phone = _sender_identity()
 
@@ -203,6 +310,15 @@ def cmd_prepare(dry_run: bool) -> int:
         router = TemplateRouter()
         pairs = draft_for_leads(top, router, past_index, sender_name, sender_phone)
         log.info("Generated %d drafts", len(pairs))
+        # Every lead here already cost an Apollo credit to reveal, so a drafting
+        # shortfall is wasted spend, not just a smaller batch. Say so loudly.
+        if len(pairs) < len(top):
+            log.error(
+                "DRAFTING SHORTFALL: %d of %d selected leads produced no draft "
+                "(their Apollo credits are spent). Usually Gemini rate limits — "
+                "raise GEMINI_MIN_INTERVAL_SECONDS or lower DAILY_PREPARE_TARGET.",
+                len(top) - len(pairs), len(top),
+            )
     else:
         log.info("No new leads to draft today (follow-ups may still be due)")
 
@@ -212,9 +328,11 @@ def cmd_prepare(dry_run: bool) -> int:
         return 0
 
     # 5) Write to Sheet
+    auto_approve = _auto_approve()
     leads_to_write = []
     drafts_to_write = []
     for lead, draft in pairs:
+        draft.approved = auto_approve
         lead.status = LeadStatus.DRAFTED
         leads_to_write.append(lead)
         drafts_to_write.append(draft)
@@ -224,7 +342,7 @@ def cmd_prepare(dry_run: bool) -> int:
     # Sourcing telemetry for the dashboards — how many credits we spent and how
     # many of them actually produced an email.
     sheets.log_run(
-        profile=(secondary or {}).get("name", ""),
+        profile=", ".join(profiles_used),
         candidates_seen=len(candidates),
         reveals_attempted=reveals,
         emails_found=reveals_found,
@@ -232,23 +350,30 @@ def cmd_prepare(dry_run: bool) -> int:
         alumni_found=alumni_found,
         leads_selected=len(top),
         drafts_created=len(drafts_to_write),
+        drafts_failed=len(top) - len(pairs),
     )
 
     # 6) Follow-ups are OFF by default — every slot goes to reaching NEW people;
     #    re-emailing is handled manually. Set ENABLE_FOLLOW_UPS=1 to re-enable.
     follow_ups: list = []
-    if os.environ.get("ENABLE_FOLLOW_UPS", "").strip().lower() in ("1", "true", "yes"):
+    if env_flag("ENABLE_FOLLOW_UPS"):
         follow_ups = prepare_follow_ups(sender_name=sender_name)  # list[(row, Draft)]
 
-    # 7) Approval happens in the Sheet: review the Drafts tab and set the
-    #    `approved` column to yes/TRUE on the rows to send. The send job mails
-    #    exactly those. No approval email is sent.
+    # 7) Approval. With AUTO_APPROVE the rows are already ticked and the next
+    #    send run mails them; otherwise a human sets `approved`=yes in the Sheet.
     sheet_url = f"https://docs.google.com/spreadsheets/d/{sheets.sheet_id}/edit"
-    log.info(
-        "Wrote %d new drafts (+%d follow-ups) to the Drafts tab. Set 'approved'=yes "
-        "on the rows to send, then `send` mails them: %s",
-        len(drafts_to_write), len(follow_ups), sheet_url,
-    )
+    if auto_approve:
+        log.info(
+            "Wrote %d new drafts (+%d follow-ups), AUTO-APPROVED — the next send run "
+            "mails them with no review step: %s",
+            len(drafts_to_write), len(follow_ups), sheet_url,
+        )
+    else:
+        log.info(
+            "Wrote %d new drafts (+%d follow-ups) to the Drafts tab. Set 'approved'=yes "
+            "on the rows to send, then `send` mails them: %s",
+            len(drafts_to_write), len(follow_ups), sheet_url,
+        )
     _refresh_dashboard(sheets)
     return 0
 
@@ -264,7 +389,7 @@ def _refresh_dashboard(sheets: SheetClient) -> None:
 # ---------------- send ----------------
 
 def cmd_send(dry_run: bool) -> int:
-    cap = int(os.environ.get("DAILY_SEND_CAP", "10"))
+    cap = env_int("DAILY_SEND_CAP", 10)
     sheets = SheetClient()
 
     # Approval is the `approved` column in the Drafts tab (set it to yes/TRUE).

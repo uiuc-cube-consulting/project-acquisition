@@ -1,37 +1,82 @@
 # Apollo People Search (api_search) profiles. Each profile's `params` are sent as
 # query parameters to /api/v1/mixed_people/api_search (list values get a []
-# suffix automatically). The orchestrator rotates one profile per day.
+# suffix automatically).
+#
+# `prepare` searches DISCOVERY_PROFILES_PER_RUN of these per run (default 3),
+# rotating the starting point by day so every segment leads the batch every few
+# days. Searching is free — only revealing an email costs a credit — so a wide
+# profile list costs nothing until someone is actually selected.
 #
 # IMPORTANT: api_search has NO school/alma-mater filter (it was removed when
 # Apollo deprecated the old mixed_people/search endpoint), so we cannot target
 # UIUC *alumni* at the API level — q_keywords matches the employer, returning
-# UIUC staff, not alumni. We therefore discover decision-makers by title +
-# Illinois location for volume; real UIUC alumni come from the CUBE alumni Sheet
-# (accurate) and still rank first via the alumni-first selection.
+# UIUC staff, not alumni. Real UIUC alumni come from the Alumni Sheet tab; these
+# profiles are the NON-alumni half of the daily batch.
 # Docs: https://docs.apollo.io/reference/people-api-search
 
+# Reused title sets.
+_founder_titles: &founder_titles
+  - "Founder"
+  - "Co-Founder"
+  - "CEO"
+  - "CTO"
+  - "COO"
+  - "President"
+  - "Owner"
+
+_leader_titles: &leader_titles
+  - "VP"
+  - "Vice President"
+  - "Director"
+  - "Head of"
+  - "Senior Director"
+  - "Managing Director"
+  - "Partner"
+  - "Principal"
+
 profiles:
-  - name: illinois_executives
-    description: "Decision-makers at Illinois companies"
+  - name: chicago_businesses
+    description: "Local Chicago-area business owners and decision-makers"
     enrich: true
     params:
-      person_titles:
-        - "Founder"
-        - "Co-Founder"
-        - "CEO"
-        - "CTO"
-        - "COO"
-        - "President"
-        - "VP"
-        - "Vice President"
-        - "Director"
-        - "Head of"
-        - "Owner"
-        - "Partner"
+      person_titles: *founder_titles
+      person_locations:
+        - "Chicago, Illinois, US"
+        - "Evanston, Illinois, US"
+        - "Naperville, Illinois, US"
+        - "Schaumburg, Illinois, US"
+        - "Oak Brook, Illinois, US"
+      organization_num_employees_ranges:
+        - "11,50"
+        - "51,200"
+        - "201,500"
+      per_page: 50
+
+  - name: illinois_executives
+    description: "Decision-makers at Illinois companies (statewide, incl. Champaign)"
+    enrich: true
+    params:
+      person_titles: *leader_titles
       person_locations:
         - "Illinois, US"
-        - "Chicago, Illinois, US"
         - "Champaign, Illinois, US"
+        - "Springfield, Illinois, US"
+        - "Peoria, Illinois, US"
+      per_page: 50
+
+  - name: startup_founders
+    description: "Early-stage startup founders (national breadth)"
+    enrich: true
+    params:
+      person_titles: *founder_titles
+      # Headcount is the proxy for stage: api_search rejects
+      # organization_latest_funding_stage_cd and revenue_range with a 422
+      # (verified against the live API 2026-08-18), so company size is the only
+      # stage filter available here.
+      organization_num_employees_ranges:
+        - "1,10"
+        - "11,50"
+        - "51,200"
       per_page: 50
 
   - name: tech_founders
@@ -39,12 +84,42 @@ profiles:
     enrich: true
     params:
       q_keywords: "software"
-      person_titles:
-        - "Founder"
-        - "Co-Founder"
-        - "CEO"
-        - "CTO"
-      per_page: 25
+      person_titles: *founder_titles
+      per_page: 50
+
+  - name: big_tech
+    description: "Product/engineering/strategy leaders at large tech companies"
+    enrich: true
+    params:
+      person_titles: *leader_titles
+      q_organization_keyword_tags:
+        - "software"
+        - "information technology"
+        - "cloud computing"
+        - "artificial intelligence"
+      organization_num_employees_ranges:
+        - "1001,5000"
+        - "5001,10000"
+        - "10001,1000000"
+      per_page: 50
+
+  - name: big_consulting
+    description: "Practice leaders at consulting / professional services firms"
+    enrich: true
+    params:
+      person_titles: *leader_titles
+      q_organization_keyword_tags:
+        - "management consulting"
+        - "business consulting"
+        - "professional services"
+        - "accounting"
+      organization_num_employees_ranges:
+        - "201,500"
+        - "501,1000"
+        - "1001,5000"
+        - "5001,10000"
+        - "10001,1000000"
+      per_page: 50
 
   - name: cube_alumni
     description: "Loaded from the CUBE Alumni Sheet, not Apollo"

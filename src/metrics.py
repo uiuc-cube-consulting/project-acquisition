@@ -86,6 +86,91 @@ def _top(counter: Counter, n: int) -> list[dict]:
     return [{"label": k, "count": v} for k, v in counter.most_common(n)]
 
 
+def _alumni_share_setting() -> float:
+    """Mirrors main._alumni_share so the dashboard can show the mix we're
+    aiming for next to the mix we're actually getting."""
+    from .env import env_float
+
+    return min(1.0, max(0.0, env_float("ALUMNI_TARGET_SHARE", 0.35)))
+
+
+def campaign_window() -> tuple[str, str]:
+    """(campaign name, ISO start date) for the term currently being sourced.
+
+    Outreach runs a semester ahead, so the pipeline's history spans more than one
+    campaign. Everything sent on or after CAMPAIGN_START belongs to the term named
+    by TARGET_TERM; earlier sends were the previous cycle. This is what lets the
+    dashboard show "how is Spring 2027 going" instead of an all-time average that
+    the old cycle dominates.
+    """
+    from .env import env_str
+
+    return (
+        env_str("TARGET_TERM", "Spring 2027"),
+        env_str("CAMPAIGN_START", "2026-08-18"),
+    )
+
+
+def _campaign_slice(
+    contacted_dates: dict[str, date],
+    start: date,
+    alum_flag: dict[str, bool],
+    bounced: set[str],
+    auto_replied: set[str],
+    human_replied: set[str],
+    interested: set[str],
+    source_of: dict[str, str],
+) -> dict:
+    """Recompute the headline funnel over only the people first emailed on/after
+    `start`. Same definitions as the all-time block, narrower population."""
+    cohort = {e for e, d in contacted_dates.items() if d >= start}
+    delivered = cohort - bounced
+    replied = cohort & human_replied
+    alumni = {e for e in cohort if alum_flag.get(e)}
+    non_alumni = cohort - alumni
+
+    def seg(members: set[str], label: str) -> dict:
+        deliv = members - bounced
+        reps = members & human_replied
+        return {
+            "label": label,
+            "sent": len(members),
+            "delivered": len(deliv),
+            "bounced": len(members & bounced),
+            "replies": len(reps),
+            "interested": len(members & interested),
+            "reply_rate": _rate(len(reps), len(deliv)),
+            "bounce_rate": _rate(len(members & bounced), len(members)),
+        }
+
+    by_source = Counter(source_of.get(e, "unknown") for e in cohort)
+    return {
+        "start": start.isoformat(),
+        "sent": len(cohort),
+        "delivered": len(delivered),
+        "bounced": len(cohort & bounced),
+        "replies": len(replied),
+        "interested": len(cohort & interested),
+        "auto_replies": len(cohort & auto_replied),
+        "reply_rate": _rate(len(replied), len(delivered)),
+        "interested_rate": _rate(len(cohort & interested), len(delivered)),
+        "bounce_rate": _rate(len(cohort & bounced), len(cohort)),
+        "alumni_sent": len(alumni),
+        "non_alumni_sent": len(non_alumni),
+        "non_alumni_share": _rate(len(non_alumni), len(cohort)),
+        "by_audience": [seg(alumni, "UIUC alumni"), seg(non_alumni, "Non-alumni")],
+        "by_source": [
+            {"label": k, "count": v} for k, v in by_source.most_common()
+        ],
+        "daily": [
+            {"date": d.isoformat(), "sent": n}
+            for d, n in sorted(Counter(
+                day for e, day in contacted_dates.items() if day >= start
+            ).items())
+        ],
+    }
+
+
 def _clean_error(text: str) -> str:
     """Make an SMTP error readable. They arrive as a stringified bytes tuple —
     `(535, b'5.7.8 Username and Password not accepted...\\n5.7.8 http...')` —
@@ -171,6 +256,19 @@ def compute(
         e for e, l in lead_by_email.items() if _s(l, "sent_at")
     )
     contacted.discard("")
+
+    # First time each person was emailed — the basis for splitting the history
+    # into campaigns (a Fall-2026-cycle contact stays in that cycle forever).
+    contacted_dates: dict[str, date] = {}
+    for d in sent_all:
+        email = _s(d, "lead_email").lower()
+        day = _day(_s(d, "sent_at"))
+        if email and day and (email not in contacted_dates or day < contacted_dates[email]):
+            contacted_dates[email] = day
+    for email, lead in lead_by_email.items():
+        day = _day(_s(lead, "sent_at"))
+        if day and (email not in contacted_dates or day < contacted_dates[email]):
+            contacted_dates[email] = day
 
     sent_alumni = sum(1 for e in contacted if alum_flag.get(e))
     # Delivered = reached a mailbox. Bounces never did, so they don't belong in
@@ -398,8 +496,22 @@ def compute(
         ),
     }
 
+    # ---- current campaign (the term we're sourcing for right now) ----
+    campaign_name, campaign_start = campaign_window()
+    try:
+        start_date = date.fromisoformat(campaign_start)
+    except ValueError:
+        start_date = today
+    campaign = _campaign_slice(
+        contacted_dates, start_date, alum_flag, bounced, auto_replied,
+        human_replied, interested, source_of,
+    )
+    campaign["name"] = campaign_name
+    campaign["target_non_alumni_share"] = 1.0 - _alumni_share_setting()
+
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "campaign": campaign,
         "window": {
             "first_send": first_send.isoformat() if first_send else None,
             "last_send": last_send.isoformat() if last_send else None,

@@ -1,38 +1,93 @@
 {
-  "generated_at": "2026-08-17T16:09:26+00:00",
+  "generated_at": "2026-08-18T19:02:27+00:00",
+  "campaign": {
+    "start": "2026-08-18",
+    "sent": 15,
+    "delivered": 13,
+    "bounced": 2,
+    "replies": 0,
+    "interested": 0,
+    "auto_replies": 0,
+    "reply_rate": 0.0,
+    "interested_rate": 0.0,
+    "bounce_rate": 0.13333333333333333,
+    "alumni_sent": 11,
+    "non_alumni_sent": 4,
+    "non_alumni_share": 0.26666666666666666,
+    "by_audience": [
+      {
+        "label": "UIUC alumni",
+        "sent": 11,
+        "delivered": 9,
+        "bounced": 2,
+        "replies": 0,
+        "interested": 0,
+        "reply_rate": 0.0,
+        "bounce_rate": 0.18181818181818182
+      },
+      {
+        "label": "Non-alumni",
+        "sent": 4,
+        "delivered": 4,
+        "bounced": 0,
+        "replies": 0,
+        "interested": 0,
+        "reply_rate": 0.0,
+        "bounce_rate": 0.0
+      }
+    ],
+    "by_source": [
+      {
+        "label": "alumni_input",
+        "count": 11
+      },
+      {
+        "label": "illinois_executives",
+        "count": 4
+      }
+    ],
+    "daily": [
+      {
+        "date": "2026-08-18",
+        "sent": 15
+      }
+    ],
+    "name": "Spring 2027",
+    "target_non_alumni_share": 0.65
+  },
   "window": {
     "first_send": "2026-06-21",
-    "last_send": "2026-08-17",
-    "weekdays": 41
+    "last_send": "2026-08-18",
+    "weekdays": 42
   },
   "headline": {
-    "emails_sent": 484,
-    "people_reached": 479,
-    "companies_reached": 400,
-    "leads_sourced": 491,
-    "drafts_written": 663,
+    "emails_sent": 506,
+    "people_reached": 501,
+    "companies_reached": 414,
+    "leads_sourced": 510,
+    "drafts_written": 682,
     "follow_ups_sent": 5,
-    "last_7": 65,
-    "prior_7": 77,
-    "last_30": 229,
-    "active_days": 40,
-    "avg_per_active_day": 12.1,
-    "day_coverage": 0.975609756097561,
-    "alumni_share": 0.8851774530271399
+    "last_7": 74,
+    "prior_7": 88,
+    "last_30": 251,
+    "active_days": 41,
+    "avg_per_active_day": 12.3,
+    "day_coverage": 0.9761904761904762,
+    "alumni_share": 0.8822355289421158
   },
   "reply": {
     "tracked": true,
-    "responses": 19,
-    "rate": 0.04337899543378995,
-    "interested": 10,
-    "interested_rate": 0.0228310502283105,
+    "responses": 20,
+    "rate": 0.043859649122807015,
+    "interested": 11,
+    "interested_rate": 0.02412280701754386,
     "auto_replies": 12,
-    "engaged": 31,
-    "engagement_rate": 0.07077625570776255,
+    "engaged": 32,
+    "engagement_rate": 0.07017543859649122,
     "sentiment": [
       {
         "label": "positive",
-        "count": 10
+        "count": 11
       },
       {
         "label": "neutral",
@@ -46,32 +101,41 @@
     "by_audience": [
       {
         "label": "UIUC alumni",
-        "sent": 424,
-        "delivered": 384,
-        "bounced": 40,
-        "replies": 17,
-        "reply_rate": 0.044270833333333336,
-        "bounce_rate": 0.09433962264150944
+        "sent": 442,
+        "delivered": 398,
+        "bounced": 44,
+        "replies": 18,
+        "reply_rate": 0.04522613065326633,
+        "bounce_rate": 0.09954751131221719
       },
       {
         "label": "Non-alumni",
-        "sent": 55,
-        "delivered": 54,
+        "sent": 59,
+        "delivered": 58,
         "bounced": 1,
         "replies": 2,
-        "reply_rate": 0.037037037037037035,
-        "bounce_rate": 0.01818181818181818
+        "reply_rate": 0.034482758620689655,
+        "bounce_rate": 0.01694915254237288
       }
     ],
     "by_source": [
       {
         "label": "alumni_input",
-        "sent": 424,
-        "delivered": 384,
-        "bounced": 40,
-        "replies": 17,
-        "reply_rate": 0.044270833333333336,
-        "bounce_rate": 0.09433962264150944
+        "sent": 442,
+        "delivered": 398,
+        "bounced": 44,
+        "replies": 18,
+        "reply_rate": 0.04522613065326633,
+        "bounce_rate": 0.09954751131221719
+      },
+      {
+        "label": "illinois_executives",
+        "sent": 30,
+        "delivered": 29,
+        "bounced": 1,
+        "replies": 1,
+        "reply_rate": 0.034482758620689655,
+        "bounce_rate": 0.03333333333333333
       },
       {
         "label": "tech_founders",
@@ -81,15 +145,6 @@
         "replies": 1,
         "reply_rate": 0.03571428571428571,
         "bounce_rate": 0.0
-      },
-      {
-        "label": "illinois_executives",
-        "sent": 26,
-        "delivered": 25,
-        "bounced": 1,
-        "replies": 1,
-        "reply_rate": 0.04,
-        "bounce_rate": 0.038461538461538464
       },
       {
         "label": "unknown",
@@ -103,72 +158,72 @@
     ]
   },
   "deliverability": {
-    "sent": 479,
-    "delivered": 438,
-    "bounced": 41,
-    "bounce_rate": 0.08559498956158663,
-    "delivered_rate": 0.9144050104384134
+    "sent": 501,
+    "delivered": 456,
+    "bounced": 45,
+    "bounce_rate": 0.08982035928143713,
+    "delivered_rate": 0.9101796407185628
   },
   "apollo": {
-    "find_rate": 0.7453936348408711,
-    "basis": "alumni_tab",
-    "attempted": 597,
-    "found": 445,
+    "find_rate": 0.7272727272727273,
+    "basis": "runs",
+    "attempted": 55,
+    "found": 40,
     "lookup_breakdown": [
       {
         "label": "Email found",
-        "count": 445,
+        "count": 455,
         "state": "good"
       },
       {
         "label": "No email available",
-        "count": 152,
+        "count": 153,
         "state": "critical"
       },
       {
         "label": "Not looked up yet",
-        "count": 15,
+        "count": 4,
         "state": "pending"
       }
     ],
     "alumni_rows": 612,
-    "discovery_leads": 58,
-    "runs_logged": 0,
-    "bounced": 41,
-    "bounce_rate": 0.08559498956158663,
-    "deliverable_rate": 0.9144050104384134,
-    "usable_rate": 0.6815916744473935
+    "discovery_leads": 66,
+    "runs_logged": 2,
+    "bounced": 45,
+    "bounce_rate": 0.08982035928143713,
+    "deliverable_rate": 0.9101796407185628,
+    "usable_rate": 0.6619488296135002
   },
   "funnel": [
     {
       "stage": "Leads sourced",
-      "count": 491,
+      "count": 510,
       "from_prev": null,
       "from_top": 1.0
     },
     {
       "stage": "Emails drafted",
-      "count": 491,
+      "count": 510,
       "from_prev": 1.0,
       "from_top": 1.0
     },
     {
       "stage": "Emails sent",
-      "count": 479,
-      "from_prev": 0.9755600814663951,
-      "from_top": 0.9755600814663951
+      "count": 501,
+      "from_prev": 0.9823529411764705,
+      "from_top": 0.9823529411764705
     },
     {
       "stage": "Delivered",
-      "count": 438,
-      "from_prev": 0.9144050104384134,
-      "from_top": 0.8920570264765784
+      "count": 456,
+      "from_prev": 0.9101796407185628,
+      "from_top": 0.8941176470588236
     },
     {
       "stage": "Replied",
-      "count": 19,
-      "from_prev": 0.04337899543378995,
-      "from_top": 0.038696537678207736
+      "count": 20,
+      "from_prev": 0.043859649122807015,
+      "from_top": 0.0392156862745098
     }
   ],
   "timeline": {
@@ -230,8 +285,8 @@
       {
         "week_start": "2026-08-17",
         "label": "Aug 17",
-        "sent": 7,
-        "drafted": 15
+        "sent": 29,
+        "drafted": 34
       }
     ],
     "daily": [
@@ -393,13 +448,17 @@
       },
       {
         "date": "2026-08-17",
-        "sent": 7
+        "sent": 14
+      },
+      {
+        "date": "2026-08-18",
+        "sent": 15
       }
     ]
   },
   "quality": {
-    "approval_rate": 0.9918533604887984,
-    "send_success_rate": 0.9897750511247444,
+    "approval_rate": 0.9921568627450981,
+    "send_success_rate": 0.9902152641878669,
     "failed_sends": 5,
     "skipped_duplicates": 6,
     "errors": [
@@ -414,12 +473,21 @@
     "sources": [
       {
         "label": "alumni_input",
-        "sent": 424,
-        "delivered": 384,
-        "bounced": 40,
-        "replies": 17,
-        "reply_rate": 0.044270833333333336,
-        "bounce_rate": 0.09433962264150944
+        "sent": 442,
+        "delivered": 398,
+        "bounced": 44,
+        "replies": 18,
+        "reply_rate": 0.04522613065326633,
+        "bounce_rate": 0.09954751131221719
+      },
+      {
+        "label": "illinois_executives",
+        "sent": 30,
+        "delivered": 29,
+        "bounced": 1,
+        "replies": 1,
+        "reply_rate": 0.034482758620689655,
+        "bounce_rate": 0.03333333333333333
       },
       {
         "label": "tech_founders",
@@ -429,15 +497,6 @@
         "replies": 1,
         "reply_rate": 0.03571428571428571,
         "bounce_rate": 0.0
-      },
-      {
-        "label": "illinois_executives",
-        "sent": 26,
-        "delivered": 25,
-        "bounced": 1,
-        "replies": 1,
-        "reply_rate": 0.04,
-        "bounce_rate": 0.038461538461538464
       },
       {
         "label": "unknown",
@@ -452,15 +511,15 @@
     "templates": [
       {
         "label": "Business",
-        "count": 390
+        "count": 406
       },
       {
         "label": "Technical software",
-        "count": 72
+        "count": 76
       },
       {
         "label": "Technical engineering",
-        "count": 21
+        "count": 23
       },
       {
         "label": "Hybrid product",
@@ -470,27 +529,27 @@
     "industries": [
       {
         "label": "Information Technology & Services",
-        "count": 71
+        "count": 75
       },
       {
         "label": "Management Consulting",
-        "count": 44
+        "count": 48
       },
       {
         "label": "Financial Services",
-        "count": 43
-      },
-      {
-        "label": "Professional Training & Coaching",
-        "count": 16
+        "count": 45
       },
       {
         "label": "Hospital & Health Care",
         "count": 16
       },
       {
+        "label": "Professional Training & Coaching",
+        "count": 16
+      },
+      {
         "label": "Marketing & Advertising",
-        "count": 11
+        "count": 12
       },
       {
         "label": "Real Estate",
@@ -508,10 +567,10 @@
       },
       {
         "label": "Deloitte",
-        "count": 5
+        "count": 7
       },
       {
-        "label": "Microsoft",
+        "label": "United Airlines",
         "count": 5
       },
       {
@@ -519,11 +578,11 @@
         "count": 5
       },
       {
-        "label": "bp",
-        "count": 4
+        "label": "Microsoft",
+        "count": 5
       },
       {
-        "label": "United Airlines",
+        "label": "bp",
         "count": 4
       },
       {
@@ -531,15 +590,15 @@
         "count": 4
       },
       {
-        "label": "Grainger",
+        "label": "Goldman Sachs",
         "count": 3
       },
       {
-        "label": "Northwestern Medicine",
+        "label": "FTI Consulting",
         "count": 3
       },
       {
-        "label": "Starcom",
+        "label": "Chicago Trading Company",
         "count": 3
       },
       {
@@ -547,19 +606,19 @@
         "count": 3
       },
       {
-        "label": "FTI Consulting",
+        "label": "RSM US LLP",
         "count": 3
       }
     ]
   },
   "runway": {
-    "bench_ready": 1,
-    "bench_unlooked": 15,
-    "projected_contacts": 12,
-    "daily_pace": 10.4,
-    "business_days_left": 1.2,
+    "bench_ready": 0,
+    "bench_unlooked": 4,
+    "projected_contacts": 2,
+    "daily_pace": 11.4,
+    "business_days_left": 0.2,
     "awaiting_approval": 4,
-    "approved_unsent": 8,
+    "approved_unsent": 5,
     "stale_follow_up_drafts": 167
   }
 }

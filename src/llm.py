@@ -24,10 +24,31 @@ from functools import lru_cache
 from google import genai
 from google.genai import types
 
+from .env import env_float
+
 log = logging.getLogger(__name__)
 
 MAX_RETRIES = 6
 DEFAULT_BACKOFF_SECONDS = 30
+
+# The free tier allows ~5 requests/minute. Firing as fast as we can and letting
+# the retry path absorb the 429s is far slower than it looks: every rejection
+# costs a full 60s backoff, so a 15-draft batch spent ~18 minutes mostly asleep
+# and still lost 11 drafts to exhausted retries (after their Apollo credits had
+# already been spent). Pacing the calls ~12s apart keeps us under the limit, so
+# the same batch takes ~3 minutes and rarely 429s at all.
+MIN_INTERVAL_SECONDS = env_float("GEMINI_MIN_INTERVAL_SECONDS", 12.5)
+_last_call_at: float = 0.0
+
+
+def _pace() -> None:
+    """Block until enough time has passed since the previous request."""
+    global _last_call_at
+    if MIN_INTERVAL_SECONDS > 0:
+        wait = MIN_INTERVAL_SECONDS - (time.monotonic() - _last_call_at)
+        if wait > 0:
+            time.sleep(wait)
+    _last_call_at = time.monotonic()
 
 
 def _thinking_config(model: str) -> types.ThinkingConfig:
@@ -73,6 +94,7 @@ def generate_json(
     )
     for attempt in range(MAX_RETRIES):
         try:
+            _pace()
             resp = _client().models.generate_content(
                 model=model, contents=prompt, config=config
             )

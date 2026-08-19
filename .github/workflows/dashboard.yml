@@ -1,0 +1,57 @@
+name: dashboard
+
+# Weekly metrics refresh: Mondays 08:00 CT (13:00 UTC CDT / 14:00 UTC CST).
+# Rescans the mailbox for replies and bounces, rebuilds the standalone
+# dashboard, and commits it so dashboard/index.html in the repo is never more
+# than a week stale. Also runnable on demand from the Actions tab.
+on:
+  schedule:
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      SHEET_ID: ${{ secrets.SHEET_ID }}
+      GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      # Campaign framing for the dashboard's Spring 2027 section. Keep these in
+      # step with the prepare workflow.
+      TARGET_TERM: "Spring 2027"
+      CAMPAIGN_START: "2026-08-18"
+      ALUMNI_TARGET_SHARE: "0.35"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      # Read-only inbox scan. Non-fatal: a stale reply count is better than no
+      # dashboard refresh at all.
+      - name: Refresh replies from the mailbox
+        run: python -m src.main replies
+        continue-on-error: true
+
+      - name: Rebuild the dashboard
+        run: python -m src.main report
+
+      - name: Commit the refreshed dashboard
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dashboard/
+          if git diff --staged --quiet; then
+            echo "No dashboard changes to commit."
+          else
+            git commit -m "chore(dashboard): weekly metrics refresh [skip ci]"
+            git push
+          fi
