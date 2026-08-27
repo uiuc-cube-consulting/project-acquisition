@@ -1,57 +1,69 @@
 {
-  "generated_at": "2026-08-19T16:29:27+00:00",
+  "generated_at": "2026-08-27T21:19:56+00:00",
   "campaign": {
     "start": "2026-08-18",
-    "sent": 19,
-    "delivered": 17,
-    "bounced": 2,
-    "replies": 0,
-    "interested": 0,
-    "auto_replies": 0,
-    "reply_rate": 0.0,
-    "interested_rate": 0.0,
-    "bounce_rate": 0.10526315789473684,
+    "sent": 109,
+    "delivered": 105,
+    "bounced": 4,
+    "replies": 2,
+    "interested": 1,
+    "auto_replies": 1,
+    "reply_rate": 0.01904761904761905,
+    "interested_rate": 0.009523809523809525,
+    "bounce_rate": 0.03669724770642202,
     "alumni_sent": 11,
-    "non_alumni_sent": 8,
-    "non_alumni_share": 0.42105263157894735,
+    "non_alumni_sent": 98,
+    "non_alumni_share": 0.8990825688073395,
     "by_audience": [
       {
         "label": "UIUC alumni",
         "sent": 11,
         "delivered": 9,
         "bounced": 2,
-        "replies": 0,
-        "interested": 0,
-        "reply_rate": 0.0,
+        "replies": 1,
+        "interested": 1,
+        "reply_rate": 0.1111111111111111,
         "bounce_rate": 0.18181818181818182
       },
       {
         "label": "Non-alumni",
-        "sent": 8,
-        "delivered": 8,
-        "bounced": 0,
-        "replies": 0,
+        "sent": 98,
+        "delivered": 96,
+        "bounced": 2,
+        "replies": 1,
         "interested": 0,
-        "reply_rate": 0.0,
-        "bounce_rate": 0.0
+        "reply_rate": 0.010416666666666666,
+        "bounce_rate": 0.02040816326530612
       }
     ],
     "by_source": [
+      {
+        "label": "chicago_businesses",
+        "count": 39
+      },
+      {
+        "label": "startup_founders",
+        "count": 19
+      },
+      {
+        "label": "tech_founders",
+        "count": 16
+      },
       {
         "label": "alumni_input",
         "count": 11
       },
       {
+        "label": "big_tech",
+        "count": 9
+      },
+      {
+        "label": "big_consulting",
+        "count": 9
+      },
+      {
         "label": "illinois_executives",
-        "count": 4
-      },
-      {
-        "label": "startup_founders",
-        "count": 3
-      },
-      {
-        "label": "tech_founders",
-        "count": 1
+        "count": 6
       }
     ],
     "daily": [
@@ -62,6 +74,30 @@
       {
         "date": "2026-08-19",
         "sent": 4
+      },
+      {
+        "date": "2026-08-20",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-21",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-24",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-25",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-26",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-27",
+        "sent": 15
       }
     ],
     "name": "Spring 2027",
@@ -69,45 +105,45 @@
   },
   "window": {
     "first_send": "2026-06-21",
-    "last_send": "2026-08-19",
-    "weekdays": 43
+    "last_send": "2026-08-27",
+    "weekdays": 49
   },
   "headline": {
-    "emails_sent": 510,
-    "people_reached": 505,
-    "companies_reached": 418,
-    "leads_sourced": 511,
-    "drafts_written": 683,
+    "emails_sent": 600,
+    "people_reached": 595,
+    "companies_reached": 508,
+    "leads_sourced": 601,
+    "drafts_written": 773,
     "follow_ups_sent": 5,
-    "last_7": 63,
-    "prior_7": 88,
-    "last_30": 240,
-    "active_days": 42,
-    "avg_per_active_day": 12.1,
-    "day_coverage": 0.9767441860465116,
-    "alumni_share": 0.8752475247524752
+    "last_7": 75,
+    "prior_7": 63,
+    "last_30": 266,
+    "active_days": 48,
+    "avg_per_active_day": 12.5,
+    "day_coverage": 0.9795918367346939,
+    "alumni_share": 0.7428571428571429
   },
   "reply": {
     "tracked": true,
-    "responses": 21,
-    "rate": 0.04565217391304348,
-    "interested": 11,
-    "interested_rate": 0.02391304347826087,
-    "auto_replies": 13,
-    "engaged": 34,
-    "engagement_rate": 0.07391304347826087,
+    "responses": 23,
+    "rate": 0.041970802919708027,
+    "interested": 12,
+    "interested_rate": 0.021897810218978103,
+    "auto_replies": 14,
+    "engaged": 37,
+    "engagement_rate": 0.06751824817518248,
     "sentiment": [
       {
         "label": "positive",
-        "count": 11
+        "count": 12
       },
       {
         "label": "neutral",
-        "count": 6
+        "count": 5
       },
       {
         "label": "negative",
-        "count": 3
+        "count": 4
       }
     ],
     "by_audience": [
@@ -116,18 +152,18 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 19,
-        "reply_rate": 0.04773869346733668,
+        "replies": 20,
+        "reply_rate": 0.05025125628140704,
         "bounce_rate": 0.09954751131221719
       },
       {
         "label": "Non-alumni",
-        "sent": 63,
-        "delivered": 62,
-        "bounced": 1,
-        "replies": 2,
-        "reply_rate": 0.03225806451612903,
-        "bounce_rate": 0.015873015873015872
+        "sent": 153,
+        "delivered": 150,
+        "bounced": 3,
+        "replies": 3,
+        "reply_rate": 0.02,
+        "bounce_rate": 0.0196078431372549
       }
     ],
     "by_source": [
@@ -136,32 +172,59 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 19,
-        "reply_rate": 0.04773869346733668,
+        "replies": 20,
+        "reply_rate": 0.05025125628140704,
         "bounce_rate": 0.09954751131221719
       },
       {
-        "label": "illinois_executives",
-        "sent": 30,
-        "delivered": 29,
-        "bounced": 1,
-        "replies": 1,
-        "reply_rate": 0.034482758620689655,
-        "bounce_rate": 0.03333333333333333
-      },
-      {
         "label": "tech_founders",
-        "sent": 29,
-        "delivered": 29,
+        "sent": 44,
+        "delivered": 44,
         "bounced": 0,
         "replies": 1,
-        "reply_rate": 0.034482758620689655,
+        "reply_rate": 0.022727272727272728,
         "bounce_rate": 0.0
       },
       {
+        "label": "chicago_businesses",
+        "sent": 39,
+        "delivered": 38,
+        "bounced": 1,
+        "replies": 1,
+        "reply_rate": 0.02631578947368421,
+        "bounce_rate": 0.02564102564102564
+      },
+      {
+        "label": "illinois_executives",
+        "sent": 32,
+        "delivered": 31,
+        "bounced": 1,
+        "replies": 1,
+        "reply_rate": 0.03225806451612903,
+        "bounce_rate": 0.03125
+      },
+      {
         "label": "startup_founders",
-        "sent": 3,
-        "delivered": 3,
+        "sent": 19,
+        "delivered": 19,
+        "bounced": 0,
+        "replies": 0,
+        "reply_rate": 0.0,
+        "bounce_rate": 0.0
+      },
+      {
+        "label": "big_consulting",
+        "sent": 9,
+        "delivered": 8,
+        "bounced": 1,
+        "replies": 0,
+        "reply_rate": 0.0,
+        "bounce_rate": 0.1111111111111111
+      },
+      {
+        "label": "big_tech",
+        "sent": 9,
+        "delivered": 9,
         "bounced": 0,
         "replies": 0,
         "reply_rate": 0.0,
@@ -179,17 +242,17 @@
     ]
   },
   "deliverability": {
-    "sent": 505,
-    "delivered": 460,
-    "bounced": 45,
-    "bounce_rate": 0.0891089108910891,
-    "delivered_rate": 0.9108910891089109
+    "sent": 595,
+    "delivered": 548,
+    "bounced": 47,
+    "bounce_rate": 0.07899159663865546,
+    "delivered_rate": 0.9210084033613445
   },
   "apollo": {
-    "find_rate": 0.7625,
+    "find_rate": 0.6888888888888889,
     "basis": "runs",
-    "attempted": 80,
-    "found": 61,
+    "attempted": 225,
+    "found": 155,
     "lookup_breakdown": [
       {
         "label": "Email found",
@@ -208,43 +271,43 @@
       }
     ],
     "alumni_rows": 612,
-    "discovery_leads": 67,
-    "runs_logged": 3,
-    "bounced": 45,
-    "bounce_rate": 0.0891089108910891,
-    "deliverable_rate": 0.9108910891089109,
-    "usable_rate": 0.6945544554455445
+    "discovery_leads": 157,
+    "runs_logged": 9,
+    "bounced": 47,
+    "bounce_rate": 0.07899159663865546,
+    "deliverable_rate": 0.9210084033613445,
+    "usable_rate": 0.6344724556489262
   },
   "funnel": [
     {
       "stage": "Leads sourced",
-      "count": 511,
+      "count": 601,
       "from_prev": null,
       "from_top": 1.0
     },
     {
       "stage": "Emails drafted",
-      "count": 511,
+      "count": 601,
       "from_prev": 1.0,
       "from_top": 1.0
     },
     {
       "stage": "Emails sent",
-      "count": 505,
-      "from_prev": 0.9882583170254403,
-      "from_top": 0.9882583170254403
+      "count": 595,
+      "from_prev": 0.9900166389351082,
+      "from_top": 0.9900166389351082
     },
     {
       "stage": "Delivered",
-      "count": 460,
-      "from_prev": 0.9108910891089109,
-      "from_top": 0.9001956947162426
+      "count": 548,
+      "from_prev": 0.9210084033613445,
+      "from_top": 0.9118136439267887
     },
     {
       "stage": "Replied",
-      "count": 21,
-      "from_prev": 0.04565217391304348,
-      "from_top": 0.0410958904109589
+      "count": 23,
+      "from_prev": 0.041970802919708027,
+      "from_top": 0.03826955074875208
     }
   ],
   "timeline": {
@@ -306,8 +369,14 @@
       {
         "week_start": "2026-08-17",
         "label": "Aug 17",
-        "sent": 33,
-        "drafted": 35
+        "sent": 63,
+        "drafted": 65
+      },
+      {
+        "week_start": "2026-08-24",
+        "label": "Aug 24",
+        "sent": 60,
+        "drafted": 60
       }
     ],
     "daily": [
@@ -478,12 +547,36 @@
       {
         "date": "2026-08-19",
         "sent": 4
+      },
+      {
+        "date": "2026-08-20",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-21",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-24",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-25",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-26",
+        "sent": 15
+      },
+      {
+        "date": "2026-08-27",
+        "sent": 15
       }
     ]
   },
   "quality": {
-    "approval_rate": 0.9921722113502935,
-    "send_success_rate": 0.9883720930232558,
+    "approval_rate": 0.9933444259567388,
+    "send_success_rate": 0.9900990099009901,
     "failed_sends": 6,
     "skipped_duplicates": 6,
     "errors": [
@@ -499,11 +592,11 @@
     "suppressed": 0
   },
   "companies": {
-    "distinct": 414,
-    "people": 497,
+    "distinct": 504,
+    "people": 587,
     "duplicate_sends": 83,
     "multi_contact": 42,
-    "people_per_company": 1.2004830917874396,
+    "people_per_company": 1.1646825396825398,
     "top": [
       {
         "label": "PwC",
@@ -514,15 +607,7 @@
         "count": 7
       },
       {
-        "label": "Microsoft",
-        "count": 5
-      },
-      {
         "label": "United Airlines",
-        "count": 5
-      },
-      {
-        "label": "RSM US LLP",
         "count": 5
       },
       {
@@ -530,7 +615,15 @@
         "count": 5
       },
       {
-        "label": "Huron",
+        "label": "RSM",
+        "count": 5
+      },
+      {
+        "label": "Microsoft",
+        "count": 5
+      },
+      {
+        "label": "bp",
         "count": 4
       },
       {
@@ -538,11 +631,11 @@
         "count": 4
       },
       {
-        "label": "bp",
+        "label": "Huron",
         "count": 4
       },
       {
-        "label": "Goldman Sachs",
+        "label": "FTI Consulting",
         "count": 3
       },
       {
@@ -550,7 +643,7 @@
         "count": 3
       },
       {
-        "label": "Accenture",
+        "label": "Capital One",
         "count": 3
       }
     ]
@@ -562,32 +655,59 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 19,
-        "reply_rate": 0.04773869346733668,
+        "replies": 20,
+        "reply_rate": 0.05025125628140704,
         "bounce_rate": 0.09954751131221719
       },
       {
-        "label": "illinois_executives",
-        "sent": 30,
-        "delivered": 29,
-        "bounced": 1,
-        "replies": 1,
-        "reply_rate": 0.034482758620689655,
-        "bounce_rate": 0.03333333333333333
-      },
-      {
         "label": "tech_founders",
-        "sent": 29,
-        "delivered": 29,
+        "sent": 44,
+        "delivered": 44,
         "bounced": 0,
         "replies": 1,
-        "reply_rate": 0.034482758620689655,
+        "reply_rate": 0.022727272727272728,
         "bounce_rate": 0.0
       },
       {
+        "label": "chicago_businesses",
+        "sent": 39,
+        "delivered": 38,
+        "bounced": 1,
+        "replies": 1,
+        "reply_rate": 0.02631578947368421,
+        "bounce_rate": 0.02564102564102564
+      },
+      {
+        "label": "illinois_executives",
+        "sent": 32,
+        "delivered": 31,
+        "bounced": 1,
+        "replies": 1,
+        "reply_rate": 0.03225806451612903,
+        "bounce_rate": 0.03125
+      },
+      {
         "label": "startup_founders",
-        "sent": 3,
-        "delivered": 3,
+        "sent": 19,
+        "delivered": 19,
+        "bounced": 0,
+        "replies": 0,
+        "reply_rate": 0.0,
+        "bounce_rate": 0.0
+      },
+      {
+        "label": "big_consulting",
+        "sent": 9,
+        "delivered": 8,
+        "bounced": 1,
+        "replies": 0,
+        "reply_rate": 0.0,
+        "bounce_rate": 0.1111111111111111
+      },
+      {
+        "label": "big_tech",
+        "sent": 9,
+        "delivered": 9,
         "bounced": 0,
         "replies": 0,
         "reply_rate": 0.0,
@@ -606,53 +726,53 @@
     "templates": [
       {
         "label": "Business",
-        "count": 408
+        "count": 453
       },
       {
         "label": "Technical software",
-        "count": 77
+        "count": 119
       },
       {
         "label": "Technical engineering",
-        "count": 24
+        "count": 26
       },
       {
         "label": "Hybrid product",
-        "count": 1
+        "count": 2
       }
     ],
     "industries": [
       {
         "label": "Information Technology & Services",
-        "count": 76
+        "count": 118
       },
       {
         "label": "Management Consulting",
-        "count": 49
+        "count": 58
       },
       {
         "label": "Financial Services",
-        "count": 45
+        "count": 46
       },
       {
         "label": "Hospital & Health Care",
-        "count": 17
+        "count": 19
       },
       {
         "label": "Professional Training & Coaching",
-        "count": 16
+        "count": 17
       },
       {
         "label": "Marketing & Advertising",
-        "count": 12
+        "count": 16
+      },
+      {
+        "label": "Accounting",
+        "count": 10
       },
       {
         "label": "Real Estate",
         "count": 10
-      },
-      {
-        "label": "Accounting",
-        "count": 8
       }
     ],
     "companies": [
@@ -665,10 +785,6 @@
         "count": 7
       },
       {
-        "label": "Microsoft",
-        "count": 5
-      },
-      {
         "label": "United Airlines",
         "count": 5
       },
@@ -677,15 +793,19 @@
         "count": 5
       },
       {
-        "label": "Huron",
-        "count": 4
+        "label": "Microsoft",
+        "count": 5
       },
       {
         "label": "bp",
         "count": 4
       },
       {
-        "label": "Goldman Sachs",
+        "label": "Huron",
+        "count": 4
+      },
+      {
+        "label": "FTI Consulting",
         "count": 3
       },
       {
@@ -693,15 +813,15 @@
         "count": 3
       },
       {
-        "label": "Accenture",
-        "count": 3
-      },
-      {
         "label": "HealthScape Advisors, a Chartis Company",
         "count": 3
       },
       {
-        "label": "RSM US LLP",
+        "label": "Capital One",
+        "count": 3
+      },
+      {
+        "label": "Goldman Sachs",
         "count": 3
       }
     ]
@@ -709,9 +829,9 @@
   "runway": {
     "bench_ready": 0,
     "bench_unlooked": 4,
-    "projected_contacts": 3,
-    "daily_pace": 10.9,
-    "business_days_left": 0.3,
+    "projected_contacts": 2,
+    "daily_pace": 12.1,
+    "business_days_left": 0.2,
     "awaiting_approval": 4,
     "approved_unsent": 2,
     "stale_follow_up_drafts": 167
