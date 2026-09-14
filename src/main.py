@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 from .dashboard import write_dashboard
-from .draft import draft_for_leads
+from .draft import draft_for_leads, org_address_configured
 from .follow_up import prepare_follow_ups
 from .models import Lead, LeadStatus
 from .past_projects import PastProjectIndex
@@ -212,6 +212,15 @@ class _Selector:
 # ---------------- prepare ----------------
 
 def cmd_prepare(dry_run: bool) -> int:
+    # CAN-SPAM: every email needs a real postal address, and it deliberately has
+    # no code default (the repo is public). Stop before spending Apollo credits.
+    if not dry_run and not org_address_configured():
+        log.error(
+            "ORG_PHYSICAL_ADDRESS is not set — refusing to prepare outreach without "
+            "a postal address in the footer. Set the GitHub secret and re-run."
+        )
+        return 1
+
     target = env_int("DAILY_PREPARE_TARGET", 15)
     sheets = SheetClient()
     sheets.bootstrap()
@@ -565,13 +574,14 @@ def cmd_report(out_dir: str, open_browser: bool) -> int:
 def _dry_run_fixture_leads():
     """A handful of fake leads so `prepare --dry-run` works without Apollo."""
     from .models import Lead
+    # Fictional people only — this repo is public, so fixtures must never name
+    # real contacts or link real LinkedIn profiles.
     return [
         Lead(
-            name="Sunny Shajan",
+            name="Jordan Example",
             title="Managing Director",
-            company="McKesson",
-            email="sunny.test@example.com",
-            linkedin="https://www.linkedin.com/in/sunny-shajan/",
+            company="Example Health Systems",
+            email="jordan.example@example.com",
             industry="Healthcare",
             location="Chicago, Illinois",
             is_uiuc_alum=True,
@@ -579,21 +589,20 @@ def _dry_run_fixture_leads():
             source="fixture",
         ),
         Lead(
-            name="Alex Meyer",
+            name="Casey Sample",
             title="Managing Partner",
-            company="Origin Ventures",
-            email="alex.test@example.com",
-            linkedin="https://www.linkedin.com/in/meyerchicago/",
+            company="Sample Ventures",
+            email="casey.sample@example.com",
             industry="Venture Capital",
             location="Chicago, Illinois",
             is_uiuc_alum=True,
             source="fixture",
         ),
         Lead(
-            name="Gautam Ajjarapu",
+            name="Riley Placeholder",
             title="CEO & Founder",
-            company="Glide",
-            email="gautam.test@example.com",
+            company="Placeholder Software",
+            email="riley.placeholder@example.com",
             industry="Computer Software",
             location="San Francisco, CA",
             is_uiuc_alum=True,

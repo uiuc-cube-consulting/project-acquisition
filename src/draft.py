@@ -263,15 +263,28 @@ Substitutions for contact {index}: {{your_name}} -> {sender_name}; {{your_number
         )
 
 
+# Shown in the footer only when ORG_PHYSICAL_ADDRESS is unset. `prepare` refuses
+# to run for real in that case (see org_address_configured), so this can only
+# ever appear in a --dry-run preview, never in mail that is sent.
+ORG_ADDRESS_PLACEHOLDER = "[ORG_PHYSICAL_ADDRESS not set]"
+
+
+def org_address_configured() -> bool:
+    """Whether the CAN-SPAM postal address is set.
+
+    The address has no code default on purpose: this repository is public, so
+    the real one lives only in the ORG_PHYSICAL_ADDRESS secret.
+    """
+    return bool(env_str("ORG_PHYSICAL_ADDRESS", ""))
+
+
 def make_footer() -> str:
     return render_footer(
         org_name=env_str("ORG_NAME", "CUBE Consulting"),
         # These two are legally load-bearing (CAN-SPAM): a blank physical
         # address or unsubscribe address on real outreach is a compliance
         # problem, so they must never degrade to "".
-        address=env_str(
-            "ORG_PHYSICAL_ADDRESS", "707 S 4th St, APT 1006A, Champaign IL 61820"
-        ),
+        address=env_str("ORG_PHYSICAL_ADDRESS", ORG_ADDRESS_PLACEHOLDER),
         unsubscribe_mailto=env_str(
             "UNSUBSCRIBE_MAILTO", "unsubscribe@cubeconsulting.org"
         ),
