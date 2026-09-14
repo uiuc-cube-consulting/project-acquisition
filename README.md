@@ -359,7 +359,7 @@ In this repo on GitHub → Settings → Secrets and variables → Actions → Ne
 | `GMAIL_ADDRESS` | the sending Gmail address (from step 3b) |
 | `GMAIL_APP_PASSWORD` | the 16-char App Password (from step 3b) |
 | `ORG_NAME` | `CUBE Consulting` |
-| `ORG_PHYSICAL_ADDRESS` | `707 S 4th St, APT 1006A, Champaign IL 61820` |
+| `ORG_PHYSICAL_ADDRESS` | CUBE's postal address for the CAN-SPAM footer, e.g. `123 Main St, Champaign IL 61820`. **Required:** `prepare` refuses to run without it |
 | `UNSUBSCRIBE_MAILTO` | `unsubscribe@cubeconsulting.org` |
 | `SENDER_NAME` | e.g. `Raghav Taneja` |
 | `SENDER_PHONE` | e.g. `(555) 123-4567` |
@@ -374,7 +374,7 @@ After verifying both workflows work, the cron schedules take over and run automa
 
 1. `python -m src.main bootstrap` — creates the 5 tabs in your Sheet (incl. `Approvals`)
 2. `python -m src.main prepare --dry-run` — confirm drafts print to stdout
-3. Run `prepare` for real (small batch): `DAILY_PREPARE_TARGET=2 python -m src.main prepare` → check that the numbered approval email lands at `mannat2@illinois.edu`
+3. Run `prepare` for real (small batch): `DAILY_PREPARE_TARGET=2 python -m src.main prepare` → check that the numbered approval email lands at the `APPROVER_EMAIL` inbox
 4. **Reply to that email** with `approve all` (or `approve 1`)
 5. `DAILY_SEND_CAP=1 python -m src.main send --dry-run` — verify the log shows the reply being parsed and the would-send list
 6. Drop `--dry-run`: `DAILY_SEND_CAP=1 python -m src.main send` → check the recipient inbox
