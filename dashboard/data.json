@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-14T18:32:56+00:00",
+  "generated_at": "2026-09-21T18:39:44+00:00",
   "campaign": {
     "start": "2026-08-18",
     "sent": 197,
@@ -134,7 +134,7 @@
   "window": {
     "first_send": "2026-06-21",
     "last_send": "2026-09-04",
-    "weekdays": 61
+    "weekdays": 66
   },
   "headline": {
     "emails_sent": 688,
@@ -144,34 +144,34 @@
     "drafts_written": 860,
     "follow_ups_sent": 5,
     "last_7": 0,
-    "prior_7": 51,
-    "last_30": 211,
+    "prior_7": 0,
+    "last_30": 148,
     "active_days": 55,
     "avg_per_active_day": 12.5,
-    "day_coverage": 0.9016393442622951,
+    "day_coverage": 0.8333333333333334,
     "alumni_share": 0.6471449487554904
   },
   "reply": {
     "tracked": true,
-    "responses": 24,
-    "rate": 0.03779527559055118,
-    "interested": 13,
-    "interested_rate": 0.02047244094488189,
+    "responses": 25,
+    "rate": 0.03937007874015748,
+    "interested": 14,
+    "interested_rate": 0.02204724409448819,
     "auto_replies": 17,
-    "engaged": 41,
-    "engagement_rate": 0.06456692913385827,
+    "engaged": 42,
+    "engagement_rate": 0.06614173228346457,
     "sentiment": [
       {
         "label": "positive",
-        "count": 13
+        "count": 14
       },
       {
         "label": "neutral",
-        "count": 6
+        "count": 5
       },
       {
         "label": "negative",
-        "count": 3
+        "count": 4
       }
     ],
     "by_audience": [
@@ -180,8 +180,8 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 20,
-        "reply_rate": 0.05025125628140704,
+        "replies": 21,
+        "reply_rate": 0.052763819095477386,
         "bounce_rate": 0.09954751131221719
       },
       {
@@ -200,18 +200,9 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 20,
-        "reply_rate": 0.05025125628140704,
+        "replies": 21,
+        "reply_rate": 0.052763819095477386,
         "bounce_rate": 0.09954751131221719
-      },
-      {
-        "label": "chicago_businesses",
-        "sent": 72,
-        "delivered": 70,
-        "bounced": 2,
-        "replies": 2,
-        "reply_rate": 0.02857142857142857,
-        "bounce_rate": 0.027777777777777776
       },
       {
         "label": "illinois_executives",
@@ -221,6 +212,15 @@
         "replies": 1,
         "reply_rate": 0.014084507042253521,
         "bounce_rate": 0.013888888888888888
+      },
+      {
+        "label": "chicago_businesses",
+        "sent": 72,
+        "delivered": 70,
+        "bounced": 2,
+        "replies": 2,
+        "reply_rate": 0.02857142857142857,
+        "bounce_rate": 0.027777777777777776
       },
       {
         "label": "tech_founders",
@@ -333,9 +333,9 @@
     },
     {
       "stage": "Replied",
-      "count": 24,
-      "from_prev": 0.03779527559055118,
-      "from_top": 0.03488372093023256
+      "count": 25,
+      "from_prev": 0.03937007874015748,
+      "from_top": 0.036337209302325583
     }
   ],
   "timeline": {
@@ -421,6 +421,12 @@
       {
         "week_start": "2026-09-14",
         "label": "Sep 14",
+        "sent": 0,
+        "drafted": 0
+      },
+      {
+        "week_start": "2026-09-21",
+        "label": "Sep 21",
         "sent": 0,
         "drafted": 0
       }
@@ -681,11 +687,11 @@
         "count": 7
       },
       {
-        "label": "United Airlines",
+        "label": "Medline",
         "count": 5
       },
       {
-        "label": "Medline",
+        "label": "RSM US LLP",
         "count": 5
       },
       {
@@ -693,8 +699,12 @@
         "count": 5
       },
       {
-        "label": "RSM US LLP",
+        "label": "United Airlines",
         "count": 5
+      },
+      {
+        "label": "bp",
+        "count": 4
       },
       {
         "label": "HealthScape Advisors, a Chartis Company",
@@ -705,11 +715,7 @@
         "count": 4
       },
       {
-        "label": "bp",
-        "count": 4
-      },
-      {
-        "label": "Grainger",
+        "label": "FTI Consulting",
         "count": 3
       },
       {
@@ -717,7 +723,7 @@
         "count": 3
       },
       {
-        "label": "Goldman Sachs",
+        "label": "Northern Trust",
         "count": 3
       }
     ]
@@ -729,18 +735,9 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 20,
-        "reply_rate": 0.05025125628140704,
+        "replies": 21,
+        "reply_rate": 0.052763819095477386,
         "bounce_rate": 0.09954751131221719
-      },
-      {
-        "label": "chicago_businesses",
-        "sent": 72,
-        "delivered": 70,
-        "bounced": 2,
-        "replies": 2,
-        "reply_rate": 0.02857142857142857,
-        "bounce_rate": 0.027777777777777776
       },
       {
         "label": "illinois_executives",
@@ -750,6 +747,15 @@
         "replies": 1,
         "reply_rate": 0.014084507042253521,
         "bounce_rate": 0.013888888888888888
+      },
+      {
+        "label": "chicago_businesses",
+        "sent": 72,
+        "delivered": 70,
+        "bounced": 2,
+        "replies": 2,
+        "reply_rate": 0.02857142857142857,
+        "bounce_rate": 0.027777777777777776
       },
       {
         "label": "tech_founders",
@@ -841,11 +847,11 @@
         "count": 18
       },
       {
-        "label": "Real Estate",
+        "label": "Civil Engineering",
         "count": 13
       },
       {
-        "label": "Civil Engineering",
+        "label": "Real Estate",
         "count": 13
       }
     ],
@@ -859,10 +865,6 @@
         "count": 7
       },
       {
-        "label": "United Airlines",
-        "count": 5
-      },
-      {
         "label": "Medline",
         "count": 5
       },
@@ -871,15 +873,23 @@
         "count": 5
       },
       {
-        "label": "Huron",
-        "count": 4
+        "label": "United Airlines",
+        "count": 5
       },
       {
         "label": "bp",
         "count": 4
       },
       {
-        "label": "Grainger",
+        "label": "Huron",
+        "count": 4
+      },
+      {
+        "label": "FTI Consulting",
+        "count": 3
+      },
+      {
+        "label": "RSM US LLP",
         "count": 3
       },
       {
@@ -887,15 +897,11 @@
         "count": 3
       },
       {
-        "label": "Goldman Sachs",
-        "count": 3
-      },
-      {
-        "label": "FTI Consulting",
-        "count": 3
-      },
-      {
         "label": "Northern Trust",
+        "count": 3
+      },
+      {
+        "label": "HealthScape Advisors, a Chartis Company",
         "count": 3
       }
     ]
@@ -904,8 +910,8 @@
     "bench_ready": 0,
     "bench_unlooked": 4,
     "projected_contacts": 2,
-    "daily_pace": 9.6,
-    "business_days_left": 0.2,
+    "daily_pace": 6.7,
+    "business_days_left": 0.3,
     "awaiting_approval": 4,
     "approved_unsent": 1,
     "stale_follow_up_drafts": 167
