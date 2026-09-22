@@ -1,9 +1,15 @@
 # Maps Apollo industry tags to one of the 4 outreach templates.
-# Default fallback is "business" if no match.
+#
+# Matching rule (see src/template.py):
+#   - Case-insensitive, whole words/phrases only ("mobile" does not
+#     match "automobiles").
+#   - The LONGEST matching keyword across all templates wins.
+#   - Ties between equal-length keywords go to the template listed first.
+#   - No match → `default`.
+# Tip: prefer Apollo's exact LinkedIn industry names as keywords.
 
 default: business
 
-# Use lowercased substring matches against Apollo's `industry` field.
 mappings:
   business:
     - "consulting"
@@ -20,6 +26,8 @@ mappings:
     - "private equity"
     - "financial services"
     - "banking"
+    - "pharmaceuticals"               # NEW (judgment call, flagged in PR)
+    - "hospital & health care"        # NEW (judgment call, flagged in PR)
 
   hybrid_product:
     - "saas"
@@ -28,6 +36,7 @@ mappings:
     - "mobile"
     - "fintech"
     - "edtech"
+    - "e-learning"                    # NEW
     - "healthtech"
     - "logistics"
 
@@ -38,6 +47,8 @@ mappings:
     - "machine learning"
     - "data"
     - "cybersecurity"
+    - "computer & network security"   # NEW
+    - "network security"              # NEW
     - "cloud"
     - "developer tools"
 
@@ -46,7 +57,10 @@ mappings:
     - "electronics"
     - "robotics"
     - "aerospace"
+    - "defense & space"               # NEW
+    - "defense"                       # NEW
     - "automotive"
+    - "automobiles"                   # NEW
     - "hardware"
     - "manufacturing"
     - "renewables"
@@ -54,3 +68,4 @@ mappings:
     - "biotechnology"
     - "medical devices"
     - "industrial"
+    - "telecommunications"            # NEW (judgment call, flagged in PR)
