@@ -1,6 +1,8 @@
 """Google Sheets data layer.
 
-One workbook (env: SHEET_ID) with four tabs:
+One workbook (env: SHEET_ID). Every tab `bootstrap()` creates, with its
+header row, is listed in TAB_HEADERS below; the `Dashboard` tab is written
+separately by dashboard.py. The key tabs:
 
   Leads        — every contact we've ever pulled in, with status
   Drafts       — pending + sent drafts; the `approved` checkbox is the gate
@@ -68,11 +70,6 @@ ALUMNI_HEADERS = [
     "name", "company", "linkedin", "title", "industry", "location", "email", "cube_member",
 ]
 
-# One row per `prepare` run. Records the Gmail thread the approval digest was
-# sent on plus a JSON map of digest-number -> Drafts row, so the `send` job can
-# resolve "approve 1,3" from the approver's reply back to the right rows.
-APPROVALS_HEADERS = ["digest_at", "thread_id", "message_id", "items_json", "processed_at"]
-
 # What came back from the mailbox, one row per person (see replies.py). Rebuilt
 # on every `replies` run — derived data, safe to delete.
 REPLIES_HEADERS = [
@@ -103,7 +100,6 @@ TAB_HEADERS = {
     "Suppression": SUPPRESSION_HEADERS,
     "Prospects": PROSPECTS_HEADERS,
     "Alumni": ALUMNI_HEADERS,
-    "Approvals": APPROVALS_HEADERS,
     "Replies": REPLIES_HEADERS,
     "Runs": RUNS_HEADERS,
     "Companies": COMPANIES_HEADERS,
@@ -488,29 +484,6 @@ class SheetClient:
             ws.update_cell(ri, col, "TRUE")
             count += 1
         return count
-
-    # ---------------- Approvals (email reply gate) ----------------
-
-    def record_digest(self, thread_id: str, message_id: str, items: list[dict]) -> None:
-        """Persist the digest thread + number->row map for the send job to read."""
-        ws = self.book.worksheet("Approvals")
-        ws.append_row(
-            [_now_iso(), thread_id or "", message_id or "", json.dumps(items), ""],
-            value_input_option="RAW",
-        )
-
-    def latest_unprocessed_digest(self) -> tuple[int, dict] | None:
-        """Most recent Approvals row that hasn't been processed yet, with its row index."""
-        ws = self.book.worksheet("Approvals")
-        records = ws.get_all_records()
-        for i in range(len(records) - 1, -1, -1):
-            if not str(records[i].get("processed_at") or "").strip():
-                return i + 2, records[i]  # +2: header row + 1-based
-        return None
-
-    def mark_digest_processed(self, row_index: int) -> None:
-        ws = self.book.worksheet("Approvals")
-        ws.update_cell(row_index, APPROVALS_HEADERS.index("processed_at") + 1, _now_iso())
 
     def list_awaiting_follow_up(self, business_days: int = 3) -> list[dict]:
         """Leads sent >= N business days ago, not yet replied, not yet followed up."""

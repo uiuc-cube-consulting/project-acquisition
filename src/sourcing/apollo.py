@@ -150,14 +150,6 @@ def load_profiles(path: str | Path = "config/search_profiles.yaml") -> list[dict
     return yaml.safe_load(Path(path).read_text())["profiles"]
 
 
-def get_uiuc_profile(profiles: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """The dedicated UIUC-alumni search profile, run every day as the primary source."""
-    for p in profiles:
-        if p.get("uiuc_only"):
-            return p
-    return None
-
-
 def discovery_profiles(profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The Apollo-searchable breadth profiles (everything sheet-sourced or
     UIUC-only is handled elsewhere)."""
@@ -165,12 +157,6 @@ def discovery_profiles(profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
         p for p in profiles
         if p.get("source") != "cube_alumni_sheet" and not p.get("uiuc_only")
     ]
-
-
-def pick_profile_for_today(profiles: list[dict[str, Any]], day_index: int) -> dict[str, Any]:
-    """Rotate the *secondary* (breadth) profiles by day. The UIUC profile is
-    excluded here because it runs every day, not on rotation."""
-    return discovery_profiles(profiles)[day_index % len(discovery_profiles(profiles))]
 
 
 def pick_profiles_for_today(
