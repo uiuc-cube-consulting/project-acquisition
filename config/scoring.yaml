@@ -1,8 +1,8 @@
-# Lead scoring weights. Higher score => more likely to be in today's batch of 10.
+# Lead scoring weights. Higher score => more likely to be in today's batch (size: DAILY_PREPARE_TARGET).
 # Tune these after the first week of real sends.
 
 weights:
-  uiuc_alum: 50                  # our highest-converting segment; alumni are also hard-prioritized in pick_top
+  uiuc_alum: 50                  # our highest-converting segment; alumni also get their own daily quota (ALUMNI_TARGET_SHARE)
   illinois_based: 20
   startup_stage_match: 15        # seed through Series B
   industry_matches_past_project: 10
