@@ -22,9 +22,11 @@ from .models import Draft, Lead, PastProject, TemplateType
 from .templates import (
     CUBE_MEMBER,
     FOLLOW_UP,
+    SENDER_TITLE,
     SUBJECT_TEMPLATE,
     TARGET_TERM,
     TEMPLATES,
+    fill_fixed,
     render_footer,
 )
 
@@ -79,6 +81,7 @@ You are personalizing a base template. Keep its overall structure and signoff. P
 
 Rules:
 - The semester named in the template (e.g. "Spring 2027") is already filled in and is a hard fact: keep it EXACTLY as written, in the same places. Never change it, drop it, or replace it with "this semester"/"next semester".
+- The sender's role (e.g. "CTO and CEO") is also already filled in: keep it EXACTLY as written in the intro and under the signature name. Never shorten, reorder, or drop it.
 - Keep the body under 200 words and tight; every sentence must read naturally with correct grammar (especially where the alumni line joins the paragraph).
 - Do NOT invent facts, add paragraphs, signoffs, or postscripts.
 - Output strict JSON with no markdown fences. For a single contact: {"subject": "...", "body": "..."}. When several numbered contacts are given, return {"drafts": [{"id": <contact number>, "subject": "...", "body": "..."}, ...]} with exactly one entry per contact and nothing omitted.
@@ -99,9 +102,9 @@ class Drafter:
         footer: str,
     ) -> Draft:
         base_template = CUBE_MEMBER if lead.is_cube_member else TEMPLATES[template_type]
-        # {term} is filled here, not by Gemini: the semester we're sourcing for
-        # is the one fact in this email that must never be reworded.
-        base_template = base_template.replace("{term}", TARGET_TERM)
+        # {term} and {your_title} are filled here, not by Gemini: the semester
+        # and the sender's role are facts that must never be reworded.
+        base_template = fill_fixed(base_template)
         matches_block = "\n".join(
             f"- {p.client} ({p.semester}): keywords={', '.join(p.keywords)}; "
             f"deliverables={p.deliverables[:300]}"
@@ -158,7 +161,7 @@ Return JSON only."""
                        sender_phone: str) -> str:
         """One numbered contact + its filled template, for a batched request."""
         base_template = CUBE_MEMBER if lead.is_cube_member else TEMPLATES[template_type]
-        base_template = base_template.replace("{term}", TARGET_TERM)
+        base_template = fill_fixed(base_template)
         matches_block = "\n".join(
             f"- {p.client} ({p.semester}): keywords={', '.join(p.keywords)}; "
             f"deliverables={p.deliverables[:300]}"
@@ -249,7 +252,8 @@ Substitutions for contact {index}: {{your_name}} -> {sender_name}; {{your_number
         sender_name: str,
         footer: str,
     ) -> Draft:
-        body = FOLLOW_UP.format(contact_name=lead.first_name(), company=lead.company, your_name=sender_name)
+        body = FOLLOW_UP.format(contact_name=lead.first_name(), company=lead.company,
+                                your_name=sender_name, your_title=SENDER_TITLE)
         # Follow-ups keep the original subject prefixed with "Re:" so Gmail threads them.
         original_subject = SUBJECT_TEMPLATE.format(company=lead.company, term=TARGET_TERM)
         return Draft(

@@ -33,6 +33,8 @@ jobs:
       UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
       SENDER_NAME: ${{ secrets.SENDER_NAME }}
       SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
+      # Role shown in the intro line and under the signature.
+      SENDER_TITLE: "CTO and CEO"
       DAILY_PREPARE_TARGET: ${{ secrets.DAILY_PREPARE_TARGET }}
       # --- Spring 2027 campaign ---
       # The semester the outreach pitches (appears in the subject and body).

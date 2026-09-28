@@ -64,7 +64,7 @@ log = logging.getLogger("cube.main")
 
 def _sender_identity() -> tuple[str, str]:
     return (
-        env_str("SENDER_NAME", "Sujan Sriram"),
+        env_str("SENDER_NAME", "Mann Talati"),
         env_str("SENDER_PHONE", "—"),
     )
 
