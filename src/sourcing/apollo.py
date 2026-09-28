@@ -156,7 +156,14 @@ def discovery_profiles(profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         p for p in profiles
         if p.get("source") != "cube_alumni_sheet" and not p.get("uiuc_only")
+        and p.get("tier") != "enterprise"
     ]
+
+
+def enterprise_profiles(profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Big-company search profiles. Searched every run, not rotated, because
+    they feed the enterprise quota."""
+    return [p for p in profiles if p.get("tier") == "enterprise"]
 
 
 def pick_profiles_for_today(
@@ -214,6 +221,9 @@ class Candidate:
     score: float = 0.0
     ref: int | None = None  # Alumni-tab row index, for writing the email back
     is_cube_member: bool = False
+    # From a big-company source (enterprise list or a `tier: enterprise`
+    # profile); fills the enterprise quota in `prepare`.
+    is_enterprise: bool = False
 
 
 def _to_candidate(person: dict[str, Any], profile: dict[str, Any]) -> Candidate:
@@ -237,6 +247,7 @@ def _to_candidate(person: dict[str, Any], profile: dict[str, Any]) -> Candidate:
         # when the search payload omits the education array.
         is_uiuc_alum=bool(profile.get("uiuc_only")) or _is_uiuc(schools),
         schools=schools,
+        is_enterprise=profile.get("tier") == "enterprise",
     )
 
 

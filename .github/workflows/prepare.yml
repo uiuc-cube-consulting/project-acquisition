@@ -43,6 +43,10 @@ jobs:
       # founders / Chicago businesses / big tech were never reached at all.
       ALUMNI_TARGET_SHARE: "0.35"
       DISCOVERY_PROFILES_PER_RUN: "3"
+      # Reserve 35% of every batch for big, well-known companies: the named list
+      # in config/enterprise_targets.yaml plus large Chicago-HQ firms.
+      ENTERPRISE_TARGET_SHARE: "0.35"
+      ENTERPRISE_COMPANIES_PER_RUN: "12"
       # Drafts are written pre-approved; the send job mails them unattended.
       AUTO_APPROVE: "1"
     steps:

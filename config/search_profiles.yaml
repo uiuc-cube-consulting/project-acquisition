@@ -34,6 +34,17 @@ _leader_titles: &leader_titles
   - "Partner"
   - "Principal"
 
+# Functions that sponsor student projects at big companies (not HR/recruiting).
+_enterprise_titles: &enterprise_titles
+  - "Strategy"
+  - "Corporate Development"
+  - "Innovation"
+  - "Transformation"
+  - "Analytics"
+  - "Business Development"
+  - "Product"
+  - "Operations"
+
 profiles:
   - name: chicago_businesses
     description: "Local Chicago-area business owners and decision-makers"
@@ -87,38 +98,23 @@ profiles:
       person_titles: *founder_titles
       per_page: 50
 
-  - name: big_tech
-    description: "Product/engineering/strategy leaders at large tech companies"
+  # Big companies are the ENTERPRISE quota (ENTERPRISE_TARGET_SHARE): `tier:
+  # enterprise` profiles are searched every run, not rotated, alongside the named
+  # list in config/enterprise_targets.yaml. This replaced big_tech/big_consulting,
+  # whose q_organization_keyword_tags also matched company NAMES and so returned
+  # obscure firms (one called "Artificial Intelligence") instead of big ones.
+  - name: chicago_enterprise
+    description: "Strategy/innovation/analytics leaders at large Chicago-headquartered companies"
+    tier: enterprise
     enrich: true
     params:
-      person_titles: *leader_titles
-      q_organization_keyword_tags:
-        - "software"
-        - "information technology"
-        - "cloud computing"
-        - "artificial intelligence"
+      organization_locations:   # company HQ, not where the person sits
+        - "Chicago, Illinois, US"
       organization_num_employees_ranges:
-        - "1001,5000"
         - "5001,10000"
         - "10001,1000000"
-      per_page: 50
-
-  - name: big_consulting
-    description: "Practice leaders at consulting / professional services firms"
-    enrich: true
-    params:
-      person_titles: *leader_titles
-      q_organization_keyword_tags:
-        - "management consulting"
-        - "business consulting"
-        - "professional services"
-        - "accounting"
-      organization_num_employees_ranges:
-        - "201,500"
-        - "501,1000"
-        - "1001,5000"
-        - "5001,10000"
-        - "10001,1000000"
+      person_seniorities: ["vp", "head", "director"]
+      person_titles: *enterprise_titles
       per_page: 50
 
   - name: cube_alumni

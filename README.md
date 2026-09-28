@@ -13,6 +13,8 @@ the workflow env (no code change needed to roll to the next term):
 | `TARGET_TERM` | `Spring 2027` | Named in the subject line and twice in the body. Substituted in Python, never by the model, so it cannot be paraphrased away. |
 | `CAMPAIGN_START` | `2026-08-18` | Anyone first emailed on/after this date counts toward the Spring 2027 numbers on the dashboard. |
 | `ALUMNI_TARGET_SHARE` | `0.35` | 35% of each batch to UIUC alumni, **65% to everyone else**. |
+| `ENTERPRISE_TARGET_SHARE` | `0.35` | 35% of each batch reserved for big, well-known companies (see below). |
+| `ENTERPRISE_COMPANIES_PER_RUN` | `12` | How many uncontacted companies from `config/enterprise_targets.yaml` to search per run. |
 | `AUTO_APPROVE` | `1` | Drafts are written pre-approved; `send` mails them unattended. |
 | `COMPANY_DEDUPE` | on | Never email two people at the same company. |
 | `PACKET_URL` | *(not set — code default)* | Info-packet link in every first email. Deliberately **not** a GitHub secret: it is a public URL that appears in every email we send. The `fall2026` slug is intentional — the packet's contents are unchanged for Spring 2027, and the tinyurl is a redirect the team owns, so re-pointing it updates emails already sent. |
@@ -47,9 +49,28 @@ per run on a daily rotation:
 - `chicago_businesses` — Chicago-area owners and founders, 11–500 employees
 - `startup_founders` — early-stage founders nationally
 - `tech_founders` — software/tech founders and execs
-- `big_tech` — product/eng/strategy leaders at 1,000+ employee tech companies
-- `big_consulting` — practice leaders at consulting and professional-services firms
 - `illinois_executives` — statewide Illinois decision-makers
+
+### Big-name companies
+
+A third quota, `ENTERPRISE_TARGET_SHARE` (35%), is reserved every day for large,
+recognizable companies. It is filled from two sources, both searched on every
+run rather than rotated:
+
+- **`config/enterprise_targets.yaml`**: a hand-kept list of well-known
+  companies (Chicago/Illinois HQs, big tech, finance and consulting, consumer,
+  healthcare, industrial), each identified by its email domain. Each run takes
+  `ENTERPRISE_COMPANIES_PER_RUN` companies that haven't been contacted yet and
+  finds their strategy, innovation, analytics, corporate-development, product
+  and operations leaders. A company drops out once it has been emailed, so
+  **keep adding to the list**.
+- **`chicago_enterprise`** (`tier: enterprise` in `search_profiles.yaml`):
+  leaders in those same roles at 5,000+ employee Chicago-headquartered companies.
+
+These replaced the old `big_tech` and `big_consulting` profiles. Their
+`q_organization_keyword_tags` filter also matches company *names*, so they
+mostly returned obscure firms: one page had a company literally called
+"Artificial Intelligence", and 24 of 50 people came from one contractor.
 
 The dashboard's Spring 2027 section tracks the non-alumni share against the 65%
 target so this cannot silently regress again.
