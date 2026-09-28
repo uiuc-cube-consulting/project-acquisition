@@ -81,7 +81,7 @@ You are personalizing a base template. Keep its overall structure and signoff. P
 
 Rules:
 - The semester named in the template (e.g. "Spring 2027") is already filled in and is a hard fact: keep it EXACTLY as written, in the same places. Never change it, drop it, or replace it with "this semester"/"next semester".
-- The sender's role (e.g. "CTO and CEO") is also already filled in: keep it EXACTLY as written in the intro and under the signature name. Never shorten, reorder, or drop it.
+- The sender's role (e.g. "CTO") is also already filled in: keep it EXACTLY as written in the intro and under the signature name. Never shorten, reorder, or drop it.
 - Keep the body under 200 words and tight; every sentence must read naturally with correct grammar (especially where the alumni line joins the paragraph).
 - Do NOT invent facts, add paragraphs, signoffs, or postscripts.
 - Output strict JSON with no markdown fences. For a single contact: {"subject": "...", "body": "..."}. When several numbered contacts are given, return {"drafts": [{"id": <contact number>, "subject": "...", "body": "..."}, ...]} with exactly one entry per contact and nothing omitted.

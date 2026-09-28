@@ -8,6 +8,12 @@ Setup: on the sending Google account, turn on 2-Step Verification, create an App
 Password (https://myaccount.google.com/apppasswords), then set:
   GMAIL_ADDRESS=you@gmail.com
   GMAIL_APP_PASSWORD=the 16-char app password
+
+Optional:
+  GMAIL_FROM_ADDRESS  send as a different address than the one logged in with.
+                      It must be a verified "Send mail as" address (or alias) on
+                      the GMAIL_ADDRESS account, or Gmail rewrites the From.
+  SENDER_NAME         display name on the From line ("Mann Talati <cto@...>").
 """
 from __future__ import annotations
 
@@ -18,10 +24,10 @@ import smtplib
 import ssl
 import time
 from email.message import EmailMessage
-from email.utils import make_msgid
+from email.utils import formataddr, make_msgid
 from pathlib import Path
 from typing import Optional, Sequence
-from .env import env_int
+from .env import env_int, env_str
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +39,8 @@ class GmailSender:
     def __init__(self, send_interval_seconds: int | None = None) -> None:
         self.address = os.environ["GMAIL_ADDRESS"]
         self.password = os.environ["GMAIL_APP_PASSWORD"]
+        self.from_address = env_str("GMAIL_FROM_ADDRESS", self.address)
+        self.from_name = env_str("SENDER_NAME", "")
         self.interval = int(send_interval_seconds or env_int("SEND_INTERVAL_SECONDS", 30))
         self._last_sent_at: float = 0.0
 
@@ -57,10 +65,11 @@ class GmailSender:
         misconfigured attachment never blocks an outreach send.
         """
         msg = EmailMessage()
-        msg["From"] = self.address
+        msg["From"] = (formataddr((self.from_name, self.from_address))
+                       if self.from_name else self.from_address)
         msg["To"] = to
         msg["Subject"] = subject
-        message_id = make_msgid(domain=self.address.split("@")[1])
+        message_id = make_msgid(domain=self.from_address.split("@")[1])
         msg["Message-ID"] = message_id
         if in_reply_to:
             msg["In-Reply-To"] = in_reply_to

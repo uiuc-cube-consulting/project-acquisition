@@ -25,6 +25,8 @@ jobs:
       ALUMNI_SHEET_ID: ${{ secrets.ALUMNI_SHEET_ID }}
       GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      # Optional: send as a verified "Send mail as" alias of GMAIL_ADDRESS.
+      GMAIL_FROM_ADDRESS: ${{ secrets.GMAIL_FROM_ADDRESS }}
       # Summary recipient (approval happens in the Sheet, not by email).
       APPROVER_EMAIL: ${{ secrets.APPROVER_EMAIL }}
       DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
@@ -34,7 +36,7 @@ jobs:
       SENDER_NAME: ${{ secrets.SENDER_NAME }}
       SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
       # Role shown in the intro line and under the signature.
-      SENDER_TITLE: "CTO and CEO"
+      SENDER_TITLE: "CTO"
       DAILY_PREPARE_TARGET: ${{ secrets.DAILY_PREPARE_TARGET }}
       # --- Spring 2027 campaign ---
       # The semester the outreach pitches (appears in the subject and body).

@@ -364,7 +364,7 @@ In this repo on GitHub → Settings → Secrets and variables → Actions → Ne
 | `SENDER_NAME` | e.g. `Mann Talati` — the name the outreach is signed with |
 | `SENDER_PHONE` | e.g. `(555) 123-4567` |
 
-`SENDER_TITLE` (the sender's role, currently `CTO and CEO`) is not a secret either — it's a literal in both workflows, and it's filled into the intro line and signature in Python so Gemini can't reword it.
+`SENDER_TITLE` (the sender's role, currently `CTO`) is not a secret either — it's a literal in both workflows, and it's filled into the intro line and signature in Python so Gemini can't reword it.
 
 `APPROVER_EMAIL` and `DIGEST_RECIPIENT` are **not** secrets — they're set directly in `.github/workflows/prepare.yml` and `send.yml`. They're only the recipient of the daily summary email; approval itself happens in the Sheet.
 

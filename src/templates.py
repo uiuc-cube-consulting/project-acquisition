@@ -25,7 +25,7 @@ TARGET_TERM = env_str("TARGET_TERM", "Spring 2027")
 
 # The sender's role, used in the intro line and under the signature. Set
 # SENDER_TITLE when the sending officer changes.
-SENDER_TITLE = env_str("SENDER_TITLE", "CTO and CEO")
+SENDER_TITLE = env_str("SENDER_TITLE", "CTO")
 
 
 def fill_fixed(template: str) -> str:
