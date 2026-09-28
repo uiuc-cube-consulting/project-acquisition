@@ -6,9 +6,10 @@ Commands, and the GitHub Actions workflows that run them:
       1. Source leads: the Alumni/Prospects Sheet tabs plus Apollo discovery
          (DISCOVERY_PROFILES_PER_RUN breadth profiles, rotated daily)
       2. Dedupe against existing Leads, LinkedIn URLs and the suppression list
-      3. Score, then fill TWO quotas — ALUMNI_TARGET_SHARE of the batch to UIUC
-         alumni, the rest to non-alumni discovery. Apollo emails are revealed
-         only for the leads actually selected. Either quota backfills the other.
+      3. Score, then fill THREE quotas — ALUMNI_TARGET_SHARE of the batch to UIUC
+         alumni, ENTERPRISE_TARGET_SHARE to big well-known companies, the rest
+         to other discovery. Apollo emails are revealed only for the leads
+         actually selected. A quota that comes up short backfills the others.
       4. Draft the batch via Gemini (batched, see draft.py)
       5. Write Leads + Drafts, pre-approved when AUTO_APPROVE is set
       6. Log the run's sourcing stats to the `Runs` tab
@@ -31,6 +32,7 @@ Commands, and the GitHub Actions workflows that run them:
 from __future__ import annotations
 
 import argparse
+import itertools
 import logging
 import os
 import sys
@@ -47,8 +49,9 @@ from .scoring import Scorer
 from .sheets import SheetClient
 from .sourcing.apollo import (
     ApolloClient, Candidate, bulk_reveal, candidate_from_contact, load_profiles,
-    pick_profiles_for_today, search_candidates,
+    enterprise_profiles, pick_profiles_for_today, search_candidates,
 )
+from .sourcing.enterprise import enterprise_candidates
 from .sourcing.cube_alumni import fetch_alumni_leads
 from .summary import send_daily_summary
 from .template import TemplateRouter
@@ -73,8 +76,7 @@ def _alumni_share() -> float:
     """Fraction of each day's batch reserved for UIUC alumni (rest is discovery).
 
     Default 0.35: alumni still convert best, but the whole point of the Spring
-    2027 push is breadth — founders, Chicago businesses, big tech and big
-    consulting. Set ALUMNI_TARGET_SHARE to retune without a code change.
+    2027 push is breadth — founders, Chicago businesses and big companies. Set ALUMNI_TARGET_SHARE to retune without a code change.
     """
     return min(1.0, max(0.0, env_float("ALUMNI_TARGET_SHARE", 0.35)))
 
@@ -93,6 +95,15 @@ def _auto_approve() -> bool:
 def _company_dedupe() -> bool:
     """Whether to enforce one-company-one-conversation (COMPANY_DEDUPE, default on)."""
     return env_flag("COMPANY_DEDUPE", default=True)
+
+
+def _enterprise_share() -> float:
+    """Fraction of each day's batch reserved for big, well-known companies.
+
+    Default 0.35. Without a reserved share the Illinois and startup scoring
+    bonuses meant big companies only got through on leftover slots.
+    """
+    return min(1.0, max(0.0, env_float("ENTERPRISE_TARGET_SHARE", 0.35)))
 
 
 def _discovery_profile_count() -> int:
@@ -289,6 +300,24 @@ def cmd_prepare(dry_run: bool) -> int:
                     # One bad profile (bad filter, transient 5xx) must not cost us
                     # the whole day's discovery pool.
                     log.warning("Apollo search failed for %s: %s", profile["name"], exc)
+
+            # Big, well-known companies — their own quota, searched every run.
+            if _enterprise_share() > 0:
+                for profile in enterprise_profiles(profiles):
+                    profiles_used.append(profile["name"])
+                    try:
+                        candidates.extend(search_candidates(apollo, profile, max_results=50))
+                    except Exception as exc:
+                        log.warning("Apollo search failed for %s: %s", profile["name"], exc)
+                try:
+                    found, searched = enterprise_candidates(
+                        apollo, companies, day_index,
+                        env_int("ENTERPRISE_COMPANIES_PER_RUN", 12),
+                    )
+                    candidates.extend(found)
+                    profiles_used.append(f"enterprise_targets({len(searched)})")
+                except Exception as exc:
+                    log.warning("Enterprise target search failed: %s", exc)
         else:
             log.info("APOLLO_API_KEY not set — sourcing from the sheet sources only")
 
@@ -324,14 +353,32 @@ def cmd_prepare(dry_run: bool) -> int:
     for item in filtered:
         item.score = scorer.score(item, past_kw)
 
+    def is_enterprise(x) -> bool:
+        return not x.is_uiuc_alum and getattr(x, "is_enterprise", False)
+
     alumni_queue = sorted(
         (x for x in filtered if x.is_uiuc_alum), key=lambda x: x.score, reverse=True
     )
+    # Big companies. Alternate between sources (the named list and each
+    # enterprise profile) so the Illinois scoring bonus can't hand every slot
+    # to Chicago HQs. Within a source, people Apollo already has an email for
+    # go first, so the reveal credit is rarely wasted.
+    by_source: dict[str, list] = {}
+    for x in filtered:
+        if is_enterprise(x):
+            by_source.setdefault(x.source, []).append(x)
+    for q in by_source.values():
+        q.sort(key=lambda x: (bool(x.person.get("has_email")), x.score), reverse=True)
+    enterprise_queue = [
+        x for group in itertools.zip_longest(*by_source.values()) for x in group if x is not None
+    ]
     discovery_queue = sorted(
-        (x for x in filtered if not x.is_uiuc_alum), key=lambda x: x.score, reverse=True
+        (x for x in filtered if not x.is_uiuc_alum and not is_enterprise(x)),
+        key=lambda x: x.score, reverse=True,
     )
     alumni_slots = round(target * _alumni_share())
-    discovery_slots = target - alumni_slots
+    enterprise_slots = min(target - alumni_slots, round(target * _enterprise_share()))
+    discovery_slots = target - alumni_slots - enterprise_slots
 
     selector = _Selector(
         apollo=apollo, sheets=sheets, scorer=scorer, known=known,
@@ -341,18 +388,27 @@ def cmd_prepare(dry_run: bool) -> int:
     # Whichever pool runs short hands its unused slots to the other, so a thin
     # alumni bench never costs us total volume.
     alumni_picked = selector.take(alumni_queue, alumni_slots)
-    discovery_picked = selector.take(discovery_queue, target - len(alumni_picked))
-    if len(alumni_picked) + len(discovery_picked) < target:
-        alumni_picked += selector.take(
-            alumni_queue, target - len(alumni_picked) - len(discovery_picked)
-        )
-    top: list[Lead] = alumni_picked + discovery_picked
+    enterprise_picked = selector.take(enterprise_queue, enterprise_slots)
+    discovery_picked = selector.take(
+        discovery_queue, target - len(alumni_picked) - len(enterprise_picked)
+    )
+
+    def short() -> int:
+        return target - len(alumni_picked) - len(enterprise_picked) - len(discovery_picked)
+
+    if short() > 0:
+        enterprise_picked += selector.take(enterprise_queue, short())
+    if short() > 0:
+        alumni_picked += selector.take(alumni_queue, short())
+    top: list[Lead] = alumni_picked + enterprise_picked + discovery_picked
     reveals, reveals_found = selector.reveals, selector.reveals_found
     alumni_attempted, alumni_found = selector.alumni_attempted, selector.alumni_found
 
     log.info(
-        "Selected %d leads: %d alumni (%d slots) + %d discovery (%d slots); %d Apollo reveals used",
+        "Selected %d leads: %d alumni (%d slots) + %d big-company (%d slots) + "
+        "%d discovery (%d slots); %d Apollo reveals used",
         len(top), len(alumni_picked), alumni_slots,
+        len(enterprise_picked), enterprise_slots,
         len(discovery_picked), discovery_slots, reveals,
     )
 

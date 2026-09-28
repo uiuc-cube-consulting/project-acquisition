@@ -11,7 +11,9 @@ on:
 jobs:
   send:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The reply scan after sending labels each new reply with Gemini; after a
+    # gap in runs that backlog pushed the job past 20 minutes (2026-09-28).
+    timeout-minutes: 45
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
