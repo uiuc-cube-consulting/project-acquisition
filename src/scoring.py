@@ -1,14 +1,13 @@
 """Weighted lead scoring + hard-filter logic.
 
 Reads config/scoring.yaml. Higher score => more likely to make today's
-batch of 10. Hard filters drop leads outright (current student, in
-suppression list, contacted recently).
+batch (size: DAILY_PREPARE_TARGET). Hard filters drop leads outright
+(current student, in suppression list, contacted recently).
 """
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable
 
 import yaml
 
@@ -70,20 +69,3 @@ class Scorer:
         if last and (datetime.now(timezone.utc) - last) < timedelta(days=self.recent_days):
             return True, f"contacted within last {self.recent_days} days"
         return False, ""
-
-
-def pick_top(
-    leads: Iterable[Lead],
-    target: int,
-    scorer: Scorer,
-    past_project_keywords: set[str],
-) -> list[Lead]:
-    scored = []
-    for lead in leads:
-        lead.score = scorer.score(lead, past_project_keywords)
-        scored.append(lead)
-    # Hard-prioritize UIUC alumni: every alum sorts ahead of every non-alum,
-    # with the weighted score as the tiebreaker within each tier. Non-alumni
-    # only fill the batch once we run out of alumni to reach `target`.
-    scored.sort(key=lambda l: (l.is_uiuc_alum, l.score), reverse=True)
-    return scored[:target]
