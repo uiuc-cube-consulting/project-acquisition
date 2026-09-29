@@ -40,6 +40,7 @@ from email.header import decode_header, make_header
 from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
 
+from .env import env_str
 from .models import LeadStatus, ReplyClass
 
 log = logging.getLogger(__name__)
@@ -49,7 +50,9 @@ IMAP_PORT = 993
 # "All Mail" rather than INBOX so archived replies still count.
 MAILBOX = '"[Gmail]/All Mail"'
 
-CLASSIFY_MODEL = "gemini-3.5-flash-lite"
+# Read per run via GEMINI_CLASSIFY_MODEL (see classify_sentiment), so a retired
+# model can be swapped in settings instead of in code.
+DEFAULT_CLASSIFY_MODEL = "gemini-3.5-flash-lite"
 
 BOUNCE = "bounce"
 AUTO_REPLY = "auto_reply"
@@ -290,7 +293,7 @@ def _maybe_related(
 
 def _received_at(msg: Message) -> datetime:
     try:
-        dt = parsedate_to_datetime(msg.get("Date"))
+        dt = parsedate_to_datetime(msg.get("Date")) # type: ignore
         if dt:
             return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     except (TypeError, ValueError):
@@ -411,10 +414,13 @@ def classify_sentiment(records: list[ReplyRecord]) -> None:
 
     targets = [r for r in records if r.category == HUMAN and r.snippet]
     valid = {c.value for c in ReplyClass}
+    model = env_str("GEMINI_CLASSIFY_MODEL", DEFAULT_CLASSIFY_MODEL)
+    if targets:
+        log.info("Classifying %d replies with %s", len(targets), model)
     for record in targets:
         try:
             out = generate_json(
-                model=CLASSIFY_MODEL,
+                model=model,
                 system=CLASSIFY_SYSTEM,
                 prompt=f"Subject: {record.subject}\n\nReply:\n{record.snippet}",
                 max_tokens=200,
