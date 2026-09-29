@@ -20,6 +20,12 @@ jobs:
     env:
       APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      # Which Gemini model writes the emails. A repository variable, not a
+      # secret: it is not a credential, and Google retires models, so swapping
+      # one has to be possible without a code change and a merge (Settings →
+      # Secrets and variables → Actions → Variables). Unset it arrives as "",
+      # which env_str treats as unset, falling back to src/draft.py's default.
+      GEMINI_DRAFT_MODEL: ${{ vars.GEMINI_DRAFT_MODEL }}
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       SHEET_ID: ${{ secrets.SHEET_ID }}
       ALUMNI_SHEET_ID: ${{ secrets.ALUMNI_SHEET_ID }}
