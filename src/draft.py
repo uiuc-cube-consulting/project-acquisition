@@ -26,7 +26,7 @@ from .templates import (
     TARGET_TERM,
     TEMPLATES,
     render_footer,
-    unsubscribe_mailto
+    unsubscribe_mailto,
 )
 
 log = logging.getLogger(__name__)

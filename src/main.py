@@ -550,7 +550,7 @@ def cmd_send(dry_run: bool) -> int:
                 body=draft.body,
                 in_reply_to=draft.in_reply_to,
                 dry_run=dry_run,
-                unsubscribe_mailto=unsub, 
+                unsubscribe_mailto=unsub,
             )
         except Exception as exc:
             log.exception("Send failed for %s: %s", draft.lead_email, exc)
