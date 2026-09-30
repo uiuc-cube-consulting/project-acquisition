@@ -29,6 +29,35 @@ log = logging.getLogger(__name__)
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 
+def build_message(
+    to: str,
+    subject: str,
+    body: str,
+    in_reply_to: Optional[str] = None,
+    unsubscribe_mailto: Optional[str] = None,
+    *,
+    from_addr: str,
+) -> EmailMessage:
+    """Build (but don't send) an outgoing message. Pure: no env, no network.
+
+    `unsubscribe_mailto`, when given, adds an RFC 2369 List-Unsubscribe header
+    so clients like Gmail can show a built-in Unsubscribe link. Only outreach
+    passes it; internal mail such as the daily summary must not. We deliberately
+    do NOT add List-Unsubscribe-Post (RFC 8058 one-click): that needs an HTTPS
+    endpoint we don't have.
+    """
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to
+    msg["Subject"] = subject
+    msg["Message-ID"] = make_msgid(domain=from_addr.split("@")[1])
+    if in_reply_to:
+        msg["In-Reply-To"] = in_reply_to
+        msg["References"] = in_reply_to
+    if unsubscribe_mailto and unsubscribe_mailto.strip():
+        msg["List-Unsubscribe"] = f"<mailto:{unsubscribe_mailto.strip()}?subject=unsubscribe>"
+    msg.set_content(body)
+    return msg
 
 class GmailSender:
     def __init__(self, send_interval_seconds: int | None = None) -> None:
@@ -46,6 +75,7 @@ class GmailSender:
         thread_id: Optional[str] = None,
         dry_run: bool = False,
         attachments: Optional[Sequence[str]] = None,
+        unsubscribe_mailto: Optional[str] = None,
     ) -> tuple[str, str]:
         """Send an email via Gmail SMTP. Returns (message_id, thread_id).
 
@@ -56,27 +86,28 @@ class GmailSender:
         `attachments` is a list of file paths; each is attached with its
         basename as the filename. Missing paths are logged and skipped so a
         misconfigured attachment never blocks an outreach send.
+
+        `unsubscribe_mailto` adds a List-Unsubscribe header; pass it for
+        outreach only.
         """
-        msg = EmailMessage()
-        msg["From"] = self.address
-        msg["To"] = to
-        msg["Subject"] = subject
-        message_id = make_msgid(domain=self.address.split("@")[1])
-        msg["Message-ID"] = message_id
-        if in_reply_to:
-            msg["In-Reply-To"] = in_reply_to
-            msg["References"] = in_reply_to
-        msg.set_content(body)
+        msg = build_message(
+            to,
+            subject,
+            body,
+            in_reply_to=in_reply_to,
+            unsubscribe_mailto=unsubscribe_mailto,
+            from_addr=self.address,
+        )
+        message_id = msg["Message-ID"]
 
         attached = self._attach(msg, attachments)
 
         if dry_run:
             log.info(
-                "[DRY RUN] would send to=%s subject=%s len=%d attachments=%d",
-                to, subject, len(body), len(attached),
+                "[DRY RUN] would send to=%s subject=%s len=%d attachments=%d list_unsubscribe=%s",
+                to, subject, len(body), len(attached), bool(msg["List-Unsubscribe"]),
             )
             return message_id, thread_id or message_id
-
         self._throttle()
         ctx = ssl.create_default_context()
         with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ctx) as smtp:
@@ -84,7 +115,7 @@ class GmailSender:
             smtp.send_message(msg)
         log.info("Sent to %s", to)
         return message_id, thread_id or message_id
-
+    
     @staticmethod
     def _attach(msg: EmailMessage, attachments: Optional[Sequence[str]]) -> list[str]:
         """Attach each file path to `msg`. Returns the basenames actually added."""

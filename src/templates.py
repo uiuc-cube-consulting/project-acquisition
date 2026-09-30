@@ -22,6 +22,12 @@ from .models import TemplateType
 # whole campaign for the next cycle.
 TARGET_TERM = env_str("TARGET_TERM", "Spring 2027")
 
+DEFAULT_UNSUBSCRIBE_MAILTO = "unsubscribe@cubeconsulting.org"
+
+def unsubscribe_mailto() -> str:
+    """The unsubscribe address: UNSUBSCRIBE_MAILTO, else the shared default."""
+    return env_str("UNSUBSCRIBE_MAILTO", DEFAULT_UNSUBSCRIBE_MAILTO).strip() or DEFAULT_UNSUBSCRIBE_MAILTO
+
 SUBJECT_TEMPLATE = "{term} collaboration between {company} and CUBE Consulting at UIUC"
 
 

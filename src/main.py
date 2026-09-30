@@ -57,6 +57,7 @@ from .summary import send_daily_summary
 from .template import TemplateRouter
 from .companies import CompanyRegistry, email_domain, normalize_company
 from .env import env_flag, env_float, env_int, env_str
+from .templates import unsubscribe_mailto
 
 logging.basicConfig(
     level=logging.INFO,
@@ -537,6 +538,7 @@ def cmd_send(dry_run: bool) -> int:
     sender = GmailSender()
     # The info packet now travels as a link in the email body (see draft.py),
     # so outreach no longer carries a PDF attachment.
+    unsub = unsubscribe_mailto()
 
     sent_count = 0
     follow_up_count = 0
@@ -548,6 +550,7 @@ def cmd_send(dry_run: bool) -> int:
                 body=draft.body,
                 in_reply_to=draft.in_reply_to,
                 dry_run=dry_run,
+                unsubscribe_mailto=unsub, 
             )
         except Exception as exc:
             log.exception("Send failed for %s: %s", draft.lead_email, exc)
