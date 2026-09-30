@@ -43,6 +43,16 @@ DESCRIPTOR_SUFFIXES = {
     "technologies", "technology", "systems", "industries", "enterprises",
 }
 
+# Applied after legal/region suffix stripping to prevent descriptor stripping
+# from collapsing a distinctive name onto a generic geographic token.
+# Trade-off: catches only explicitly listed firms; new cases require a manual
+# addition. The alternative (stopping at consecutive descriptors) would break
+# the README-promised "Huron Consulting Group = Huron" match, since both share
+# the same two-descriptor structure.
+COMPANY_ALIASES: dict[str, str] = {
+    "boston consulting group": "boston consulting group",
+}
+
 # A stripped core shorter than this stays untouched — short names are ambiguous.
 MIN_CORE_LEN = 5
 
@@ -62,6 +72,10 @@ def normalize_company(name: str | None) -> str:
     True
     >>> normalize_company("The Boeing Company") == normalize_company("Boeing")
     True
+    >>> normalize_company("McKinsey & Company") == normalize_company("McKinsey")
+    True
+    >>> normalize_company("Boston Consulting Group") == normalize_company("Boston Partners")
+    False
     """
     if not name:
         return ""
@@ -87,6 +101,15 @@ def normalize_company(name: str | None) -> str:
     # Peel suffixes off the end repeatedly: "rsm us llp" -> "rsm us" -> "rsm".
     while len(tokens) > 1 and (tokens[-1] in LEGAL_SUFFIXES or tokens[-1] in REGION_SUFFIXES):
         tokens.pop()
+    # "McKinsey & Company" -> "mckinsey and company" -> after peeling "company",
+    # "and" is left dangling. Drop it.
+    if len(tokens) > 1 and tokens[-1] == "and":
+        tokens.pop()
+    # Alias lookup: prevent descriptor stripping from reducing a well-known firm
+    # to a generic geographic token (e.g. "boston consulting group" -> "boston").
+    joined = " ".join(tokens)
+    if joined in COMPANY_ALIASES:
+        return COMPANY_ALIASES[joined]
     # Then the generic descriptors, but only while the remaining core stays
     # long enough to identify a company on its own.
     while len(tokens) > 1 and tokens[-1] in DESCRIPTOR_SUFFIXES:
