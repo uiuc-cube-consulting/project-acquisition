@@ -75,7 +75,7 @@ class GmailSender:
     ) -> tuple[str, str]:
         """Send an email via Gmail SMTP. Returns (message_id, thread_id).
 
-        We don't read mailboxes, so thread_id is just the message-id (kept for
+        Mailboxes are read in replies.py over IMAP, so thread_id is just the message-id (kept for
         signature compatibility and recorded in the Sheet). `in_reply_to` still
         threads follow-ups in the recipient's client via standard headers.
 
