@@ -1,13 +1,12 @@
 """SMTP email sender (send-only).
 
-Sends from a single Gmail account using an App Password, without domain-wide
-delegation or OAuth. This module handles SMTP; src.replies separately scans
-the mailbox over read-only IMAP. Approval is the Sheet's `approved` column
-(yes/TRUE), set automatically when prepare runs with AUTO_APPROVE=1.
+Sends from a single Gmail account using an App Password — no domain-wide
+delegation, no OAuth. This module only sends. Reading the inbox is done seperately by replies.py over IMAP
+Approval happens in the Sheet (set the `approved` column to yes/TRUE), not by email reply.
 
 Setup: on the sending Google account, turn on 2-Step Verification, create an App
 Password (https://myaccount.google.com/apppasswords), then set:
-  GMAIL_ADDRESS=you@example.com
+  GMAIL_ADDRESS=you@gmail.com
   GMAIL_APP_PASSWORD=the 16-char app password
 """
 from __future__ import annotations
@@ -29,6 +28,32 @@ log = logging.getLogger(__name__)
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 
+def build_message(
+    to: str,
+    subject: str,
+    body: str,
+    in_reply_to: Optional[str] = None,
+    unsubscribe_mailto: Optional[str] = None,
+    *,
+    from_addr: str,
+) -> EmailMessage:
+    """Build an outgoing message without sending.
+
+    `unsubscribe_mailto`, when given, adds a List-Unsubscribe header
+    so clients like Gmail can show a built-in Unsubscribe link.
+    """
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to
+    msg["Subject"] = subject
+    msg["Message-ID"] = make_msgid(domain=from_addr.split("@")[1])
+    if in_reply_to:
+        msg["In-Reply-To"] = in_reply_to
+        msg["References"] = in_reply_to
+    if unsubscribe_mailto and unsubscribe_mailto.strip():
+        msg["List-Unsubscribe"] = f"<mailto:{unsubscribe_mailto.strip()}?subject=unsubscribe>"
+    msg.set_content(body)
+    return msg
 
 class GmailSender:
     def __init__(self, send_interval_seconds: int | None = None) -> None:
@@ -46,37 +71,39 @@ class GmailSender:
         thread_id: Optional[str] = None,
         dry_run: bool = False,
         attachments: Optional[Sequence[str]] = None,
+        unsubscribe_mailto: Optional[str] = None,
     ) -> tuple[str, str]:
         """Send an email via Gmail SMTP. Returns (message_id, thread_id).
 
-        This SMTP sender does not read mailboxes, so thread_id is the message-id (kept for
+        Mailboxes are read in replies.py over IMAP, so thread_id is just the message-id (kept for
         signature compatibility and recorded in the Sheet). `in_reply_to` still
         threads follow-ups in the recipient's client via standard headers.
 
         `attachments` is a list of file paths; each is attached with its
         basename as the filename. Missing paths are logged and skipped so a
         misconfigured attachment never blocks an outreach send.
+
+        `unsubscribe_mailto` adds a List-Unsubscribe header; pass it for
+        outreach only.
         """
-        msg = EmailMessage()
-        msg["From"] = self.address
-        msg["To"] = to
-        msg["Subject"] = subject
-        message_id = make_msgid(domain=self.address.split("@")[1])
-        msg["Message-ID"] = message_id
-        if in_reply_to:
-            msg["In-Reply-To"] = in_reply_to
-            msg["References"] = in_reply_to
-        msg.set_content(body)
+        msg = build_message(
+            to,
+            subject,
+            body,
+            in_reply_to=in_reply_to,
+            unsubscribe_mailto=unsubscribe_mailto,
+            from_addr=self.address,
+        )
+        message_id = msg["Message-ID"]
 
         attached = self._attach(msg, attachments)
 
         if dry_run:
             log.info(
-                "[DRY RUN] would send to=%s subject=%s len=%d attachments=%d",
-                to, subject, len(body), len(attached),
+                "[DRY RUN] would send to=%s subject=%s len=%d attachments=%d list_unsubscribe=%s",
+                to, subject, len(body), len(attached), bool(msg["List-Unsubscribe"]),
             )
             return message_id, thread_id or message_id
-
         self._throttle()
         ctx = ssl.create_default_context()
         with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ctx) as smtp:
@@ -84,7 +111,7 @@ class GmailSender:
             smtp.send_message(msg)
         log.info("Sent to %s", to)
         return message_id, thread_id or message_id
-
+    
     @staticmethod
     def _attach(msg: EmailMessage, attachments: Optional[Sequence[str]]) -> list[str]:
         """Attach each file path to `msg`. Returns the basenames actually added."""
