@@ -125,29 +125,6 @@ Three changes make the daily run fit:
 A drafting shortfall now logs at ERROR and is recorded in the `Runs` tab's
 `drafts_failed` column, because every lost draft is a wasted Apollo credit.
 
-#### Which models we use
-
-Either setting accepts any Gemini model id. Left unset, each falls back to the
-default below:
-
-| Setting | Falls back to | Used for |
-|---|---|---|
-| `GEMINI_DRAFT_MODEL` | `gemini-2.5-flash` | writing outreach and follow-up emails |
-| `GEMINI_CLASSIFY_MODEL` | `gemini-3.5-flash-lite` | labelling human replies positive / neutral / negative / unsubscribe / ooo |
-
-Both are read at run time, and each run logs the model it used (`Drafting with
-gemini-2.5-flash`). Google retires models — `gemini-2.5-flash-lite` already 404s
-for new users — and a retired drafting model breaks `prepare` *after* the day's
-Apollo credits have been spent, so swapping one must not need a merge. Set it as
-a **repository variable** (Settings → Secrets and variables → Actions →
-Variables, not a secret: a model name is not a credential) and the next run
-picks it up.
-
-Changing the model family changes what `src/llm.py` may send: 2.x models take
-`thinking_budget=0`, while 3.x and later take `thinking_level="LOW"` and reject a
-budget with a 400. `_thinking_config()` picks per family, and `tests/test_llm.py`
-covers both plus a two-digit future version.
-
 ### Settings, secrets, and the empty-string trap
 
 Only genuine credentials belong in GitHub secrets: `APOLLO_API_KEY`,
@@ -443,6 +420,7 @@ After verifying both workflows work, the cron schedules take over and run automa
 
 - Apollo: 1 credit per email unlocked; the pipeline only unlocks emails for the ~`DAILY_PREPARE_TARGET` leads it actually selects (~15/day ≈ ~300/mo)
 - Gemini: ~15 drafts/day on whichever model `GEMINI_DRAFT_MODEL` names (default `gemini-2.5-flash`) fits inside the free tier's daily rate limits — $0/day
+- Gemini: one more call per human reply to label it, on `GEMINI_CLASSIFY_MODEL` (default `gemini-3.5-flash-lite`) — a handful a day, also $0
 - GitHub Actions: free for the cron schedule (well under the 2,000 free minutes/month)
 
 ## Out of scope (v1)
