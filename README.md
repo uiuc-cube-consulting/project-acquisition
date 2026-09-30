@@ -1,12 +1,12 @@
 # CUBE Consulting — Project Acquisition Automation
 
-Automates CUBE's weekday client outreach: sources fresh leads, drafts personalized cold emails, writes them to a Google Sheet for review, and sends the ones you approve via Gmail — then emails you a short summary. Afterwards it reads the mailbox (read-only) to record who replied, who bounced, and who was out of office, and turns all of it into a metrics dashboard.
+Automates CUBE's weekday client outreach: sources fresh leads, drafts personalized cold emails, writes pre-approved drafts to a Google Sheet, and sends approved, unsent rows via Gmail — then emails you a short summary. Afterwards it reads the mailbox (read-only) to record who replied, who bounced, and who was out of office, and turns all of it into a metrics dashboard.
 
 ## Current campaign: Spring 2027
 
 Outreach runs a semester ahead — the Fall 2026 cycle is underway, so these emails
-source projects for **Spring 2027**. Two things define the campaign, both set in
-the workflow env (no code change needed to roll to the next term):
+source projects for **Spring 2027**. These settings define the campaign through
+workflow env values and code defaults (no code change needed to roll to the next term):
 
 | Setting | Value | Effect |
 |---|---|---|
@@ -16,64 +16,42 @@ the workflow env (no code change needed to roll to the next term):
 | `ENTERPRISE_TARGET_SHARE` | `0.35` | 35% of each batch reserved for big, well-known companies (see below). |
 | `ENTERPRISE_COMPANIES_PER_RUN` | `12` | How many uncontacted companies from `config/enterprise_targets.yaml` to search per run. |
 | `AUTO_APPROVE` | `1` | Drafts are written pre-approved; `send` mails them unattended. |
-| `COMPANY_DEDUPE` | on | Never email two people at the same company. |
+| `COMPANY_DEDUPE` | on | Excludes known companies during preparation. |
 | `PACKET_URL` | *(not set — code default)* | Info-packet link in every first email. Deliberately **not** a GitHub secret: it is a public URL that appears in every email we send. The `fall2026` slug is intentional — the packet's contents are unchanged for Spring 2027, and the tinyurl is a redirect the team owns, so re-pointing it updates emails already sent. |
 
 **Sending is unattended.** `prepare` writes drafts already marked approved and
 `send` mails them the same morning, capped at `DAILY_SEND_CAP`. The suppression
-list and the already-contacted dedupe still apply, so auto-approval cannot cause
-a re-email. To put a human back in the loop, drop `AUTO_APPROVE` from
+list is checked during preparation; sending skips previously contacted addresses
+for initial outreach. Follow-ups are a separate, disabled-by-default path. To put a human back in the loop, drop `AUTO_APPROVE` from
 `.github/workflows/prepare.yml`.
 
-### Reaching beyond UIUC alumni
+### Who we email
 
-This was broken, silently, for the whole Fall cycle. Selection used a single
-alumni-first sort:
+Apollo's People Search cannot filter by school. UIUC alumni come from the
+Sheet's `Alumni` tab (name + company, with Apollo enrichment for missing emails),
+the optional CUBE alumni Sheet, or explicitly flagged `Prospects` rows. The
+`cube_member` column on `Alumni` selects the warmer former-member template.
 
-```python
-filtered.sort(key=lambda x: (x.is_uiuc_alum, x.score), reverse=True)   # every alum outranks every non-alum
-```
+`_Selector` in [src/main.py](src/main.py) fills three quotas: 35% alumni
+(`ALUMNI_TARGET_SHARE`), 35% non-alumni at large companies
+(`ENTERPRISE_TARGET_SHARE`), and the remainder other discovery. With the default
+target of 15, rounding gives 5 alumni, 5 enterprise and 5 other slots. Unfilled
+slots are offered to the other pools; available contacts and the reveal budget
+still limit the final batch.
 
-with a hard stop at `DAILY_PREPARE_TARGET`. Any day the Alumni tab held 15+
-people — nearly every day — all 15 slots went to alumni and Apollo discovery
-contributed **zero**. The result over two months: 444 alumni vs 62 non-alumni,
-and the non-alumni only got through on the handful of days the alumni bench ran
-dry. Nothing was failing in CI; the queue was simply never reached.
+Other discovery combines manually entered `Prospects` with three rotating
+Apollo breadth profiles per run. Enterprise sourcing searches enterprise-tier
+profiles and a subset of [config/enterprise_targets.yaml](config/enterprise_targets.yaml)
+each run. See [config/search_profiles.yaml](config/search_profiles.yaml) for
+the current profiles rather than adding a school filter to an Apollo search.
 
-Selection now fills **two independent quotas** (`_Selector` in `src/main.py`),
-so discovery gets guaranteed slots every day. Whichever pool comes up short
-hands its slots to the other, so total volume never drops. The non-alumni half
-comes from these Apollo profiles (`config/search_profiles.yaml`), three searched
-per run on a daily rotation:
-
-- `chicago_businesses` — Chicago-area owners and founders, 11–500 employees
-- `startup_founders` — early-stage founders nationally
-- `tech_founders` — software/tech founders and execs
-- `illinois_executives` — statewide Illinois decision-makers
-
-### Big-name companies
-
-A third quota, `ENTERPRISE_TARGET_SHARE` (35%), is reserved every day for large,
-recognizable companies. It is filled from two sources, both searched on every
-run rather than rotated:
-
-- **`config/enterprise_targets.yaml`**: a hand-kept list of well-known
-  companies (Chicago/Illinois HQs, big tech, finance and consulting, consumer,
-  healthcare, industrial), each identified by its email domain. Each run takes
-  `ENTERPRISE_COMPANIES_PER_RUN` companies that haven't been contacted yet and
-  finds their strategy, innovation, analytics, corporate-development, product
-  and operations leaders. A company drops out once it has been emailed, so
-  **keep adding to the list**.
-- **`chicago_enterprise`** (`tier: enterprise` in `search_profiles.yaml`):
-  leaders in those same roles at 5,000+ employee Chicago-headquartered companies.
-
-These replaced the old `big_tech` and `big_consulting` profiles. Their
-`q_organization_keyword_tags` filter also matches company *names*, so they
-mostly returned obscure firms: one page had a company literally called
-"Artificial Intelligence", and 24 of 50 people came from one contractor.
-
-The dashboard's Spring 2027 section tracks the non-alumni share against the 65%
-target so this cannot silently regress again.
+Preparation excludes known emails/LinkedIn URLs, suppressed addresses,
+non-alumni `@illinois.edu` addresses, and companies already in the pipeline.
+[config/scoring.yaml](config/scoring.yaml) defines scoring and exclusion settings;
+[src/companies.py](src/companies.py) implements company-name/domain matching
+against `Leads` and `Companies`. Scores order the alumni and general discovery
+pools; enterprise candidates alternate by source, preferring available emails
+and then score within each source.
 
 ### One company, one conversation
 
@@ -127,11 +105,15 @@ A drafting shortfall now logs at ERROR and is recorded in the `Runs` tab's
 
 ### Settings, secrets, and the empty-string trap
 
-Only genuine credentials belong in GitHub secrets: `APOLLO_API_KEY`,
-`GEMINI_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `GMAIL_APP_PASSWORD`,
-`GMAIL_ADDRESS`, `SHEET_ID`. Tuning knobs (`TARGET_TERM`, `ALUMNI_TARGET_SHARE`,
-`AUTO_APPROVE`, …) are plain literals in the workflow so they are reviewable in
-a diff, and non-secret values like `PACKET_URL` just use the code default.
+The checked-in workflows currently read credentials, sender/footer settings,
+summary recipients, `DAILY_PREPARE_TARGET` and `DAILY_SEND_CAP` from GitHub
+Actions secrets. Campaign settings such as `TARGET_TERM`, `ALUMNI_TARGET_SHARE`,
+`ENTERPRISE_TARGET_SHARE` and `AUTO_APPROVE` are workflow literals;
+`PACKET_URL` uses its code default. See the [production settings table](#6-production-github-actions-secrets).
+
+The maintainer confirmed that `DAILY_PREPARE_TARGET` and `DAILY_SEND_CAP`
+should remain GitHub Actions secrets. Change those repository secrets to tune
+volume; the workflows continue to read their existing secret references.
 
 This matters more than it looks. **A missing GitHub secret is exported as an
 empty string, not as "unset"** — so `${{ secrets.NOPE }}` gives `NOPE=""`, and
@@ -151,16 +133,18 @@ absent, so every one of those now falls back to its documented default. Anything
 a workflow might pass should be read through those helpers, not
 `os.environ.get`.
 
-The only recurring human action required is **keeping the Alumni tab stocked** —
-everything else runs unattended.
+Scheduled runs are unattended. Keep the source tabs stocked, review failures,
+and handle replies and suppression as described under day-to-day operation.
 
 ## Metrics dashboard
 
-```bash
-python -m src.main replies      # scan the mailbox for replies + bounces (read-only)
-python -m src.main report       # build dashboard/index.html
-open dashboard/index.html
-```
+Open [dashboard/index.html](dashboard/index.html) in a browser to view the
+committed snapshot. A maintainer with Sheets access can rebuild it with
+`python -m src.main report --open`; this reads Sheets and writes local files.
+It does not rescan the inbox. The scheduled `dashboard` workflow runs the inbox
+scan before rebuilding the report. Local inbox checks must use
+`python -m src.main replies --dry-run --no-classify` against test resources only
+(see [Smoke test](#smoke-test)).
 
 `report` writes a **single self-contained HTML file** — no server, no CDN, works
 offline — so it can be emailed, dropped in Slack, or published to GitHub Pages
@@ -184,7 +168,7 @@ Where the numbers come from: `replies` scans the sending mailbox over IMAP
 back to a lead by threading headers, subject, or sender, and sorts it into
 `bounce` / `auto_reply` / `human`. Results land in the **`Replies`** tab and are
 mirrored onto `Leads.status` / `Leads.replied_at`. Human replies are labelled
-positive / neutral / negative / unsubscribe by Gemini. The `send` job runs this
+positive / neutral / negative / unsubscribe by Gemini. The `send` workflow runs a separate `replies` step
 automatically, so the numbers stay current without anyone remembering to.
 
 A plain-text version of the same figures is written to the **`Dashboard`** tab
@@ -192,21 +176,25 @@ inside the Sheet (`python -m src.main stats`).
 
 ## How it works
 
-Two GitHub Actions cron jobs run every weekday:
+Three GitHub Actions workflows run on these UTC schedules; CT shifts with daylight saving:
 
-| Job | Time (CT) | Does |
-|---|---|---|
-| `prepare` | 06:00 M–F | Sources leads from Apollo discovery + the Alumni/`Prospects` Sheets → dedupes → scores → fills the alumni and non-alumni quotas → drafts 15 personalized emails via Gemini → writes them to `Drafts`, pre-approved |
-| `send` | 10:00 M–F | Mails every approved, unsent `Drafts` row (up to `DAILY_SEND_CAP`, throttled 1 every 30s) via Gmail SMTP → marks them sent → scans the mailbox for replies/bounces → emails a short summary |
-| `dashboard` | 08:00 Mon | Rescans the mailbox, rebuilds `dashboard/index.html`, and commits it — the weekly metrics refresh |
+| Workflow | UTC schedule | CT (winter / summer) | Does |
+|---|---|---|---|
+| [prepare](.github/workflows/prepare.yml) | 12:00 M–F | 06:00 / 07:00 | Sources, filters and scores contacts; fills three quotas; drafts up to `DAILY_PREPARE_TARGET` emails; writes `Leads`, pre-approved `Drafts`, `Companies`, `Runs` and the Sheet dashboard |
+| [send](.github/workflows/send.yml) | 16:00 M–F | 10:00 / 11:00 | Sends approved, unsent drafts up to `DAILY_SEND_CAP`, spaced by `SEND_INTERVAL_SECONDS` (30); updates sent records and emails a summary; then runs a separate inbox scan |
+| [dashboard](.github/workflows/dashboard.yml) | 13:00 Mon | 07:00 / 08:00 | Rescans replies, rebuilds the HTML/JSON dashboard and commits it |
+
+The `send` CLI command sends mail and the summary; it does **not** invoke
+`replies` itself. The workflow provides that second step. Both workflows that
+scan replies allow a scan failure without failing the whole job.
 
 ### The `approved` column
 
 `prepare` writes each draft as a row in the **`Drafts`** tab. With `AUTO_APPROVE=1`
-(the current setting) those rows arrive already ticked and the 10am `send` job
+(the current workflow setting) those rows arrive already ticked and the morning `send` job
 mails them. Without it, a human sets **`approved`** to `yes`/`TRUE` and only
 those rows go out. Either way `send` mails exactly the rows that are approved
-and unsent — clearing a checkbox before 10am pulls that email. The Sheet is the single source of truth. Sending is one-way
+and unsent — clearing `approved` before the send job reads the Sheet removes it from that run. The Sheet is the single source of truth. Sending is one-way
 (SMTP); the only inbox access anywhere in the pipeline is the read-only IMAP scan
 that records what came back, and it never approves or sends anything.
 
@@ -223,7 +211,7 @@ src/
   dashboard.py          # Plain-text metrics into the Sheet's `Dashboard` tab
   env.py                # Env readers that treat a blank value as unset
   companies.py          # Company-level dedupe: normalization + the running list
-  templates.py          # 4 outreach templates copied from the docx
+  templates.py          # Outreach templates, former-member variant and footer
   past_projects.py      # Loads + matches past CUBE projects (credibility line)
   scoring.py            # Weighted lead scoring + hard filters
   template.py           # Industry → template router
@@ -238,211 +226,300 @@ src/
 config/
   scoring.yaml          # Tune lead scoring weights here
   industry_template_map.yaml  # Map industry → template
-  search_profiles.yaml  # Apollo search profiles (UIUC daily + rotated breadth)
+  search_profiles.yaml  # Rotating breadth + enterprise Apollo profiles
+  enterprise_targets.yaml # Named companies for enterprise sourcing
 data/
-  past_projects.json    # 102 past projects parsed from Past Projects.docx
+  past_projects.json    # Past projects used for credibility matching
 dashboard/
   index.html            # Built by `report` — the shareable metrics page
   data.json             # The same metrics as JSON
 .github/workflows/
-  prepare.yml           # Cron 06:00 CT M-F (source + draft, auto-approved)
-  send.yml              # Cron 10:00 CT M-F (send + inbox scan)
-  dashboard.yml         # Cron 08:00 CT Mon (weekly metrics refresh + commit)
+  prepare.yml           # 12:00 UTC M-F (source + draft, auto-approved)
+  send.yml              # 16:00 UTC M-F (send + separate inbox scan)
+  dashboard.yml         # 13:00 UTC Mon (weekly metrics refresh + commit)
 ```
 
 ### Sheet tabs
 
-`Leads`, `Drafts`, `Alumni`, `Prospects`, `Suppression`, `Hot Leads`,
-`Approvals`, plus three the metrics rely on:
+[TAB_HEADERS in src/sheets.py](src/sheets.py) currently defines **nine** tabs.
+`bootstrap` creates missing tabs and repairs their headers; it can also remove
+the default `Sheet1`. [src/dashboard.py](src/dashboard.py) creates `Dashboard`
+separately when metrics are refreshed, bringing the total to ten.
 
-- **`Replies`** — one row per person from the inbox scan: category (`human` /
-  `auto_reply` / `bounce`), sentiment, subject, snippet, bounce reason. Rebuilt
-  on every scan, so it is safe to delete.
-- **`Runs`** — one row per `prepare`: lookups attempted vs emails found. This is
-  what makes the Apollo find rate measured rather than inferred.
-- **`Dashboard`** — the plain-text metrics summary.
+| Tab | Purpose |
+|---|---|
+| `Leads` | Contacts in the pipeline, status, timestamps and message IDs |
+| `Drafts` | Email content, `approved`, send timestamps and errors |
+| `Alumni` | UIUC alumni input; `cube_member` marks former CUBE members |
+| `Prospects` | Manually entered contacts with known email addresses |
+| `Suppression` | Addresses to exclude during preparation |
+| `Companies` | Company names/domains excluded during preparation |
+| `Replies` | Inbox scan results, one row per person per category; rebuilt on a live scan |
+| `Runs` | Preparation sourcing, reveal and draft counts |
+| `Hot Leads` | Legacy tab still created by bootstrap; the current pipeline does not populate it |
+| `Dashboard` | Aggregate Sheet metrics, written separately |
+
+There is no `Approvals` entry in `TAB_HEADERS`; approval uses `Drafts.approved`.
+Positive replies set `Leads.status` to `hot` and appear in `Replies`.
 
 ## One-time setup
 
+Production provisioning below is for maintainers. Contributors working on an
+issue do not need production credentials or new personal Apollo/Gemini keys.
+Start with [Local test](#5-local-test).
+
 ### 1. Apollo API key
 
-Lead discovery runs on [Apollo](https://docs.apollo.io/reference/people-search).
-The pipeline searches Apollo for UIUC alumni in decision-maker roles first (our
-highest-converting segment, run every day), plus one rotated breadth profile.
+Use the organization's existing `APOLLO_API_KEY` for live sourcing. The client
+uses People API Search for candidates and Bulk People Enrichment for email
+reveals; see [src/sourcing/apollo.py](src/sourcing/apollo.py). Search does not
+reveal an email; enrichment spends credits. Reveals happen near selection, with
+a budget of twice `DAILY_PREPARE_TARGET`, so failed lookups and exclusions can
+make credit use exceed the final number of drafts.
 
-1. In Apollo: Settings → Integrations → API → create a key, and **enable "Set as
-   master key"** — the People Search endpoint requires a master API key.
-2. **Plan note:** API access (incl. search) is on *all paid plans*; only rate
-   limits/credits scale by tier. The **Free** plan returns `403 API_INACCESSIBLE`
-   for search, so a paid plan is required. **Basic** (~$49/yr-billed, 2,500
-   credits/mo) is the cheapest and is enough — search costs no credits; you only
-   spend 1 credit per email revealed (~300/mo here, via bulk enrichment 10/call).
-3. Save the key for the `APOLLO_API_KEY` secret below
+Apollo does not identify UIUC alumni by school. See [Who we email](#who-we-email)
+and [config/search_profiles.yaml](config/search_profiles.yaml) for targeting.
+Without an Apollo key, preparation uses Sheet sources with existing emails;
+alumni rows needing an email lookup cannot be enriched.
 
-If `APOLLO_API_KEY` is unset, the pipeline still runs and sources from the free
-`Prospects` tab / CUBE alumni Sheet only (no discovery).
+### Source tabs: `Prospects` and `Alumni`
 
-### Free lead source: the `Prospects` tab
+`Prospects` columns are `name`, `title`, `company`, `email`, `linkedin`,
+`industry`, `location`, `is_uiuc_alum`. Name and a valid email are required;
+the other fields improve scoring and drafting. Flag only confirmed UIUC alumni.
 
-`bootstrap` creates a **`Prospects`** tab in the outreach Sheet. Paste prospective
-clients there — one row each — and `prepare` reads them like any other lead.
-Columns: `name`, `title`, `company`, `email`, `linkedin`, `industry`, `location`,
-`is_uiuc_alum`. Only `name` and `email` are required; the rest sharpen the draft.
-Set `is_uiuc_alum` to `true` only for genuine Illini (it adds a "fellow Illini"
-line). Once a row is drafted it's copied into `Leads` and deduped, so it won't be
-emailed twice — add new rows as you find them.
+`Alumni` columns are `name`, `company`, `linkedin`, `title`, `industry`,
+`location`, `email`, `cube_member`. The team identifies alumni using LinkedIn's
+Alumni tool and enters them here. Name + company suffice for Apollo lookup;
+name + email allow sourcing without a lookup. Every row is treated as an alum
+and competes within the alumni quota. Mark `cube_member` true only for former
+CUBE members. Live preparation caches resolved emails or `NOT_FOUND` in this
+tab so failed lookups are not repeatedly charged.
 
-### Targeting UIUC alumni: the `Alumni` tab
+### 2. Gemini API key
 
-Apollo's API can't filter by school (and doesn't return education), so accurate
-alumni targeting comes from **LinkedIn's Alumni tool**
-(linkedin.com/school/university-of-illinois-urbana-champaign/people) — filter UIUC
-alumni by employer/role, then paste them into the **`Alumni`** tab. Columns:
-`name`, `company`, `linkedin`, `title`, `industry`, `location`, `email`.
+Maintainers configure the organization's `GEMINI_API_KEY`. Drafting uses the
+model named by `GEMINI_DRAFT_MODEL` (default `gemini-2.5-flash`, in
+[src/draft.py](src/draft.py)); reply sentiment uses `GEMINI_CLASSIFY_MODEL`
+(default `gemini-3.5-flash-lite`, in [src/replies.py](src/replies.py)). Both are
+GitHub Actions repository **variables**, not secrets, so a retired model can be
+swapped under Settings → Secrets and variables → Actions → Variables without a
+code change. Unset, they fall back to the defaults. Requests are paced and drafts are batched,
+but quota exhaustion can still cause drafting shortfalls. Do not create a
+personal key to experiment with real contact details or reply text.
 
-**Only `name` + `company` are required** — if `email` is blank, `prepare` looks it
-up via Apollo enrichment (a `linkedin` URL improves the match rate). Every row is
-treated as a UIUC alum: flagged `is_uiuc_alum`, **ranked ahead of all other
-leads**, and drafted with the "fellow Illini" angle. This is the highest-converting
-channel, so keep this tab stocked.
+### 3. Google Cloud and Gmail setup
 
-### 2. Gemini API key (free tier)
+Create a Google Cloud project in the [Cloud console](https://console.cloud.google.com/),
+enable the Google Sheets and Drive APIs, and create a service account with a
+JSON key. Its JSON becomes `GOOGLE_SERVICE_ACCOUNT_JSON`. For local test
+resources, `GOOGLE_SERVICE_ACCOUNT_FILE` can instead point to a private key file
+(the code defaults to `service_account.json`). Never commit either credential.
 
-1. Go to https://aistudio.google.com/apikey → Create API key
-2. The free tier covers this workload (daily drafts + reply classification) at no cost — no payment method required
-3. Save the key
-
-### 3. Google Cloud setup
-
-#### 3a. Create a GCP project + service account
-
-1. Open g and create a project named e.g. `cube-outreach`
-2. Enable APIs: **Gmail API** and **Google Sheets API** and **Google Drive API**
-3. IAM & Admin → Service Accounts → Create Service Account
-   - Name: `cube-outreach-bot`
-   - Skip role assignment
-4. Open the service account → Keys → Add Key → Create new key → JSON
-5. Download the JSON file — this becomes the `GOOGLE_SERVICE_ACCOUNT_JSON` secret
-
-#### 3b. Gmail App Password (for sending)
-
-Outreach is sent from a single Gmail account over SMTP — **no domain-wide
-delegation needed** (the service account above is only for Sheets). On the
-sending account:
-
-1. Turn on **2-Step Verification** (https://myaccount.google.com/security)
-2. Create an **App Password** at https://myaccount.google.com/apppasswords
-3. Save the account address + the 16-char password → these become the
-   `GMAIL_ADDRESS` and `GMAIL_APP_PASSWORD` secrets.
-
-A dedicated Gmail (e.g. `cube.outreach@gmail.com`) is recommended over a personal
-inbox for deliverability and separation. Note: many `*.edu` accounts disable App
-Passwords, so use a regular `gmail.com` account.
+The service account accesses Sheets. Gmail uses a separate account and App
+Password over SMTP and read-only IMAP; the bot does not use the Gmail API or
+domain-wide delegation. On the sending account, enable
+[2-Step Verification](https://myaccount.google.com/security), create an
+[App Password](https://myaccount.google.com/apppasswords), and configure
+`GMAIL_ADDRESS` and `GMAIL_APP_PASSWORD`. The account must permit IMAP access.
+`you@example.com` is a placeholder in examples, not a usable Gmail account.
 
 ### 4. Create the outreach Sheet
 
-1. Create a new Google Sheet named e.g. `CUBE Outreach Pipeline`
-2. Share it with the service account's email (found in the JSON, looks like `cube-outreach-bot@cube-outreach.iam.gserviceaccount.com`) as **Editor**
-3. Copy the Sheet ID from the URL (`https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit`)
-4. *(Optional)* Do the same for the existing CUBE Alumni Sheet — share with the service account as **Viewer**, copy its ID
+Create the workbook and share it with the service account as Editor. Set
+`SHEET_ID` to the identifier between `/d/` and `/edit` in its URL. A maintainer
+initializes it with `bootstrap` as part of provisioning; that command writes
+to Sheets and has no dry-run option.
+
+Optionally share a separate CUBE alumni workbook with the service account as
+Viewer and set `ALUMNI_SHEET_ID`. Its `Alumni` worksheet is read by
+[src/sourcing/cube_alumni.py](src/sourcing/cube_alumni.py).
 
 ### 5. Local test
 
+Use Python 3.11 (the workflow version) and git. Claim the issue and wait for
+maintainer assignment before opening a PR. Branch from `main`; **never push
+directly to `main`**, which scheduled workflows use for production.
+
+From a fresh clone, in Bash:
+
 ```bash
-git clone <this repo>
+git clone https://github.com/uiuc-cube-consulting/project-acquisition.git
 cd project-acquisition
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-cp .env.example .env
-# Fill in keys + IDs in .env, then:
-set -a; source .env; set +a
-
-# Initialize the Sheet tabs (one-time)
-python -m src.main bootstrap
-
-# Smoke test without spending Apollo credits / sending real mail
-python -m src.main prepare --dry-run
-# Should print 3 fake personalized drafts to stdout
+git switch -c docs/5-readme-refresh
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip install pytest
+python -c "import src.main; print('ok')"
+python -m pytest
+python -m src.main prepare --dry-run --help
+python -m src.main send --dry-run --help
+python -m src.main replies --dry-run --help
 ```
+
+In Windows PowerShell, create the environment with `py -3.11 -m venv .venv`
+and activate it with `.\.venv\Scripts\Activate.ps1`; the remaining Python
+commands are the same. The help commands exit before running any pipeline.
+The import, tests and help checks above need no credentials and contact no
+services. Install pytest explicitly: tests exist, but it is not yet included
+in `requirements.txt` (see [#3](https://github.com/uiuc-cube-consulting/project-acquisition/issues/3)).
+
+**Current integration limits:** `.env.example` is not present on this revision;
+[#4](https://github.com/uiuc-cube-consulting/project-acquisition/issues/4) adds it.
+Do not run a copy command for a file that is not there. The CLI already loads
+a local `.env` automatically if one exists. No `.env` is needed for the checks
+above, and credentials must stay out of commits.
+
+[#18](https://github.com/uiuc-cube-consulting/project-acquisition/issues/18)
+tracks credential-free, write-free `prepare --dry-run`. **That behavior is not
+implemented yet:** it constructs `SheetClient`, bootstraps/reads the Sheet,
+then sends fictional fixture details to Gemini for drafting. It avoids live
+Apollo sourcing and returns before appending leads/drafts, but can still
+create tabs or change headers. Without Sheets credentials it fails before
+drafting. Do not point it at production resources.
+
+Coordinate these instructions with #4 and #18 when they merge: use the actual
+example file and verify the new dry-run contract before removing these limits.
+Until then, the credential-free contributor check is the sequence above;
+maintainers handle the integration smoke test below using isolated resources.
 
 ### 6. Production: GitHub Actions secrets
 
-In this repo on GitHub → Settings → Secrets and variables → Actions → New repository secret. Add:
+Maintainers configure repository secrets under Settings → Secrets and
+variables → Actions. This table describes the current references in
+[prepare.yml](.github/workflows/prepare.yml), [send.yml](.github/workflows/send.yml)
+and [dashboard.yml](.github/workflows/dashboard.yml); no workflow settings are
+changed by this documentation update.
 
-| Secret | Value |
+| Secret | Purpose / example |
 |---|---|
-| `APOLLO_API_KEY` | from step 1 (Apollo; Basic plan recommended for credits) |
-| `GEMINI_API_KEY` | from step 2 |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | entire contents of the JSON file from step 3a |
-| `SHEET_ID` | from step 4 |
-| `ALUMNI_SHEET_ID` | from step 4 (optional) |
-| `GMAIL_ADDRESS` | the sending Gmail address (from step 3b) |
-| `GMAIL_APP_PASSWORD` | the 16-char App Password (from step 3b) |
-| `ORG_NAME` | `CUBE Consulting` |
-| `ORG_PHYSICAL_ADDRESS` | CUBE's postal address for the CAN-SPAM footer, e.g. `123 Main St, Champaign IL 61820`. **Required:** `prepare` refuses to run without it |
-| `UNSUBSCRIBE_MAILTO` | `unsubscribe@cubeconsulting.org` |
-| `SENDER_NAME` | e.g. `Raghav Taneja` |
-| `SENDER_PHONE` | e.g. `(555) 123-4567` |
+| `APOLLO_API_KEY` | Organization's Apollo key |
+| `GEMINI_API_KEY` | Organization's Gemini key |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Service-account JSON for Sheets |
+| `SHEET_ID` | Outreach workbook ID |
+| `ALUMNI_SHEET_ID` | Optional separate CUBE alumni workbook ID |
+| `GMAIL_ADDRESS` | Sending account; placeholder `you@example.com` |
+| `GMAIL_APP_PASSWORD` | Sending account's App Password |
+| `ORG_NAME` | Organization name, such as `CUBE Consulting` |
+| `ORG_PHYSICAL_ADDRESS` | Actual postal address for live mail; placeholder `123 Main St`. Live preparation refuses a blank value |
+| `UNSUBSCRIBE_MAILTO` | Monitored unsubscribe address; placeholder `you@example.com` |
+| `SENDER_NAME` | Sender's name; placeholder `Jane Doe` |
+| `SENDER_PHONE` | Sender's phone; placeholder `202-555-0100` |
+| `APPROVER_EMAIL` | Summary recipient; placeholder `you@example.com` |
+| `DIGEST_RECIPIENT` | Fallback summary recipient if `APPROVER_EMAIL` is blank |
+| `DAILY_PREPARE_TARGET` | Preparation target; unset/blank defaults to 15 |
+| `DAILY_SEND_CAP` | Send cap; unset/blank defaults to 10 |
 
-`APPROVER_EMAIL` and `DIGEST_RECIPIENT` are **not** secrets — they're set directly in `.github/workflows/prepare.yml` and `send.yml`. They're only the recipient of the daily summary email; approval itself happens in the Sheet.
+If both summary-recipient settings are blank, summaries go to `GMAIL_ADDRESS`.
+Despite its name, `APPROVER_EMAIL` only chooses the summary recipient.
+The current workflows set `AUTO_APPROVE=1`, so triggering live preparation can
+queue mail for the next scheduled send without human review. Maintainers must
+complete a controlled integration check before enabling production schedules.
 
-Then go to Actions tab → `prepare` workflow → **Run workflow** → main. Watch it run, mark a draft `approved` in the Sheet, then run `send`.
+## Smoke test
 
-After verifying both workflows work, the cron schedules take over and run automatically Mon–Fri.
+Contributors use the credential-free Local test checks. The integration steps
+below require a **maintainer-provisioned test Sheet, a dedicated test mailbox
+and organization-managed test credentials**. Use only fictional contacts such
+as `Jane Doe` at `you@example.com`; never copy production data into the test
+Sheet, logs, fixtures or PR. The test Sheet needs initialized headers and a
+synthetic approved draft to exercise send preview: prepare's dry run does not
+persist its drafts.
 
-## Smoke test (end-to-end, ~15 minutes)
-
-1. `python -m src.main bootstrap` — creates the 5 tabs in your Sheet (incl. `Approvals`)
-2. `python -m src.main prepare --dry-run` — confirm drafts print to stdout
-3. Run `prepare` for real (small batch): `DAILY_PREPARE_TARGET=2 python -m src.main prepare` → check that the numbered approval email lands at the `APPROVER_EMAIL` inbox
-4. **Reply to that email** with `approve all` (or `approve 1`)
-5. `DAILY_SEND_CAP=1 python -m src.main send --dry-run` — verify the log shows the reply being parsed and the would-send list
-6. Drop `--dry-run`: `DAILY_SEND_CAP=1 python -m src.main send` → check the recipient inbox
-7. Reply to the outreach email as the recipient
-8. Run `python -m src.main send` again → confirm `Hot Leads` row appears, lead status flips to `hot`, summary email arrives
+1. Preview preparation with `python -m src.main prepare --dry-run`.
+   It needs Sheets access and Gemini to generate drafts. Expect the fixture
+   sourcing log and up to three printed drafts, depending on filtering and
+   successful model responses. Apollo is skipped. Confirm no lead/draft rows
+   are appended; tabs/headers may still be written by bootstrap.
+2. Preview sending with `python -m src.main send --dry-run`.
+   Set `DAILY_SEND_CAP=1` in the test environment first. Sheets access is
+   required, and `GMAIL_ADDRESS`/`GMAIL_APP_PASSWORD` must be set because the
+   sender constructor reads them (dummy values suffice for SMTP dry run).
+   Expect a would-send log for the synthetic approved, unsent draft and no
+   SMTP send, sent timestamp or summary. **This can still write `send_error`
+   cells for duplicate drafts or errors.** It does not scan replies.
+3. Preview inbox matching with
+   `python -m src.main replies --dry-run --no-classify`.
+   This connects to the test mailbox over read-only IMAP using valid test Gmail
+   credentials and reads the test Sheet. It prints matched results without
+   writing reply/status rows. `--no-classify` skips Gemini; `--dry-run` alone
+   does not skip classification. With no matching test messages, zero matches
+   is expected. It never creates a `Hot Leads` row.
+4. **Maintainer-only final live check:** in an isolated test configuration,
+   initialize tabs with `bootstrap`, prepare a small controlled batch, verify
+   `Drafts.approved`, send to a maintainer-controlled test recipient, and reply
+   from that mailbox. Run the inbox scan and verify `Replies`, `Leads.status`
+   (`hot` for a positive classified reply, otherwise `replied` for a human
+   reply), `replied_at`, the summary and both dashboards. Only this final step
+   may omit `--dry-run`. Keep test recipient details private and publish only
+   aggregate outcomes. Do not trigger production workflows as a smoke test.
 
 ## Day-to-day operation
 
-- **Morning (anytime before 10am CT):** open the `Drafts` tab and set `approved` to `yes` on the rows you want to send (leave the rest blank).
-- **After 10am:** check your inbox for the daily summary of what went out.
-- **Replies from prospects** land in the sending account's own inbox — handle them there manually (the pipeline is send-only and doesn't track replies).
-- **Don't-contact:** add an email to the `Suppression` tab and the system will never include them again.
+- Keep `Alumni` and `Prospects` stocked and maintain enterprise targets.
+  The scheduled prepare workflow auto-approves initial drafts; daily manual
+  approval is not required. For manual review, set `AUTO_APPROVE=0` in
+  `prepare.yml` and explicitly clear any existing approvals that should wait.
+  Review new rows and set `Drafts.approved` to `yes`/`TRUE` before sending.
+- Check workflow logs and `Runs` for sourcing or drafting shortfalls. Preparation
+  targets 15 by default, while sending caps at 10; approved drafts can accumulate.
+- After the send workflow, check the summary and `Replies`. The workflow's
+  separate IMAP scan records human replies, auto-replies and bounces; Gemini
+  labels human sentiment when available. Staff still respond to people manually.
+- For do-not-contact requests, add the address to `Suppression` and clear any
+  already-approved pending drafts for it. Preparation checks suppression, but
+  `cmd_send` currently does not recheck it. The inbox scan labels unsubscribes
+  but does not automatically add them to `Suppression` (tracked in
+  [#16](https://github.com/uiuc-cube-consulting/project-acquisition/issues/16)).
+- Review Sheet metrics and the weekly HTML dashboard. A failed reply scan can
+  leave metrics stale even when sending succeeds. Follow-ups are disabled unless
+  `ENABLE_FOLLOW_UPS=1`; staff handle repeat outreach manually by default.
 
 ## Tuning
 
-- **Lower send cap while testing:** in `.github/workflows/send.yml`, change `DAILY_SEND_CAP: "10"` to `"3"` until quality is dialed in
-- **Edit scoring weights:** `config/scoring.yaml` — bump `uiuc_alum` up if alumni outreach is your strongest channel
-- **Change templates:** edit `src/templates.py` directly; Gemini follows whatever structure you put there
-- **Add Apollo search profiles:** `config/search_profiles.yaml` — UIUC runs daily, breadth profiles rotate
+| Change | Current control |
+|---|---|
+| Batch size / daily send cap | Repository secrets `DAILY_PREPARE_TARGET` / `DAILY_SEND_CAP`, defaults 15 / 10. Change the secrets currently referenced by the workflows; there is no literal `DAILY_SEND_CAP: "10"` to edit |
+| SMTP spacing | `SEND_INTERVAL_SECONDS` in `send.yml`, currently 30 seconds |
+| Manual review | `AUTO_APPROVE` in `prepare.yml`; 1 auto-approves new initial drafts, 0 leaves them unchecked |
+| Audience mix | `ALUMNI_TARGET_SHARE` and `ENTERPRISE_TARGET_SHARE` in `prepare.yml`. Alumni and enterprise slots are rounded; general discovery gets the remainder. Keep dashboard campaign settings aligned |
+| Apollo rotation | `DISCOVERY_PROFILES_PER_RUN` and [config/search_profiles.yaml](config/search_profiles.yaml); breadth profiles rotate, enterprise-tier profiles run each time when the enterprise share is positive |
+| Named enterprise searches | [config/enterprise_targets.yaml](config/enterprise_targets.yaml) and `ENTERPRISE_COMPANIES_PER_RUN`, currently 12 |
+| Ranking | [config/scoring.yaml](config/scoring.yaml); scoring weights do not replace audience quotas |
+| Company exclusions | [src/companies.py](src/companies.py) and the `Companies` tab; `COMPANY_DEDUPE` defaults on |
+| Templates / routing | [src/templates.py](src/templates.py) and [config/industry_template_map.yaml](config/industry_template_map.yaml) |
+| Gemini models | Repository variables `GEMINI_DRAFT_MODEL` / `GEMINI_CLASSIFY_MODEL`; unset uses the code defaults `gemini-2.5-flash` / `gemini-3.5-flash-lite` |
+| Gemini batching / pacing | `DRAFT_BATCH_SIZE` (default 5) and `GEMINI_MIN_INTERVAL_SECONDS` (default 12.5); add workflow env overrides if needed. Missing batch drafts are retried individually |
+| Campaign / packet | `TARGET_TERM`, `CAMPAIGN_START` and optional `PACKET_URL`; keep campaign settings consistent across workflows |
 
-## Cost ballpark (per weekday)
+Keep the volume caps in repository secrets, as confirmed by the maintainer.
 
-- Apollo: 1 credit per email unlocked; the pipeline only unlocks emails for the ~`DAILY_PREPARE_TARGET` leads it actually selects (~15/day ≈ ~300/mo)
-- Gemini: ~15 drafts/day on whichever model `GEMINI_DRAFT_MODEL` names (default `gemini-2.5-flash`) fits inside the free tier's daily rate limits — $0/day
-- Gemini: one more call per human reply to label it, on `GEMINI_CLASSIFY_MODEL` (default `gemini-3.5-flash-lite`) — a handful a day, also $0
-- GitHub Actions: free for the cron schedule (well under the 2,000 free minutes/month)
+## Cost and limits
 
-## Out of scope (v1)
+Apollo email enrichment consumes credits even when a revealed contact is later
+filtered out or drafting fails. `Runs` records attempted reveals, emails found
+and draft failures. Gemini quotas depend on the organization's allocation;
+batching and pacing reduce requests but do not guarantee every draft succeeds.
+Check actual service usage rather than assuming a fixed daily cost.
 
-- LinkedIn auto-DM (ToS-risky, defer)
+## Out of scope
+
+- LinkedIn auto-DM
 - Phone outreach
 - LOI / contract automation
-- Multi-step nurture beyond a single follow-up
-- Web dashboard (Sheets is enough)
+- Multi-step nurture beyond the optional single follow-up
+
+The HTML dashboard is implemented; see [Metrics dashboard](#metrics-dashboard).
 
 ## Maintenance notes for successors
 
-- The cron times are in UTC and don't auto-adjust for daylight saving. Twice a year (March + November) you'll see jobs run an hour earlier/later in CT than expected — either accept it or update the cron expressions in `.github/workflows/`.
-- `data/past_projects.json` is parsed once from the docx. If you update Past Projects.docx, regenerate by running:
-  ```bash
-  python -c "from docx import Document; import json, re; \
-    doc = Document('Past Projects.docx'); \
-    out = []; \
-    [out.append({'semester': c[0].text.strip(), 'client': c[1].text.strip(), \
-                 'keywords': [k.strip() for k in re.split(r'[,\n]', c[2].text) if k.strip()], \
-                 'deliverables': c[3].text.strip()}) \
-     for t in doc.tables for r in t.rows[1:] for c in [list(r.cells)] \
-     if len(c) >= 4 and c[0].text.strip() and c[1].text.strip()]; \
-    open('data/past_projects.json','w').write(json.dumps(out, indent=2))"
-  ```
+- Cron expressions are UTC and do not adjust for daylight saving. Use the
+  schedule table above when planning local checks.
+- Maintain [data/past_projects.json](data/past_projects.json) in the schema read
+  by [src/past_projects.py](src/past_projects.py). The original source document
+  is not checked into this repository.
+- Keep PRs scoped to one issue and include `Closes #5` for this documentation
+  change. Before review, run the import and tests from Local test and check the
+  diff for credentials, local `.env` files and real contact data. Use fictional
+  examples at `example.com`; never publish Sheet contents or inbox screenshots.

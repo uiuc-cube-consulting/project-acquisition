@@ -12,10 +12,10 @@ on:
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    # Gemini's free tier is ~5 req/min and drafting is one call per lead, so a
-    # 15-lead batch needs ~3-4 minutes of paced calls plus sourcing. The old
-    # 15-minute cap could kill the job mid-batch, losing drafts whose Apollo
-    # credits were already spent.
+    # Drafting is batched (DRAFT_BATCH_SIZE defaults to 5) and Gemini calls are
+    # paced. Missing batch entries are retried individually; sourcing and quota
+    # backoff also take time. Allow a slow run to finish without losing drafts
+    # whose Apollo credits were already spent.
     timeout-minutes: 45
     env:
       APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}

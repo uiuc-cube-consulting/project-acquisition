@@ -1,12 +1,13 @@
 """SMTP email sender (send-only).
 
-Sends from a single Gmail account using an App Password — no domain-wide
-delegation, no OAuth, no inbox reading. Approval happens in the Sheet (set the
-`approved` column to yes/TRUE), not by email reply.
+Sends from a single Gmail account using an App Password, without domain-wide
+delegation or OAuth. This module handles SMTP; src.replies separately scans
+the mailbox over read-only IMAP. Approval is the Sheet's `approved` column
+(yes/TRUE), set automatically when prepare runs with AUTO_APPROVE=1.
 
 Setup: on the sending Google account, turn on 2-Step Verification, create an App
 Password (https://myaccount.google.com/apppasswords), then set:
-  GMAIL_ADDRESS=you@gmail.com
+  GMAIL_ADDRESS=you@example.com
   GMAIL_APP_PASSWORD=the 16-char app password
 """
 from __future__ import annotations
@@ -48,7 +49,7 @@ class GmailSender:
     ) -> tuple[str, str]:
         """Send an email via Gmail SMTP. Returns (message_id, thread_id).
 
-        We don't read mailboxes, so thread_id is just the message-id (kept for
+        This SMTP sender does not read mailboxes, so thread_id is the message-id (kept for
         signature compatibility and recorded in the Sheet). `in_reply_to` still
         threads follow-ups in the recipient's client via standard headers.
 
