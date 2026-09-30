@@ -58,7 +58,9 @@ def _packet_line() -> str:
     )
 
 
-DRAFT_MODEL = "gemini-2.5-flash"
+# GEMINI_DRAFT_MODEL makes the swap a settings change, and it is
+# read per Drafter (not at import) so it can be changed without a reload.
+DEFAULT_DRAFT_MODEL = "gemini-2.5-flash"
 # Contacts per model call. 5 keeps each response well inside the output limit
 # while cutting daily Gemini requests by ~5x — the difference between fitting
 # in the free tier's daily quota and losing half the batch to 429s.
@@ -86,8 +88,8 @@ Rules:
 
 
 class Drafter:
-    def __init__(self, model: str = DRAFT_MODEL) -> None:
-        self.model = model
+    def __init__(self, model: str | None = None) -> None:
+        self.model = model or env_str("GEMINI_DRAFT_MODEL", DEFAULT_DRAFT_MODEL)
 
     def draft(
         self,
@@ -306,6 +308,7 @@ def draft_for_leads(
     """
     _check_packet_url()
     drafter = Drafter()
+    log.info("Drafting with %s", drafter.model)
     footer = make_footer()
 
     items: list[tuple[Lead, TemplateType, list[PastProject]]] = []

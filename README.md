@@ -299,8 +299,12 @@ tab so failed lookups are not repeatedly charged.
 ### 2. Gemini API key
 
 Maintainers configure the organization's `GEMINI_API_KEY`. Drafting uses the
-model in [src/draft.py](src/draft.py); reply sentiment uses the model in
-[src/replies.py](src/replies.py). Requests are paced and drafts are batched,
+model named by `GEMINI_DRAFT_MODEL` (default `gemini-2.5-flash`, in
+[src/draft.py](src/draft.py)); reply sentiment uses `GEMINI_CLASSIFY_MODEL`
+(default `gemini-3.5-flash-lite`, in [src/replies.py](src/replies.py)). Both are
+GitHub Actions repository **variables**, not secrets, so a retired model can be
+swapped under Settings → Secrets and variables → Actions → Variables without a
+code change. Unset, they fall back to the defaults. Requests are paced and drafts are batched,
 but quota exhaustion can still cause drafting shortfalls. Do not create a
 personal key to experiment with real contact details or reply text.
 
@@ -485,6 +489,7 @@ persist its drafts.
 | Ranking | [config/scoring.yaml](config/scoring.yaml); scoring weights do not replace audience quotas |
 | Company exclusions | [src/companies.py](src/companies.py) and the `Companies` tab; `COMPANY_DEDUPE` defaults on |
 | Templates / routing | [src/templates.py](src/templates.py) and [config/industry_template_map.yaml](config/industry_template_map.yaml) |
+| Gemini models | Repository variables `GEMINI_DRAFT_MODEL` / `GEMINI_CLASSIFY_MODEL`; unset uses the code defaults `gemini-2.5-flash` / `gemini-3.5-flash-lite` |
 | Gemini batching / pacing | `DRAFT_BATCH_SIZE` (default 5) and `GEMINI_MIN_INTERVAL_SECONDS` (default 12.5); add workflow env overrides if needed. Missing batch drafts are retried individually |
 | Campaign / packet | `TARGET_TERM`, `CAMPAIGN_START` and optional `PACKET_URL`; keep campaign settings consistent across workflows |
 

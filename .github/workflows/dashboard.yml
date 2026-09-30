@@ -18,6 +18,9 @@ jobs:
     timeout-minutes: 20
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      # Which Gemini model labels replies; a repository variable, same as
+      # prepare.yml. Unset falls back to src/replies.py's default.
+      GEMINI_CLASSIFY_MODEL: ${{ vars.GEMINI_CLASSIFY_MODEL }}
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
       SHEET_ID: ${{ secrets.SHEET_ID }}
       GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
