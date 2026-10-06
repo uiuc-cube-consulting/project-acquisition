@@ -456,6 +456,20 @@ class SheetClient:
                 out.add(str(lead["email"]).strip().lower())
         return out
 
+    def drafts_activity_today(self) -> tuple[int, int]:
+        """(initial drafts prepared, emails sent) so far today, Central time.
+        Lets the several daily cron slots run `prepare` once and cap `send`
+        per day — see schedule.py."""
+        from .schedule import is_today_ct
+
+        prepared = sent = 0
+        for d in self.book.worksheet("Drafts").get_all_records():
+            if is_today_ct(d.get("prepared_at")) and not _truthy(d.get("is_follow_up")):
+                prepared += 1
+            if is_today_ct(d.get("sent_at")):
+                sent += 1
+        return prepared, sent
+
     def list_approved_pending(self) -> list[tuple[int, Draft]]:
         """Returns (sheet_row_index, draft) for unsent, approved rows."""
         ws = self.book.worksheet("Drafts")
