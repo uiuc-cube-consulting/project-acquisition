@@ -1,12 +1,30 @@
 name: send
 
-# Runs Mon-Fri at 10:00 CT (16:00 UTC during CST, 15:00 UTC during CDT)
-# We pick 16:00 UTC so the job lands at 10am during winter / 11am during summer.
+# Mail goes out during business hours: Mon-Fri 8am-4pm Central (DST-aware,
+# checked in src/schedule.py). GitHub's cron runs hours late, so send starts
+#   - right after each prepare run finishes (workflow_run), and
+#   - at four fallback slots, 13:47 / 15:47 / 17:47 / 19:47 UTC.
+# A run outside the window exits without sending; DAILY_SEND_CAP is per day,
+# so the extra runs can't push the total past it.
 
 on:
+  workflow_run:
+    workflows: [prepare]
+    types: [completed]
   schedule:
-    - cron: "0 16 * * 1-5"
+    - cron: "47 13,15,17,19 * * 1-5"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Send now even outside business hours"
+        type: boolean
+        default: false
+
+# One send at a time: two overlapping runs could both read the same draft as
+# unsent and mail it twice.
+concurrency:
+  group: send
+  cancel-in-progress: false
 
 jobs:
   send:
@@ -43,7 +61,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: python -m src.main send
+      - run: python -m src.main send ${{ inputs.force && '--force' || '' }}
       # Read-only inbox scan: records replies, out-of-office notices and bounces
       # so the reply rate and deliverability numbers stay current. Never fails
       # the job — the sending above is what matters.

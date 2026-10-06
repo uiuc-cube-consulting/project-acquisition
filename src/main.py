@@ -57,6 +57,7 @@ from .summary import send_daily_summary
 from .template import TemplateRouter
 from .companies import CompanyRegistry, email_domain, normalize_company
 from .env import env_flag, env_float, env_int, env_str
+from .schedule import describe_send_window, in_send_window
 from .templates import unsubscribe_mailto
 
 logging.basicConfig(
@@ -223,7 +224,7 @@ class _Selector:
 
 # ---------------- prepare ----------------
 
-def cmd_prepare(dry_run: bool) -> int:
+def cmd_prepare(dry_run: bool, force: bool = False) -> int:
     # CAN-SPAM: every email needs a real postal address, and it deliberately has
     # no code default (the repo is public). Stop before spending Apollo credits.
     if not dry_run and not org_address_configured():
@@ -236,6 +237,17 @@ def cmd_prepare(dry_run: bool) -> int:
     target = env_int("DAILY_PREPARE_TARGET", 15)
     sheets = SheetClient()
     sheets.bootstrap()
+
+    # The workflow fires at several slots a day because GitHub's cron runs
+    # hours late; only the first one that gets through drafts (schedule.py).
+    if not dry_run and not force:
+        prepared_today, _ = sheets.drafts_activity_today()
+        if prepared_today:
+            log.info(
+                "Already prepared %d drafts today (Central time) — nothing to do. "
+                "Use --force to prepare another batch.", prepared_today,
+            )
+            return 0
 
     suppression = sheets.get_suppression_emails()
     known = sheets.get_known_emails()
@@ -512,9 +524,21 @@ def _refresh_dashboard(sheets: SheetClient) -> None:
 
 # ---------------- send ----------------
 
-def cmd_send(dry_run: bool) -> int:
+def cmd_send(dry_run: bool, force: bool = False) -> int:
+    # GitHub's cron runs hours late, so the workflow fires at several slots
+    # (and right after prepare); only runs inside business hours send.
+    if not dry_run and not force and not in_send_window():
+        log.info(
+            "Outside the send window (%s) — leaving drafts for a run in business "
+            "hours. Use --force to send now.", describe_send_window(),
+        )
+        return 0
+
+    # DAILY_SEND_CAP is per day, not per run, now that send runs several times.
     cap = env_int("DAILY_SEND_CAP", 10)
     sheets = SheetClient()
+    _, sent_today = sheets.drafts_activity_today()
+    remaining = max(0, cap - sent_today)
 
     # Approval is the `approved` column in the Drafts tab (set it to yes/TRUE).
     approved = sheets.list_approved_pending()
@@ -532,7 +556,10 @@ def cmd_send(dry_run: bool) -> int:
             continue
         seen.add(el)
         queue.append((row_idx, draft))
-    log.info("%d approved; %d to send after dedupe (cap %d)", len(approved), len(queue), cap)
+    log.info(
+        "%d approved; %d to send after dedupe (daily cap %d, %d already sent today)",
+        len(approved), len(queue), cap, sent_today,
+    )
 
     from .gmail_send import GmailSender
     sender = GmailSender()
@@ -542,7 +569,7 @@ def cmd_send(dry_run: bool) -> int:
 
     sent_count = 0
     follow_up_count = 0
-    for row_idx, draft in queue[:cap]:
+    for row_idx, draft in queue[:remaining]:
         try:
             msg_id, thread_id = sender.send(
                 to=draft.lead_email,
@@ -576,7 +603,9 @@ def cmd_send(dry_run: bool) -> int:
             follow_up_count += 1
 
     log.info("Sent %d emails (%d follow-ups)", sent_count, follow_up_count)
-    if not dry_run:
+    # Only the run that actually sent emails the summary: send fires at several
+    # slots a day, and the empty ones would otherwise each mail a "0 sent" digest.
+    if not dry_run and sent_count:
         drafts_pending = len(sheets.list_approved_pending())  # remaining after this run
         send_daily_summary(
             sent_count=sent_count,
@@ -680,8 +709,10 @@ def main() -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("prepare", help="Source + draft today's outreach batch")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--force", action="store_true", help="Prepare even if today's batch exists")
     p = sub.add_parser("send", help="Send approved drafts + check replies + digest")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--force", action="store_true", help="Send even outside business hours")
     p = sub.add_parser("bootstrap", help="Create Sheet tabs + headers")
     p = sub.add_parser("stats", help="Refresh the Dashboard tab with current metrics")
     p = sub.add_parser("replies", help="Scan the mailbox for replies/bounces (read-only)")
@@ -694,9 +725,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.cmd == "prepare":
-        return cmd_prepare(dry_run=args.dry_run)
+        return cmd_prepare(dry_run=args.dry_run, force=args.force)
     if args.cmd == "send":
-        return cmd_send(dry_run=args.dry_run)
+        return cmd_send(dry_run=args.dry_run, force=args.force)
     if args.cmd == "bootstrap":
         sheets = SheetClient()
         sheets.bootstrap()

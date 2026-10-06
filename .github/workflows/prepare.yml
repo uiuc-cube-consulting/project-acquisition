@@ -1,13 +1,25 @@
 name: prepare
 
-# Runs Mon-Fri at 06:00 CT (11:00 UTC during CST, 12:00 UTC during CDT)
-# We pick 12:00 UTC so the job lands at 6am during winter / 7am during summer.
-# Tighten this if you want to handle DST more precisely.
+# GitHub's cron is best-effort: since Sept 2026 runs have started 4-8 hours
+# late (12:00 UTC fired at 17:00-20:00 UTC). So this fires at three early slots
+# (10:17 / 12:17 / 14:17 UTC = 5:17 / 7:17 / 9:17 am CDT, an hour earlier in
+# CST). Whichever starts first drafts the day's batch; the rest see it and exit
+# (src/schedule.py). Off the top of the hour, where GitHub's queue is busiest.
 
 on:
   schedule:
-    - cron: "0 12 * * 1-5"
+    - cron: "17 10,12,14 * * 1-5"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Prepare another batch even if today's already exists"
+        type: boolean
+        default: false
+
+# Never two prepares at once (two slots can start together after a long delay).
+concurrency:
+  group: prepare
+  cancel-in-progress: false
 
 jobs:
   prepare:
@@ -62,4 +74,4 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: python -m src.main prepare
+      - run: python -m src.main prepare ${{ inputs.force && '--force' || '' }}
