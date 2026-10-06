@@ -49,7 +49,7 @@ from .scoring import Scorer
 from .sheets import SheetClient
 from .sourcing.apollo import (
     ApolloClient, Candidate, bulk_reveal, candidate_from_contact, load_profiles,
-    enterprise_profiles, pick_profiles_for_today, search_candidates,
+    enterprise_profiles, pick_profiles_for_today, search_fresh_candidates,
 )
 from .sourcing.enterprise import enterprise_candidates
 from .sourcing.cube_alumni import fetch_alumni_leads
@@ -111,6 +111,16 @@ def _enterprise_share() -> float:
 def _discovery_profile_count() -> int:
     """How many Apollo breadth profiles to search per run."""
     return max(1, env_int("DISCOVERY_PROFILES_PER_RUN", 3))
+
+
+def _reveal_budget(target: int) -> int:
+    """Apollo reveals (1 credit each) allowed per prepare run.
+
+    REVEAL_BUDGET_PER_LEAD (default 2) times the daily target: some reveals
+    find no email and some resolve to an already-contacted domain, so filling
+    the target takes more than one credit per lead.
+    """
+    return max(1, round(target * max(1.0, env_float("REVEAL_BUDGET_PER_LEAD", 2.0))))
 
 
 class _Selector:
@@ -301,14 +311,34 @@ def cmd_prepare(dry_run: bool, force: bool = False) -> int:
         # profile's top hits are mostly people we already emailed, so one profile
         # cannot reliably fill the discovery quota once the pipeline has run for
         # a while. Searching costs no credits — only the reveals do.
+        #
+        # Each profile is paged until it yields enough people we have NOT
+        # already reached (see search_fresh_candidates): page 1 of every profile
+        # is used up, and only ever reading page 1 is what held runs to ~10
+        # leads against a target of 15.
         if apollo:
             profiles = load_profiles()
             day_index = datetime.now(timezone.utc).timetuple().tm_yday
+
+            def is_fresh(c: Candidate) -> bool:
+                li = (c.linkedin or "").strip().lower()
+                if li and li in known_li:
+                    return False
+                return companies is None or not companies.seen(c.company)
+
+            # Generous headroom per profile: many fresh people still have no
+            # email on file, and the quotas backfill each other.
+            want = max(50, target * 2)
+            max_pages = env_int("APOLLO_MAX_SEARCH_PAGES", 10)
+
+            def search(profile: dict) -> list[Candidate]:
+                return search_fresh_candidates(apollo, profile, is_fresh, want, max_pages)
+
             for profile in pick_profiles_for_today(profiles, day_index, count=_discovery_profile_count()):
                 log.info("Apollo discovery profile: %s", profile["name"])
                 profiles_used.append(profile["name"])
                 try:
-                    candidates.extend(search_candidates(apollo, profile, max_results=50))
+                    candidates.extend(search(profile))
                 except Exception as exc:
                     # One bad profile (bad filter, transient 5xx) must not cost us
                     # the whole day's discovery pool.
@@ -319,7 +349,7 @@ def cmd_prepare(dry_run: bool, force: bool = False) -> int:
                 for profile in enterprise_profiles(profiles):
                     profiles_used.append(profile["name"])
                     try:
-                        candidates.extend(search_candidates(apollo, profile, max_results=50))
+                        candidates.extend(search(profile))
                     except Exception as exc:
                         log.warning("Apollo search failed for %s: %s", profile["name"], exc)
                 try:
@@ -385,9 +415,12 @@ def cmd_prepare(dry_run: bool, force: bool = False) -> int:
     enterprise_queue = [
         x for group in itertools.zip_longest(*by_source.values()) for x in group if x is not None
     ]
+    # Same has_email-first ordering as the enterprise queue: a reveal on
+    # someone Apollo has no email for burns a credit for nothing.
     discovery_queue = sorted(
         (x for x in filtered if not x.is_uiuc_alum and not is_enterprise(x)),
-        key=lambda x: x.score, reverse=True,
+        key=lambda x: (bool(getattr(x, "person", {}).get("has_email")), x.score),
+        reverse=True,
     )
     alumni_slots = round(target * _alumni_share())
     enterprise_slots = min(target - alumni_slots, round(target * _enterprise_share()))
@@ -395,7 +428,7 @@ def cmd_prepare(dry_run: bool, force: bool = False) -> int:
 
     selector = _Selector(
         apollo=apollo, sheets=sheets, scorer=scorer, known=known,
-        suppression=suppression, contacted=contacted, budget=target * 2,
+        suppression=suppression, contacted=contacted, budget=_reveal_budget(target),
         companies=companies,
     )
     # Whichever pool runs short hands its unused slots to the other, so a thin

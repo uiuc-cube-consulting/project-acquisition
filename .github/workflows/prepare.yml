@@ -51,7 +51,15 @@ jobs:
       UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
       SENDER_NAME: ${{ secrets.SENDER_NAME }}
       SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
-      DAILY_PREPARE_TARGET: ${{ secrets.DAILY_PREPARE_TARGET }}
+      # Leads drafted per run. A workflow literal, not a secret, so the volume is
+      # visible and reviewable. Raised 15 -> 40 on 2026-10-06 to reach companies
+      # while Q1 budgets are being set.
+      DAILY_PREPARE_TARGET: "40"
+      # Apollo reveals (credits) allowed per run = target x this.
+      REVEAL_BUDGET_PER_LEAD: "2"
+      # 8 contacts per Gemini call keeps a 40-lead run to ~5 drafting calls,
+      # well inside the free tier's daily request quota.
+      DRAFT_BATCH_SIZE: "8"
       # --- Spring 2027 campaign ---
       # The semester the outreach pitches (appears in the subject and body).
       TARGET_TERM: "Spring 2027"
@@ -64,7 +72,7 @@ jobs:
       # Reserve 35% of every batch for big, well-known companies: the named list
       # in config/enterprise_targets.yaml plus large Chicago-HQ firms.
       ENTERPRISE_TARGET_SHARE: "0.35"
-      ENTERPRISE_COMPANIES_PER_RUN: "12"
+      ENTERPRISE_COMPANIES_PER_RUN: "30"
       # Drafts are written pre-approved; the send job mails them unattended.
       AUTO_APPROVE: "1"
     steps:
