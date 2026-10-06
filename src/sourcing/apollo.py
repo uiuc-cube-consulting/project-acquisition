@@ -20,7 +20,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import requests
 import yaml
@@ -260,6 +260,39 @@ def search_candidates(
     people = client.search_people(profile["params"])
     log.info("Apollo returned %d people for profile %s", len(people), profile["name"])
     return [_to_candidate(p, profile) for p in people[:max_results]]
+
+
+def search_fresh_candidates(
+    client: ApolloClient,
+    profile: dict[str, Any],
+    is_fresh: Callable[[Candidate], bool],
+    want: int,
+    max_pages: int = 10,
+) -> list[Candidate]:
+    """Search only (no credit spend), paging until `want` fresh candidates.
+
+    Apollo ranks a profile the same way every day, so after months of runs
+    page 1 is almost entirely people at companies we already emailed (measured
+    2026-10-06: 0-6 usable of 50 per profile, vs ~40 on each of pages 2-6).
+    Searching is free, so go deeper rather than let the batch come up short.
+    Stops early on a short page (end of results).
+    """
+    params = dict(profile["params"])
+    per_page = int(params.get("per_page", 50))
+    fresh: list[Candidate] = []
+    pages = 0
+    for page in range(1, max(1, max_pages) + 1):
+        params["page"] = page
+        people = client.search_people(params)
+        pages = page
+        fresh.extend(c for c in (_to_candidate(p, profile) for p in people) if is_fresh(c))
+        if len(fresh) >= want or len(people) < per_page:
+            break
+    log.info(
+        "Apollo profile %s: %d fresh candidates from %d page(s)",
+        profile["name"], len(fresh), pages,
+    )
+    return fresh
 
 
 def candidate_from_contact(

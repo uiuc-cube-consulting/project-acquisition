@@ -31,7 +31,9 @@ jobs:
       UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
       SENDER_NAME: ${{ secrets.SENDER_NAME }}
       SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
-      DAILY_SEND_CAP: ${{ secrets.DAILY_SEND_CAP }}
+      # A little above DAILY_PREPARE_TARGET (40) so a backlog drains. At 30s
+      # spacing a full batch takes ~22 minutes.
+      DAILY_SEND_CAP: "45"
       SEND_INTERVAL_SECONDS: "30"
       TARGET_TERM: "Spring 2027"
       CAMPAIGN_START: "2026-08-18"
