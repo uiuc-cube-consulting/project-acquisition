@@ -1,5 +1,9 @@
 name: prepare
 
+# PRIMARY TRIGGER: cron-job.org POSTs a workflow_dispatch at 6:30am Central
+# Mon-Fri (fine-grained token with Actions: read & write on this repo only;
+# it expires, so renew it before then). The crons below are the fallback.
+#
 # GitHub's cron is best-effort: since Sept 2026 runs have started 4-8 hours
 # late (12:00 UTC fired at 17:00-20:00 UTC). So this fires at three early slots
 # (10:17 / 12:17 / 14:17 UTC = 5:17 / 7:17 / 9:17 am CDT, an hour earlier in

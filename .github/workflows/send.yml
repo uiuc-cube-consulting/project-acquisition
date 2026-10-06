@@ -1,5 +1,8 @@
 name: send
 
+# PRIMARY TRIGGER: cron-job.org POSTs a workflow_dispatch at 9:00am Central
+# Mon-Fri (same token as prepare.yml). Everything below is the fallback.
+#
 # Mail goes out during business hours: Mon-Fri 8am-4pm Central (DST-aware,
 # checked in src/schedule.py). GitHub's cron runs hours late, so send starts
 #   - right after each prepare run finishes (workflow_run), and
