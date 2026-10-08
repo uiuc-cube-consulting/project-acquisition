@@ -8,6 +8,14 @@ class TestEnvStr:
         monkeypatch.delenv(self.MADE_UP_KEY, raising=False)
         assert env_str(self.MADE_UP_KEY, self.MADE_UP_DEFAULT) == self.MADE_UP_DEFAULT
 
-    def test_emptystring_is_default(self, monkeypatch):
+    def test_empty_value_is_default(self, monkeypatch):
         monkeypatch.setenv(self.MADE_UP_KEY, "")
         assert env_str(self.MADE_UP_KEY, self.MADE_UP_DEFAULT) == self.MADE_UP_DEFAULT
+
+    def test_whitespace_is_default(self, monkeypatch):
+        monkeypatch.setenv(self.MADE_UP_KEY, "   ")
+        assert env_str(self.MADE_UP_KEY, self.MADE_UP_DEFAULT) == self.MADE_UP_DEFAULT
+
+    def test_striped_value(self, monkeypatch):
+        monkeypatch.setenv(self.MADE_UP_KEY, " abc ")
+        assert env_str(self.MADE_UP_KEY, self.MADE_UP_DEFAULT) == "abc"
