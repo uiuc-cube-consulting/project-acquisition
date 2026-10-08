@@ -1,21 +1,41 @@
 import pytest
-from src.env import env_str
+from src.env import env_str, env_int
+
+MADE_UP_KEY = "TEST_ENV_STR"
 
 class TestEnvStr:
-    MADE_UP_KEY = "TEST_ENV_STR"
-    MADE_UP_DEFAULT = "N/A"
+    DEFAULT_STR = "N/A"
     def test_unset_key_is_default(self, monkeypatch):
-        monkeypatch.delenv(self.MADE_UP_KEY, raising=False)
-        assert env_str(self.MADE_UP_KEY, self.MADE_UP_DEFAULT) == self.MADE_UP_DEFAULT
+        monkeypatch.delenv(MADE_UP_KEY, raising=False)
+        assert env_str(MADE_UP_KEY, self.DEFAULT_STR) == self.DEFAULT_STR
 
     def test_empty_value_is_default(self, monkeypatch):
-        monkeypatch.setenv(self.MADE_UP_KEY, "")
-        assert env_str(self.MADE_UP_KEY, self.MADE_UP_DEFAULT) == self.MADE_UP_DEFAULT
+        monkeypatch.setenv(MADE_UP_KEY, "")
+        assert env_str(MADE_UP_KEY, self.DEFAULT_STR) == self.DEFAULT_STR
 
     def test_whitespace_is_default(self, monkeypatch):
-        monkeypatch.setenv(self.MADE_UP_KEY, "   ")
-        assert env_str(self.MADE_UP_KEY, self.MADE_UP_DEFAULT) == self.MADE_UP_DEFAULT
+        monkeypatch.setenv(MADE_UP_KEY, "   ")
+        assert env_str(MADE_UP_KEY, self.DEFAULT_STR) == self.DEFAULT_STR
 
     def test_striped_value(self, monkeypatch):
-        monkeypatch.setenv(self.MADE_UP_KEY, " abc ")
-        assert env_str(self.MADE_UP_KEY, self.MADE_UP_DEFAULT) == "abc"
+        TEST_VAL_STR = "abc"
+        monkeypatch.setenv(MADE_UP_KEY, f" {TEST_VAL_STR} ")
+        assert env_str(MADE_UP_KEY, self.DEFAULT_STR) == TEST_VAL_STR
+
+class TestEnvInt:
+    DEFAULT_INT = 0
+    def test_is_number(self, monkeypatch):
+        TEST_VAL_INT = 15
+        monkeypatch.setenv(MADE_UP_KEY, str(TEST_VAL_INT))
+        assert env_int(MADE_UP_KEY, self.DEFAULT_INT) == TEST_VAL_INT
+
+    def test_blank_is_default(self, monkeypatch):
+        monkeypatch.setenv(MADE_UP_KEY, "")
+        assert env_int(MADE_UP_KEY, self.DEFAULT_INT) == self.DEFAULT_INT
+
+    def test_str_is_default_and_warning(self, monkeypatch, caplog):
+        TEST_VAL_STR = "abc"
+        monkeypatch.setenv(MADE_UP_KEY, TEST_VAL_STR)
+        assert env_int(MADE_UP_KEY, self.DEFAULT_INT) == self.DEFAULT_INT
+        assert "not an integer" in caplog.text
+
