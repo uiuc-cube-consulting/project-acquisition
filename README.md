@@ -349,8 +349,7 @@ cd project-acquisition
 git switch -c docs/5-readme-refresh
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m pip install pytest
+python -m pip install -r requirements-dev.txt
 python -c "import src.main; print('ok')"
 python -m pytest
 python -m src.main prepare --dry-run --help
@@ -362,8 +361,7 @@ In Windows PowerShell, create the environment with `py -3.11 -m venv .venv`
 and activate it with `.\.venv\Scripts\Activate.ps1`; the remaining Python
 commands are the same. The help commands exit before running any pipeline.
 The import, tests and help checks above need no credentials and contact no
-services. Install pytest explicitly: tests exist, but it is not yet included
-in `requirements.txt` (see [#3](https://github.com/uiuc-cube-consulting/project-acquisition/issues/3)).
+services.
 
 **Current integration limits:** `.env.example` is not present on this revision;
 [#4](https://github.com/uiuc-cube-consulting/project-acquisition/issues/4) adds it.
@@ -383,6 +381,28 @@ Coordinate these instructions with #4 and #18 when they merge: use the actual
 example file and verify the new dry-run contract before removing these limits.
 Until then, the credential-free contributor check is the sequence above;
 maintainers handle the integration smoke test below using isolated resources.
+
+### Running tests
+
+The suite in `tests/` runs offline: no `.env`, no credentials, and nothing
+touches Apollo, Gmail, Gemini, or the Sheet.
+
+```bash
+python -m pip install -r requirements-dev.txt  
+pytest                                        
+pytest tests/test_env.py -v                  
+```
+
+Run it from the repo root. `scoring.py` and `template.py` open `config/*.yaml`
+relative to the current directory, so running from inside `tests/` breaks
+them. `pyproject.toml` points pytest at `tests/` and puts the repo root on the
+import path, which is why plain `pytest` can import `src`.
+
+New tests go in `tests/test_<module>.py`, named after the file in `src/` they
+cover, and must keep the suite offline. Set environment variables with
+pytest's `monkeypatch` fixture rather than the real environment, fake network
+clients instead of calling them, and use only made-up `example.com` addresses
+in fixtures.
 
 ### 6. Production: GitHub Actions secrets
 
