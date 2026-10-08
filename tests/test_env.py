@@ -1,7 +1,7 @@
 import pytest
 from src.env import env_str, env_int, env_float, env_flag
 
-MADE_UP_KEY = "TEST_ENV_STR"
+MADE_UP_KEY = "TEST_ENV_KEY"
 
 class TestEnvStr:
     DEFAULT_STR = "N/A"
@@ -17,7 +17,7 @@ class TestEnvStr:
         monkeypatch.setenv(MADE_UP_KEY, "   ")
         assert env_str(MADE_UP_KEY, self.DEFAULT_STR) == self.DEFAULT_STR
 
-    def test_striped_value(self, monkeypatch):
+    def test_stripped_value(self, monkeypatch):
         TEST_VAL_STR = "abc"
         monkeypatch.setenv(MADE_UP_KEY, f" {TEST_VAL_STR} ")
         assert env_str(MADE_UP_KEY, self.DEFAULT_STR) == TEST_VAL_STR
