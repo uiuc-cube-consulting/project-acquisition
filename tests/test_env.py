@@ -1,5 +1,5 @@
 import pytest
-from src.env import env_str, env_int
+from src.env import env_str, env_int, env_float
 
 MADE_UP_KEY = "TEST_ENV_STR"
 
@@ -39,3 +39,19 @@ class TestEnvInt:
         assert env_int(MADE_UP_KEY, self.DEFAULT_INT) == self.DEFAULT_INT
         assert "not an integer" in caplog.text
 
+class TestEnvFloat:
+    DEFAULT_FLOAT = 0.00
+    def test_is_number(self, monkeypatch):
+        TEST_VAL_FLOAT = 15.5
+        monkeypatch.setenv(MADE_UP_KEY, str(TEST_VAL_FLOAT))
+        assert env_float(MADE_UP_KEY, self.DEFAULT_FLOAT) == TEST_VAL_FLOAT
+
+    def test_blank_is_default(self, monkeypatch):
+        monkeypatch.setenv(MADE_UP_KEY, "")
+        assert env_float(MADE_UP_KEY, self.DEFAULT_FLOAT) == self.DEFAULT_FLOAT
+
+    def test_str_is_default_and_warning(self, monkeypatch, caplog):
+        TEST_VAL_STR = "abc"
+        monkeypatch.setenv(MADE_UP_KEY, TEST_VAL_STR)
+        assert env_float(MADE_UP_KEY, self.DEFAULT_FLOAT) == self.DEFAULT_FLOAT
+        assert "not a number" in caplog.text
