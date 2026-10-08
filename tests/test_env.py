@@ -1,5 +1,5 @@
 import pytest
-from src.env import env_str, env_int, env_float
+from src.env import env_str, env_int, env_float, env_flag
 
 MADE_UP_KEY = "TEST_ENV_STR"
 
@@ -55,3 +55,17 @@ class TestEnvFloat:
         monkeypatch.setenv(MADE_UP_KEY, TEST_VAL_STR)
         assert env_float(MADE_UP_KEY, self.DEFAULT_FLOAT) == self.DEFAULT_FLOAT
         assert "not a number" in caplog.text
+
+class TestEnvFlag:
+    @pytest.mark.parametrize("val,exp", [
+        ("1", True), ("true", True), ("yes", True), ("y", True), ("on", True), ("TRUE", True),
+        ("0", False), ("no", False), ("abc", False), ("NO", False)
+        ])
+    def test_confirm_bool(self, monkeypatch, val, exp):
+        monkeypatch.setenv(MADE_UP_KEY, val)
+        assert env_flag(MADE_UP_KEY) is exp
+
+    def test_blank_is_default(self, monkeypatch):
+        monkeypatch.setenv(MADE_UP_KEY, "")
+        assert env_flag(MADE_UP_KEY) is False
+        assert env_flag(MADE_UP_KEY, True) is True
