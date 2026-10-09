@@ -30,7 +30,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
-
+from .campaign import alumni_target_share, campaign_start, target_term
 from .models import LeadStatus
 from .sheets import _truthy
 
@@ -89,9 +89,7 @@ def _top(counter: Counter, n: int) -> list[dict]:
 def _alumni_share_setting() -> float:
     """Mirrors main._alumni_share so the dashboard can show the mix we're
     aiming for next to the mix we're actually getting."""
-    from .env import env_float
-
-    return min(1.0, max(0.0, env_float("ALUMNI_TARGET_SHARE", 0.35)))
+    return alumni_target_share()
 
 
 def campaign_window() -> tuple[str, str]:
@@ -103,12 +101,10 @@ def campaign_window() -> tuple[str, str]:
     dashboard show "how is Spring 2027 going" instead of an all-time average that
     the old cycle dominates.
     """
-    from .env import env_str
-
-    return (
-        env_str("TARGET_TERM", "Spring 2027"),
-        env_str("CAMPAIGN_START", "2026-08-18"),
-    )
+   return (
+    target_term(),
+    campaign_start(),
+)
 
 
 def _campaign_slice(

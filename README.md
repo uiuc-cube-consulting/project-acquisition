@@ -5,8 +5,7 @@ Automates CUBE's weekday client outreach: sources fresh leads, drafts personaliz
 ## Current campaign: Spring 2027
 
 Outreach runs a semester ahead — the Fall 2026 cycle is underway, so these emails
-source projects for **Spring 2027**. These settings define the campaign through
-workflow env values and code defaults (no code change needed to roll to the next term):
+Outreach runs a semester ahead — the Fall 2026 cycle is underway, so these emails source projects for Spring 2027. These settings are defined in config/campaign.yaml, which is the single source of truth for the current campaign. Environment variables can still override them for one-off runs.
 
 | Setting | Value | Effect |
 |---|---|---|

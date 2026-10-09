@@ -60,18 +60,12 @@ jobs:
       # 8 contacts per Gemini call keeps a 40-lead run to ~5 drafting calls,
       # well inside the free tier's daily request quota.
       DRAFT_BATCH_SIZE: "8"
-      # --- Spring 2027 campaign ---
-      # The semester the outreach pitches (appears in the subject and body).
-      TARGET_TERM: "Spring 2027"
-      CAMPAIGN_START: "2026-08-18"
       # Reserve 65% of every batch for NON-alumni discovery. Before quotas, the
       # alumni-first sort took every slot on any day the Alumni tab was full, so
       # founders / Chicago businesses / big tech were never reached at all.
-      ALUMNI_TARGET_SHARE: "0.35"
       DISCOVERY_PROFILES_PER_RUN: "3"
       # Reserve 35% of every batch for big, well-known companies: the named list
       # in config/enterprise_targets.yaml plus large Chicago-HQ firms.
-      ENTERPRISE_TARGET_SHARE: "0.35"
       ENTERPRISE_COMPANIES_PER_RUN: "30"
       # Drafts are written pre-approved; the send job mails them unattended.
       AUTO_APPROVE: "1"

@@ -57,6 +57,7 @@ from .summary import send_daily_summary
 from .template import TemplateRouter
 from .companies import CompanyRegistry, email_domain, normalize_company
 from .env import env_flag, env_float, env_int, env_str
+from .campaign import alumni_target_share, enterprise_target_share
 from .schedule import describe_send_window, in_send_window
 from .templates import unsubscribe_mailto
 
@@ -80,7 +81,7 @@ def _alumni_share() -> float:
     Default 0.35: alumni still convert best, but the whole point of the Spring
     2027 push is breadth — founders, Chicago businesses and big companies. Set ALUMNI_TARGET_SHARE to retune without a code change.
     """
-    return min(1.0, max(0.0, env_float("ALUMNI_TARGET_SHARE", 0.35)))
+    return alumni_target_share()
 
 
 def _auto_approve() -> bool:
@@ -105,7 +106,7 @@ def _enterprise_share() -> float:
     Default 0.35. Without a reserved share the Illinois and startup scoring
     bonuses meant big companies only got through on leftover slots.
     """
-    return min(1.0, max(0.0, env_float("ENTERPRISE_TARGET_SHARE", 0.35)))
+    return enterprise_target_share()
 
 
 def _discovery_profile_count() -> int:
