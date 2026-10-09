@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import os
 
+from .campaign import target_term
 from .env import env_str
 from .models import TemplateType
 
 # The semester these emails are sourcing projects FOR. Outreach runs a semester
 # ahead: we pitch Spring 2027 during the Fall 2026 cycle. One env var flips the
 # whole campaign for the next cycle.
-TARGET_TERM = env_str("TARGET_TERM", "Spring 2027")
+TARGET_TERM = target_term()
 
 DEFAULT_UNSUBSCRIBE_MAILTO = "unsubscribe@cubeconsulting.org"
 
