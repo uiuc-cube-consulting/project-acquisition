@@ -362,41 +362,53 @@ From a fresh clone, in Bash:
 ```bash
 git clone https://github.com/uiuc-cube-consulting/project-acquisition.git
 cd project-acquisition
-git switch -c docs/5-readme-refresh
+git switch -c feat/18-offline-prepare
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 python -c "import src.main; print('ok')"
 python -m pytest
-python -m src.main prepare --dry-run --help
+python -m src.main prepare --dry-run
 python -m src.main send --dry-run --help
 python -m src.main replies --dry-run --help
 ```
 
 In Windows PowerShell, create the environment with `py -3.11 -m venv .venv`
 and activate it with `.\.venv\Scripts\Activate.ps1`; the remaining Python
-commands are the same. The help commands exit before running any pipeline.
-The import, tests and help checks above need no credentials and contact no
-services.
+commands are the same. The send/replies help commands exit before running a
+pipeline. No credentials or `.env` are needed for these checks.
 
-**Current integration limits:** `.env.example` is not present on this revision;
-[#4](https://github.com/uiuc-cube-consulting/project-acquisition/issues/4) adds it.
-Do not run a copy command for a file that is not there. The CLI already loads
-a local `.env` automatically if one exists. No `.env` is needed for the checks
-above, and credentials must stay out of commits.
+Before testing, move any real `.env` out of the repository and its parent
+folders: the CLI's `load_dotenv()` searches upwards. Keep it private and restore
+it afterward. `.env.example` documents available settings; copying it is
+optional and unnecessary for an offline preview. To guarantee offline drafting
+even if a key is already exported, use `GEMINI_API_KEY= python -m src.main prepare --dry-run`
+in Bash, or set `$env:GEMINI_API_KEY = ''` before running the command
+in PowerShell.
 
-[#18](https://github.com/uiuc-cube-consulting/project-acquisition/issues/18)
-tracks credential-free, write-free `prepare --dry-run`. **That behavior is not
-implemented yet:** it constructs `SheetClient`, bootstraps/reads the Sheet,
-then sends fictional fixture details to Gemini for drafting. It avoids live
-Apollo sourcing and returns before appending leads/drafts, but can still
-create tabs or change headers. Without Sheets credentials it fails before
-drafting. Do not point it at production resources.
+`prepare --dry-run` never constructs a Sheet client, bootstraps tabs, reads or
+writes the Sheet, or calls Apollo, Hunter or Gmail. It scores and selects seven
+fictional fixture contacts using the real selection logic and an empty company
+registry. Their addresses use distinct reserved `example.com` subdomains so
+company-domain dedupe can run without treating them all as one employer.
+The fixtures include alumni, non-alumni, a former CUBE member and all four
+industry templates. Enterprise slots have no enterprise fixtures and backfill
+from the other pools. A lower preparation target or different quota settings
+can select fewer fixtures.
 
-Coordinate these instructions with #4 and #18 when they merge: use the actual
-example file and verify the new dry-run contract before removing these limits.
-Until then, the credential-free contributor check is the sequence above;
-maintainers handle the integration smoke test below using isolated resources.
+With `GEMINI_API_KEY` unset or blank, expect an **OFFLINE PREVIEW** banner, a
+selection report (quota, score, template and matched past projects for each
+selected lead), then every selected draft. Templates are filled locally using
+the first name, industry, campaign term and top matched past project; absent
+matches get a generic credibility line. The info-packet link and unsubscribe
+footer remain visible. The preview uses a fictional sender and an explicit
+placeholder when the postal address is unset. Nothing is approved or sent.
+
+If a nonblank Gemini key is present, the same dry run uses the existing Gemini
+drafting path for the fictional contacts; it still never accesses the Sheet
+or live sourcing services. Do not create a personal key to test this issue.
+`send --dry-run` and `replies --dry-run` are not credential-free; maintainers
+handle those integration checks below using isolated test resources.
 
 ### Running tests
 
@@ -457,19 +469,20 @@ complete a controlled integration check before enabling production schedules.
 
 ## Smoke test
 
-Contributors use the credential-free Local test checks. The integration steps
-below require a **maintainer-provisioned test Sheet, a dedicated test mailbox
-and organization-managed test credentials**. Use only fictional contacts such
+Step 1 is the credential-free contributor check described under Local test.
+The remaining integration steps require a **maintainer-provisioned test Sheet,
+a dedicated test mailbox and organization-managed test credentials**. Use only fictional contacts such
 as `Jane Doe` at `you@example.com`; never copy production data into the test
 Sheet, logs, fixtures or PR. The test Sheet needs initialized headers and a
 synthetic approved draft to exercise send preview: prepare's dry run does not
 persist its drafts.
 
 1. Preview preparation with `python -m src.main prepare --dry-run`.
-   It needs Sheets access and Gemini to generate drafts. Expect the fixture
-   sourcing log and up to three printed drafts, depending on filtering and
-   successful model responses. Apollo is skipped. Confirm no lead/draft rows
-   are appended; tabs/headers may still be written by bootstrap.
+   With no `.env` and no exported Gemini key, expect the offline banner,
+   selection report and locally rendered drafts. No credentials are required,
+   no services are contacted, and no Sheet tabs, headers or rows are changed.
+   If a Gemini key is present, only drafting uses that API; the Sheet and live
+   sourcing remain untouched.
 2. Preview sending with `python -m src.main send --dry-run`.
    Set `DAILY_SEND_CAP=1` in the test environment first. Sheets access is
    required, and `GMAIL_ADDRESS`/`GMAIL_APP_PASSWORD` must be set because the

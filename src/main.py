@@ -27,7 +27,9 @@ Commands, and the GitHub Actions workflows that run them:
   stats    — refresh the Sheet's Dashboard tab
   bootstrap— create the Sheet tabs + headers
 
-`prepare` and `send` accept --dry-run for safe local smoke testing.
+`prepare --dry-run` uses fictional leads and never accesses Sheets or sourcing
+services. Without GEMINI_API_KEY it renders templates offline; with a key it
+uses Gemini. `send --dry-run` still requires Sheets and sender settings.
 """
 from __future__ import annotations
 
@@ -40,7 +42,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 from .dashboard import write_dashboard
-from .draft import draft_for_leads, org_address_configured
+from .draft import draft_for_leads, draft_offline_for_leads, org_address_configured
 from .follow_up import prepare_follow_ups
 from .models import Lead, LeadStatus
 from .past_projects import PastProjectIndex
@@ -305,8 +307,9 @@ def cmd_prepare(dry_run: bool, force: bool = False) -> int:
         return 1
 
     target = env_int("DAILY_PREPARE_TARGET", 15)
-    sheets = SheetClient()
-    sheets.bootstrap()
+    sheets = None if dry_run else SheetClient()
+    if not dry_run:
+        sheets.bootstrap()
 
     # The workflow fires at several slots a day because GitHub's cron runs
     # hours late; only the first one that gets through drafts (schedule.py).
@@ -319,16 +322,19 @@ def cmd_prepare(dry_run: bool, force: bool = False) -> int:
             )
             return 0
 
-    suppression = sheets.get_suppression_emails()
-    known = sheets.get_known_emails()
-    known_li = sheets.get_known_linkedins()
-    contacted = sheets.get_contacted_dates()
+    suppression = set() if dry_run else sheets.get_suppression_emails()
+    known = set() if dry_run else sheets.get_known_emails()
+    known_li = set() if dry_run else sheets.get_known_linkedins()
+    contacted = {} if dry_run else sheets.get_contacted_dates()
     # One company, one conversation: every company already in Leads (or listed
     # by hand on the Companies tab) is off the table. See companies.py.
-    companies = CompanyRegistry.from_rows(
-        sheets.book.worksheet("Leads").get_all_records(),
-        sheets.fetch_company_rows(),
-    ) if _company_dedupe() else None
+    if dry_run:
+        companies = CompanyRegistry()
+    else:
+        companies = CompanyRegistry.from_rows(
+            sheets.book.worksheet("Leads").get_all_records(),
+            sheets.fetch_company_rows(),
+        ) if _company_dedupe() else None
     if companies is not None:
         log.info("Company dedupe on: %d companies already contacted", len(companies))
     scorer = Scorer()
@@ -534,13 +540,22 @@ def cmd_prepare(dry_run: bool, force: bool = False) -> int:
     if hunter is not None:
         log.info("Hunter: %d emails found, %d credits used", hunter.found, hunter.credits_used)
 
-    sender_name, sender_phone = _sender_identity()
+    sender_name, sender_phone = ("Jane Doe", "202-555-0100") if dry_run else _sender_identity()
 
     # 4) Draft
     pairs = []
     if top:
         router = TemplateRouter()
-        pairs = draft_for_leads(top, router, past_index, sender_name, sender_phone)
+        offline = dry_run and not env_str("GEMINI_API_KEY", "")
+        if dry_run:
+            print("\n[OFFLINE PREVIEW] Local templates; no Gemini calls." if offline else
+                  "\n[DRY RUN] Gemini preview of fictional leads; no Sheet access.")
+            _print_selection_report(
+                [("alumni", alumni_picked), ("enterprise", enterprise_picked),
+                 ("discovery (non-alumni)", discovery_picked)], router, past_index,
+            )
+        draft_leads = draft_offline_for_leads if offline else draft_for_leads
+        pairs = draft_leads(top, router, past_index, sender_name, sender_phone)
         log.info("Generated %d drafts", len(pairs))
         # Every lead here already cost an Apollo credit to reveal, so a drafting
         # shortfall is wasted spend, not just a smaller batch. Say so loudly.
@@ -555,7 +570,9 @@ def cmd_prepare(dry_run: bool, force: bool = False) -> int:
         log.info("No new leads to draft today (follow-ups may still be due)")
 
     if dry_run:
-        for lead, draft in pairs[:3]:
+        if not top:
+            print("\nSelection report: no fixture leads selected.")
+        for lead, draft in pairs:
             print(f"\n---\nTO: {lead.email}\nSUBJECT: {draft.subject}\n\n{draft.body}\n")
         return 0
 
@@ -783,17 +800,33 @@ def cmd_report(out_dir: str, open_browser: bool) -> int:
 
 # ---------------- dry-run fixture ----------------
 
+def _print_selection_report(groups, router, past_index) -> None:
+    """Explain the real selector's choices before displaying preview drafts."""
+    print("Selection report:")
+    for quota, leads in groups:
+        for lead in leads:
+            template = router.route(lead.industry).value
+            if lead.is_cube_member:
+                template = f"cube_member ({template})"
+            query = f"{lead.industry or ''} {lead.title or ''} {lead.company or ''}"
+            matches = past_index.top_matches(query, k=2)
+            projects = "; ".join(f"{p.client} ({p.semester})" for p in matches) or "none"
+            print(f"  {lead.name}: quota={quota}; score={lead.score:.2f}; "
+                  f"template={template}; projects={projects}")
+
+
 def _dry_run_fixture_leads():
     """A handful of fake leads so `prepare --dry-run` works without Apollo."""
     from .models import Lead
     # Fictional people only — this repo is public, so fixtures must never name
-    # real contacts or link real LinkedIn profiles.
+    # real contacts or link real LinkedIn profiles. Each company uses a distinct
+    # reserved example.com subdomain so company-domain dedupe stays exercised.
     return [
         Lead(
             name="Jordan Example",
             title="Managing Director",
             company="Example Health Systems",
-            email="jordan.example@example.com",
+            email="jordan.example@health.example.com",
             industry="Healthcare",
             location="Chicago, Illinois",
             is_uiuc_alum=True,
@@ -804,20 +837,57 @@ def _dry_run_fixture_leads():
             name="Casey Sample",
             title="Managing Partner",
             company="Sample Ventures",
-            email="casey.sample@example.com",
+            email="casey.sample@ventures.example.com",
             industry="Venture Capital",
             location="Chicago, Illinois",
             is_uiuc_alum=True,
+            is_cube_member=True,
             source="fixture",
         ),
         Lead(
             name="Riley Placeholder",
             title="CEO & Founder",
             company="Placeholder Software",
-            email="riley.placeholder@example.com",
+            email="riley.placeholder@software.example.com",
             industry="Computer Software",
             location="San Francisco, CA",
             is_uiuc_alum=True,
+            source="fixture",
+        ),
+        Lead(
+            name="Avery Demo",
+            title="Founder",
+            company="Demo Mobile Studio",
+            email="avery.demo@mobile.example.com",
+            industry="Mobile SaaS",
+            location="Chicago, Illinois",
+            source="fixture",
+        ),
+        Lead(
+            name="Morgan Fiction",
+            title="Director of Engineering",
+            company="Fiction Robotics",
+            email="morgan.fiction@robotics.example.com",
+            industry="Robotics",
+            location="Champaign, Illinois",
+            source="fixture",
+        ),
+        Lead(
+            name="Taylor Placeholder",
+            title="Managing Director",
+            company="Placeholder Finance",
+            email="taylor.placeholder@finance.example.com",
+            industry="Financial Services",
+            location="Chicago, Illinois",
+            source="fixture",
+        ),
+        Lead(
+            name="Jamie Sample",
+            title="Founder",
+            company="Sample Cloud Tools",
+            email="jamie.sample@cloud.example.com",
+            industry="Computer Software",
+            location="Austin, Texas",
             source="fixture",
         ),
     ]

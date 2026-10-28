@@ -39,8 +39,11 @@ def test_blackout_exits_before_clients(command, day, reason, guarded_clients, mo
     assert "--force" in caplog.text
 
 
-@pytest.mark.parametrize("command", [main.cmd_prepare, main.cmd_send])
-@pytest.mark.parametrize("dry_run,force", [(False, True), (True, False)])
+@pytest.mark.parametrize("command,dry_run,force", [
+    (main.cmd_prepare, False, True),
+    (main.cmd_send, False, True),
+    (main.cmd_send, True, False),
+])
 def test_force_and_dry_run_bypass_blackout(command, dry_run, force, guarded_clients):
     with pytest.raises(ReachedClients):
         command(dry_run=dry_run, force=force)

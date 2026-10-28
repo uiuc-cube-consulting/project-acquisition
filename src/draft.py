@@ -336,3 +336,40 @@ def draft_for_leads(
 
     return [(lead, drafts[lead.email.lower()])
             for lead, _, _ in items if lead.email.lower() in drafts]
+
+
+def draft_offline_for_leads(
+    leads: Iterable[Lead],
+    template_router,
+    past_index,
+    sender_name: str,
+    sender_phone: str,
+) -> list[tuple[Lead, Draft]]:
+    """Render preview templates locally, without constructing a Gemini client.
+
+    Only cmd_prepare's dry-run branch uses this helper. Missing project matches
+    get a generic line rather than an invented client or deliverable.
+    """
+    footer = make_footer()
+    pairs = []
+    for lead in leads:
+        template_type = template_router.route(lead.industry)
+        template = CUBE_MEMBER if lead.is_cube_member else TEMPLATES[template_type]
+        query = f"{lead.industry or ''} {lead.title or ''} {lead.company or ''}"
+        matches = past_index.top_matches(query, k=2)
+        credibility = (f"Our consultants have completed a project for {matches[0].client}."
+                       if matches else
+                       "CUBE brings together students across business and engineering.")
+        body = template.format(
+            contact_name=lead.first_name(), company=lead.company,
+            industry=lead.industry or "your industry", credibility_line=credibility,
+            term=TARGET_TERM, your_name=sender_name, your_number=sender_phone,
+        )
+        pairs.append((lead, Draft(
+            lead_email=lead.email,
+            prepared_at=datetime.now(timezone.utc),
+            template_used=template_type,
+            subject=SUBJECT_TEMPLATE.format(company=lead.company, term=TARGET_TERM),
+            body=body + _packet_line() + footer,
+        )))
+    return pairs
