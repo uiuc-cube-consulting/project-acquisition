@@ -165,16 +165,17 @@ class _Selector:
         if slots <= 0:
             return picked
         idx = self._cursors.get(id(queue), 0)
-        while len(picked) < slots and idx < len(queue) and self.reveals < self.budget:
+        while len(picked) < slots and idx < len(queue):
             # Size each batch to what we still need (+2 for ones that get
-            # filtered out), capped at 10 per call and by the remaining budget.
-            batch = max(1, min(10, (slots - len(picked)) + 2, self.budget - self.reveals))
+            # filtered out), capped at 10 per call. Only actual reveal calls
+            # consume the budget; known emails and cached results remain usable.
+            batch = min(10, (slots - len(picked)) + 2)
             window = queue[idx:idx + batch]
-            idx += batch
             self._reveal(window)
             for it in window:
                 if len(picked) >= slots:
                     break
+                idx += 1  # leave unused window entries for quota backfill
                 lead = it if isinstance(it, Lead) else self.revealed.get(id(it))
                 if lead is None:
                     continue  # no email revealed
@@ -221,6 +222,7 @@ class _Selector:
             if key:
                 batch_seen.add(key)
             to_reveal.append(it)
+        to_reveal = to_reveal[:max(0, self.budget - self.reveals)]
         if not to_reveal:
             return
         results: list[Lead | None] = []
@@ -285,6 +287,21 @@ class _Selector:
 
 
 # ---------------- prepare ----------------
+
+def _select_quotas(selector, alumni_queue, enterprise_queue, discovery_queue,
+                   target, alumni_slots, enterprise_slots):
+    """Fill quotas, then hand unused slots to the remaining contactable pools."""
+    alumni = selector.take(alumni_queue, alumni_slots)
+    enterprise = selector.take(enterprise_queue, enterprise_slots)
+    discovery = selector.take(discovery_queue, target - len(alumni) - len(enterprise))
+    short = target - len(alumni) - len(enterprise) - len(discovery)
+    if short > 0:
+        enterprise += selector.take(enterprise_queue, short)
+    short = target - len(alumni) - len(enterprise) - len(discovery)
+    if short > 0:
+        alumni += selector.take(alumni_queue, short)
+    return alumni, enterprise, discovery
+
 
 def cmd_prepare(dry_run: bool, force: bool = False) -> int:
     if not dry_run and not force:
@@ -503,19 +520,14 @@ def cmd_prepare(dry_run: bool, force: bool = False) -> int:
     )
     # Whichever pool runs short hands its unused slots to the other, so a thin
     # alumni bench never costs us total volume.
-    alumni_picked = selector.take(alumni_queue, alumni_slots)
-    enterprise_picked = selector.take(enterprise_queue, enterprise_slots)
-    discovery_picked = selector.take(
-        discovery_queue, target - len(alumni_picked) - len(enterprise_picked)
+    alumni_picked, enterprise_picked, discovery_picked = _select_quotas(
+        selector, alumni_queue, enterprise_queue, discovery_queue,
+        target, alumni_slots, enterprise_slots,
     )
 
     def short() -> int:
         return target - len(alumni_picked) - len(enterprise_picked) - len(discovery_picked)
 
-    if short() > 0:
-        enterprise_picked += selector.take(enterprise_queue, short())
-    if short() > 0:
-        alumni_picked += selector.take(alumni_queue, short())
     # Apollo couldn't reveal emails (no credits, or a plan without the API):
     # fill what's left from the big-company list via Hunter's Domain Search,
     # which returns people and their emails together.
