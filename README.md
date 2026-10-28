@@ -177,6 +177,32 @@ reply-delay histogram. Its measure selector switches between human and positive
 reply rates; every heatmap cell shows its send count, with small samples greyed
 out. The page's data-table toggle exposes the full timing counts and rates.
 
+To preview the dashboard with a few hundred fictional `example.com` contacts,
+run this from the repository root (after activating your Python environment):
+
+```bash
+python -m src.report_fixture --open
+```
+
+This writes `index.html` and aggregate `data.json` to a new temporary folder
+and opens the HTML at the timing section in your default browser. It needs no
+credentials, does not load `.env`, and never reads Sheets or contacts outreach
+services. The preview is prominently labeled synthetic; its patterns are
+invented and provide no evidence for changing the send window.
+
+Omit `--open` to print the file path without launching a browser. For a stable
+output location, a different fixture seed, or another sample threshold:
+
+```bash
+python -m src.report_fixture --out-dir /tmp/reply-timing-preview --seed 36 --min-sends 10
+```
+
+Re-running with the same seed produces the same input rows (the report's
+generation timestamp still updates). Reusing an output folder replaces its
+preview files; output inside the published `dashboard/` directory is rejected.
+Fixtures include automatic replies, bounces, follow-ups, incomplete sentiment,
+empty and small samples, DST weeks, an early-morning reply, and invalid times.
+
 It answers the questions worth asking about the pipeline:
 
 | Metric | What it means |

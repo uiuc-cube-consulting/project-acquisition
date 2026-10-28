@@ -190,3 +190,27 @@ def test_compute_adds_same_pure_timing_metrics():
     result = compute(leads, [], [], reply_timing_min_sends=1)
     assert result["reply_timing"] == reply_timing(leads, min_sends=1)
     assert result["reply_timing"]["totals"]["positive_reply_rate"] == 1
+
+
+def test_repeated_fall_dst_hour_combines_sends_without_losing_elapsed_time():
+    leads = [
+        timing_lead(0, sent_at="2026-11-01T01:15:00-05:00",
+                    replied_at="2026-11-01T01:45:00-06:00"),
+        timing_lead(1, sent_at="2026-11-01T01:15:00-06:00",
+                    replied_at="2026-11-01T02:45:00-06:00"),
+    ]
+    result = reply_timing(leads)
+    assert timing_cell(result, 6, 1)["sent"] == 2
+    assert result["time_to_first_reply"]["median_seconds"] == 5400
+
+
+@pytest.mark.parametrize("classification", ["neutral", "negative", "unsubscribe"])
+def test_fully_classified_zero_positive_rate_differs_from_unavailable(classification):
+    leads = [timing_lead(i) for i in range(10)]
+    replies = [{"lead_email": "person0@example.com", "category": "human",
+                "received_at": "2026-10-06T15:00:00Z", "classification": classification}]
+    result = reply_timing(leads, replies=replies)
+    cell = timing_cell(result)
+    assert cell["positive_rate_available"]
+    assert cell["positive_reply_rate"] == 0
+    assert cell["classification_coverage"] == 1
