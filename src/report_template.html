@@ -302,6 +302,11 @@ footer code { font-size: 12px; background: var(--surface-1); border: 1px solid v
       <p class="note">Reply rate is measured against delivered mail, so a source is not punished for addresses that bounced — the bounce rate column carries that separately.</p>
       <div class="always-table" id="segmentTable"></div>
     </section>
+    <section class="card">
+      <h3>Bounces by Apollo email status</h3>
+      <p class="note">How sure Apollo was of each address when it gave it to us. "unknown" covers leads from before we recorded this and leads that came with an email already.</p>
+      <div class="always-table" id="emailStatusTable"></div>
+    </section>
   </div>
 
   <div class="grid two" style="margin-top:16px">
@@ -891,6 +896,10 @@ function renderCharts() {
     ]);
   });
   renderTable(seg, ["Source", "Sent", "Delivered", "Bounced", "Bounce rate", "Replies", "Reply rate"], rows);
+
+  renderTable(document.getElementById("emailStatusTable"),
+    ["Email status", "Sent", "Bounced", "Bounce rate"],
+    M.reply.by_email_status.map(s => [s.label, num(s.sent), num(s.bounced), pct(s.bounce_rate)]));
 
   /* --- industries --- */
   const inds = M.mix.industries.map(i => ({ label: i.label, value: i.count, tip: [`${num(i.count)} people emailed`] }));

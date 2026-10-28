@@ -208,6 +208,9 @@ def compute(
 
     alum_flag = {e: _truthy(l.get("is_uiuc_alum")) for e, l in lead_by_email.items()}
     source_of = {e: (_s(l, "source") or "unknown") for e, l in lead_by_email.items()}
+    # Blank for rows from before the column existed and for leads that arrived
+    # with an email already (Prospects tab), so Apollo never rated them.
+    email_status_of = {e: (_s(l, "email_status") or "unknown") for e, l in lead_by_email.items()}
 
     def responded(l: dict) -> bool:
         return _s(l, "status") in RESPONSE_STATUSES or bool(_s(l, "replied_at"))
@@ -434,6 +437,7 @@ def compute(
         ]
 
     by_source = segment_rows(lambda e: source_of.get(e, "unknown"))
+    by_email_status = segment_rows(lambda e: email_status_of.get(e, "unknown"))
     by_audience = segment_rows(
         lambda e: "UIUC alumni" if alum_flag.get(e) else "Non-alumni"
     )
@@ -553,6 +557,7 @@ def compute(
             ],
             "by_audience": by_audience,
             "by_source": by_source,
+            "by_email_status": by_email_status,
         },
         "deliverability": {
             "sent": len(contacted),

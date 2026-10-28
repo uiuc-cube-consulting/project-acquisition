@@ -5,7 +5,9 @@ No network: the client's session.post is replaced with a fake that answers by
 """
 import pytest
 
-from src.sourcing.apollo import ApolloClient, ApolloRevealError, bulk_reveal, candidate_from_contact
+from src.sourcing.apollo import (
+    ApolloClient, ApolloRevealError, _to_lead, bulk_reveal, candidate_from_contact,
+)
 
 CREDITS = (422, '{"error":"insufficient credits"}')
 FREE_PLAN = (403, '{"error":"not included in your Free plan","error_code":"API_INACCESSIBLE"}')
@@ -133,3 +135,18 @@ def test_failed_lookup_does_not_mark_alumni_not_found(monkeypatch):
     assert selector.take(queue, slots=2) == []
     assert sheets.written == {}
     assert selector.reveal_failed and selector.reveals == 0
+
+
+def test_email_status_is_kept():
+    lead = _to_lead({**person("ada@acme.com"), "email_status": "verified"}, source="test")
+    assert lead.email_status == "verified"
+
+
+def test_missing_email_status_is_none():
+    lead = _to_lead(person("ada@acme.com"), source="test")
+    assert lead.email_status is None
+
+
+def test_locked_email_still_skipped():
+    locked = {**person("email_not_unlocked@domain.com"), "email_status": "verified"}
+    assert _to_lead(locked, source="test") is None
