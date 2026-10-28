@@ -25,6 +25,8 @@ jobs:
       SHEET_ID: ${{ secrets.SHEET_ID }}
       GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      # Where the replies step sends hot-lead alerts.
+      DIGEST_RECIPIENT: ${{ secrets.DIGEST_RECIPIENT }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

@@ -50,7 +50,7 @@ DRAFTS_HEADERS = [
 
 HOT_LEADS_HEADERS = [
     "flagged_at", "name", "company", "email", "linkedin",
-    "reply_excerpt", "thread_link",
+    "reply_excerpt", "thread_link", "owner", "next_step",
 ]
 
 SUPPRESSION_HEADERS = ["email", "added_at", "reason"]
@@ -527,20 +527,30 @@ class SheetClient:
 
     # ---------------- Hot leads / Suppression ----------------
 
-    def append_hot_lead(
-        self,
-        name: str,
-        company: str,
-        email: str,
-        linkedin: str | None,
-        reply_excerpt: str,
-        thread_link: str,
-    ) -> None:
-        ws = self.book.worksheet("Hot Leads")
-        ws.append_row(
-            [_now_iso(), name, company, email, linkedin or "", reply_excerpt[:500], thread_link],
-            value_input_option="USER_ENTERED",
-        )
+    def add_hot_leads(self, entries: Iterable[dict]) -> list[dict]:
+        """Append the entries whose email isn't on `Hot Leads` yet, in one read
+        and one write. Returns the entries that were added.
+
+        Append-only, so `owner` and `next_step` (filled in by the board) are
+        never overwritten.
+        """
+        ws = self._ensure_tab("Hot Leads")
+        col = HOT_LEADS_HEADERS.index("email") + 1
+        existing = {e.strip().lower() for e in ws.col_values(col)[1:]}
+        added = []
+        for e in entries:
+            key = str(e.get("email") or "").strip().lower()
+            if not key or key in existing:
+                continue
+            existing.add(key)
+            added.append(e)
+        if added:
+            ws.append_rows(
+                [[_now_iso() if h == "flagged_at" else e.get(h, "") for h in HOT_LEADS_HEADERS]
+                 for e in added],
+                value_input_option="USER_ENTERED",
+            )
+        return added
 
     def add_suppression(self, email: str, reason: str) -> None:
         ws = self.book.worksheet("Suppression")

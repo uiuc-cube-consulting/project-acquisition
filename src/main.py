@@ -762,8 +762,9 @@ def cmd_send(dry_run: bool, force: bool = False) -> int:
 def cmd_replies(dry_run: bool, since: str | None, classify: bool) -> int:
     """Read the sending mailbox and record what came back.
 
-    Read-only on the mailbox; writes the `Replies` tab and the matching
-    `status` / `replied_at` cells on Leads.
+    Read-only on the mailbox; writes the `Replies` tab, the matching
+    `status` / `replied_at` cells on Leads, and new positive replies to
+    `Hot Leads` (emailing the board about them).
     """
     from datetime import date
 
