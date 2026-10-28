@@ -1,0 +1,9 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint]
+# Core error checks only (Ruff's classic defaults), so new Ruff releases don't
+# suddenly fail CI. E741 (variables named `l`) is common here and harmless.
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E741"]

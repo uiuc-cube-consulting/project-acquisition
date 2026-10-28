@@ -8,7 +8,6 @@ it sends — same gate as initial outreach.
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timezone
 
 from .draft import Drafter, make_footer

@@ -12,7 +12,6 @@ edit only the salutation, the credibility line, and the industry mention.
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timezone
 from typing import Iterable
 
@@ -26,6 +25,7 @@ from .templates import (
     TARGET_TERM,
     TEMPLATES,
     render_footer,
+    unsubscribe_mailto,
 )
 
 log = logging.getLogger(__name__)
@@ -287,9 +287,7 @@ def make_footer() -> str:
         # address or unsubscribe address on real outreach is a compliance
         # problem, so they must never degrade to "".
         address=env_str("ORG_PHYSICAL_ADDRESS", ORG_ADDRESS_PLACEHOLDER),
-        unsubscribe_mailto=env_str(
-            "UNSUBSCRIBE_MAILTO", "unsubscribe@cubeconsulting.org"
-        ),
+        unsubscribe_mailto=unsubscribe_mailto(),
     )
 
 

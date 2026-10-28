@@ -5,8 +5,11 @@ Automates CUBE's weekday client outreach: sources fresh leads, drafts personaliz
 ## Current campaign: Spring 2027
 
 Outreach runs a semester ahead — the Fall 2026 cycle is underway, so these emails
-source projects for **Spring 2027**. These settings define the campaign through
-workflow env values and code defaults (no code change needed to roll to the next term):
+source projects for **Spring 2027**. `TARGET_TERM`, `CAMPAIGN_START`,
+`ALUMNI_TARGET_SHARE` and `ENTERPRISE_TARGET_SHARE` live in
+[config/campaign.yaml](config/campaign.yaml), the single source of truth for the
+current campaign; an environment variable of the same name still overrides it
+for one-off runs. The other settings below are workflow env values:
 
 | Setting | Value | Effect |
 |---|---|---|
@@ -107,8 +110,9 @@ A drafting shortfall now logs at ERROR and is recorded in the `Runs` tab's
 
 The checked-in workflows currently read credentials, sender/footer settings,
 summary recipients, `DAILY_PREPARE_TARGET` and `DAILY_SEND_CAP` from GitHub
-Actions secrets. Campaign settings such as `TARGET_TERM`, `ALUMNI_TARGET_SHARE`,
-`ENTERPRISE_TARGET_SHARE` and `AUTO_APPROVE` are workflow literals;
+Actions secrets. Campaign settings (`TARGET_TERM`, `CAMPAIGN_START`,
+`ALUMNI_TARGET_SHARE`, `ENTERPRISE_TARGET_SHARE`) come from
+`config/campaign.yaml`; `AUTO_APPROVE` is a workflow literal;
 `PACKET_URL` uses its code default. See the [production settings table](#6-production-github-actions-secrets).
 
 The maintainer confirmed that `DAILY_PREPARE_TARGET` and `DAILY_SEND_CAP`
@@ -277,6 +281,18 @@ reveal an email; enrichment spends credits. Reveals happen near selection, with
 a budget of twice `DAILY_PREPARE_TARGET`, so failed lookups and exclusions can
 make credit use exceed the final number of drafts.
 
+If `APOLLO2_API_KEY` is also set, the client switches to it for the rest of the
+run once `APOLLO_API_KEY` returns "insufficient credits".
+
+When Apollo can't reveal emails at all, `HUNTER_API_KEY` (Hunter.io) takes
+over where it can (see [src/sourcing/hunter.py](src/sourcing/hunter.py)):
+Alumni tab rows go through Hunter's Email Finder, and the remaining slots are
+filled from `config/enterprise_targets.yaml` via Domain Search. Hunter can't
+look up Apollo discovery leads, because Apollo's search hides their last
+names. Each run spends only its share of the credits left in Hunter's billing
+cycle (capped by `HUNTER_MAX_CREDITS_PER_RUN`), and emails below
+`HUNTER_MIN_SCORE` (default 70) are skipped to protect the bounce rate.
+
 Apollo does not identify UIUC alumni by school. See [Who we email](#who-we-email)
 and [config/search_profiles.yaml](config/search_profiles.yaml) for targeting.
 Without an Apollo key, preparation uses Sheet sources with existing emails;
@@ -349,8 +365,7 @@ cd project-acquisition
 git switch -c docs/5-readme-refresh
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m pip install pytest
+python -m pip install -r requirements-dev.txt
 python -c "import src.main; print('ok')"
 python -m pytest
 python -m src.main prepare --dry-run --help
@@ -362,8 +377,7 @@ In Windows PowerShell, create the environment with `py -3.11 -m venv .venv`
 and activate it with `.\.venv\Scripts\Activate.ps1`; the remaining Python
 commands are the same. The help commands exit before running any pipeline.
 The import, tests and help checks above need no credentials and contact no
-services. Install pytest explicitly: tests exist, but it is not yet included
-in `requirements.txt` (see [#3](https://github.com/uiuc-cube-consulting/project-acquisition/issues/3)).
+services.
 
 **Current integration limits:** `.env.example` is not present on this revision;
 [#4](https://github.com/uiuc-cube-consulting/project-acquisition/issues/4) adds it.
@@ -384,6 +398,28 @@ example file and verify the new dry-run contract before removing these limits.
 Until then, the credential-free contributor check is the sequence above;
 maintainers handle the integration smoke test below using isolated resources.
 
+### Running tests
+
+The suite in `tests/` runs offline: no `.env`, no credentials, and nothing
+touches Apollo, Gmail, Gemini, or the Sheet.
+
+```bash
+python -m pip install -r requirements-dev.txt  
+pytest                                        
+pytest tests/test_env.py -v                  
+```
+
+Run it from the repo root. `scoring.py` and `template.py` open `config/*.yaml`
+relative to the current directory, so running from inside `tests/` breaks
+them. `pyproject.toml` points pytest at `tests/` and puts the repo root on the
+import path, which is why plain `pytest` can import `src`.
+
+New tests go in `tests/test_<module>.py`, named after the file in `src/` they
+cover, and must keep the suite offline. Set environment variables with
+pytest's `monkeypatch` fixture rather than the real environment, fake network
+clients instead of calling them, and use only made-up `example.com` addresses
+in fixtures.
+
 ### 6. Production: GitHub Actions secrets
 
 Maintainers configure repository secrets under Settings → Secrets and
@@ -395,6 +431,8 @@ changed by this documentation update.
 | Secret | Purpose / example |
 |---|---|
 | `APOLLO_API_KEY` | Organization's Apollo key |
+| `APOLLO2_API_KEY` | Optional fallback Apollo key, used once the first is out of credits |
+| `HUNTER_API_KEY` | Optional Hunter.io key, used when Apollo can't reveal emails |
 | `GEMINI_API_KEY` | Organization's Gemini key |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Service-account JSON for Sheets |
 | `SHEET_ID` | Outreach workbook ID |
@@ -483,7 +521,7 @@ persist its drafts.
 | Batch size / daily send cap | Repository secrets `DAILY_PREPARE_TARGET` / `DAILY_SEND_CAP`, defaults 15 / 10. Change the secrets currently referenced by the workflows; there is no literal `DAILY_SEND_CAP: "10"` to edit |
 | SMTP spacing | `SEND_INTERVAL_SECONDS` in `send.yml`, currently 30 seconds |
 | Manual review | `AUTO_APPROVE` in `prepare.yml`; 1 auto-approves new initial drafts, 0 leaves them unchecked |
-| Audience mix | `ALUMNI_TARGET_SHARE` and `ENTERPRISE_TARGET_SHARE` in `prepare.yml`. Alumni and enterprise slots are rounded; general discovery gets the remainder. Keep dashboard campaign settings aligned |
+| Audience mix | `alumni_target_share` and `enterprise_target_share` in [config/campaign.yaml](config/campaign.yaml). Alumni and enterprise slots are rounded; general discovery gets the remainder |
 | Apollo rotation | `DISCOVERY_PROFILES_PER_RUN` and [config/search_profiles.yaml](config/search_profiles.yaml); breadth profiles rotate, enterprise-tier profiles run each time when the enterprise share is positive |
 | Named enterprise searches | [config/enterprise_targets.yaml](config/enterprise_targets.yaml) and `ENTERPRISE_COMPANIES_PER_RUN`, currently 12 |
 | Ranking | [config/scoring.yaml](config/scoring.yaml); scoring weights do not replace audience quotas |
@@ -491,7 +529,7 @@ persist its drafts.
 | Templates / routing | [src/templates.py](src/templates.py) and [config/industry_template_map.yaml](config/industry_template_map.yaml) |
 | Gemini models | Repository variables `GEMINI_DRAFT_MODEL` / `GEMINI_CLASSIFY_MODEL`; unset uses the code defaults `gemini-2.5-flash` / `gemini-3.5-flash-lite` |
 | Gemini batching / pacing | `DRAFT_BATCH_SIZE` (default 5) and `GEMINI_MIN_INTERVAL_SECONDS` (default 12.5); add workflow env overrides if needed. Missing batch drafts are retried individually |
-| Campaign / packet | `TARGET_TERM`, `CAMPAIGN_START` and optional `PACKET_URL`; keep campaign settings consistent across workflows |
+| Campaign / packet | `target_term` and `campaign_start` in [config/campaign.yaml](config/campaign.yaml), and optional `PACKET_URL` |
 
 Keep the volume caps in repository secrets, as confirmed by the maintainer.
 

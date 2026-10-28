@@ -25,11 +25,6 @@ jobs:
       SHEET_ID: ${{ secrets.SHEET_ID }}
       GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-      # Campaign framing for the dashboard's Spring 2027 section. Keep these in
-      # step with the prepare workflow.
-      TARGET_TERM: "Spring 2027"
-      CAMPAIGN_START: "2026-08-18"
-      ALUMNI_TARGET_SHARE: "0.35"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

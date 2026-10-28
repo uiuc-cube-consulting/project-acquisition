@@ -141,6 +141,10 @@ class SheetClient:
                 ws = self.book.worksheet(tab)
             current_headers = ws.row_values(1)
             if current_headers != headers:
+                # Tabs were created exactly as wide as their headers, and a
+                # header write past the last column fails with a grid error.
+                if ws.col_count < len(headers):
+                    ws.add_cols(len(headers) - ws.col_count)
                 ws.update("A1", [headers])
         # Drop "Sheet1" default if present
         if "Sheet1" in existing and len(existing) > 1:
@@ -455,6 +459,20 @@ class SheetClient:
             if str(lead.get("sent_at", "")).strip() and lead.get("email"):
                 out.add(str(lead["email"]).strip().lower())
         return out
+
+    def drafts_activity_today(self) -> tuple[int, int]:
+        """(initial drafts prepared, emails sent) so far today, Central time.
+        Lets the several daily cron slots run `prepare` once and cap `send`
+        per day — see schedule.py."""
+        from .schedule import is_today_ct
+
+        prepared = sent = 0
+        for d in self.book.worksheet("Drafts").get_all_records():
+            if is_today_ct(d.get("prepared_at")) and not _truthy(d.get("is_follow_up")):
+                prepared += 1
+            if is_today_ct(d.get("sent_at")):
+                sent += 1
+        return prepared, sent
 
     def list_approved_pending(self) -> list[tuple[int, Draft]]:
         """Returns (sheet_row_index, draft) for unsent, approved rows."""

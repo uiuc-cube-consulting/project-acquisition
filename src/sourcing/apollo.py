@@ -20,7 +20,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import requests
 import yaml
@@ -55,17 +55,73 @@ def _is_uiuc(schools: Iterable[str]) -> bool:
     return False
 
 
+# Tried in order: when the current key's account runs out of credits, the client
+# switches to the next one for the rest of the run.
+API_KEY_ENVS = ("APOLLO_API_KEY", "APOLLO2_API_KEY")
+
+
+def configured_api_keys() -> list[tuple[str, str]]:
+    """(env var name, key) for each Apollo key that is actually set. Stripped so
+    a missing GitHub secret (exported as "") counts as unset."""
+    keys = [(n, os.environ.get(n, "").strip()) for n in API_KEY_ENVS]
+    return [(n, k) for n, k in keys if k]
+
+
+class ApolloRevealError(RuntimeError):
+    """An email lookup failed outright (plan, auth, credits), as opposed to
+    Apollo answering that it has no match. Callers must not record the people
+    in a failed lookup as NOT_FOUND. `done` holds the results that did come
+    back before the failure, aligned to the start of the request."""
+
+    def __init__(self, message: str, done: list | None = None) -> None:
+        super().__init__(message)
+        self.done = done or []
+
+
+def _api_inaccessible(r: requests.Response) -> bool:
+    # Free plans get 403 API_INACCESSIBLE on bulk_match, but can still use the
+    # single-person people/match endpoint.
+    return r.status_code == 403 and "API_INACCESSIBLE" in r.text
+
+
+def _out_of_credits(r: requests.Response) -> bool:
+    # Apollo reports an exhausted plan as 422 "insufficient credits" (sometimes 402).
+    return r.status_code == 402 or (r.status_code == 422 and "credit" in r.text.lower())
+
+
 class ApolloClient:
     def __init__(self, api_key: str | None = None) -> None:
-        self.api_key = api_key or os.environ["APOLLO_API_KEY"]
+        self.api_keys = [("api_key", api_key)] if api_key else configured_api_keys()
+        if not self.api_keys:
+            raise KeyError("APOLLO_API_KEY")
+        # Keys (by index) whose plan doesn't include bulk_match.
+        self._bulk_blocked: set[int] = set()
         self.session = requests.Session()
         self.session.headers.update(
             {
                 "Cache-Control": "no-cache",
                 "Content-Type": "application/json",
-                "X-Api-Key": self.api_key,
             }
         )
+        self._use_key(0)
+
+    def _use_key(self, idx: int) -> None:
+        self._key_idx = idx
+        self.key_name, self.api_key = self.api_keys[idx]
+        self.session.headers["X-Api-Key"] = self.api_key
+
+    def _post(self, path: str, **kwargs: Any) -> requests.Response:
+        """POST, failing over to the next configured key when the current
+        account is out of credits. Nothing is charged on a credit failure, so
+        retrying the same request on the fallback key is safe."""
+        while True:
+            r = self.session.post(f"{APOLLO_BASE}/{path}", **kwargs)
+            if not _out_of_credits(r) or self._key_idx + 1 >= len(self.api_keys):
+                return r
+            prev = self.key_name
+            self._use_key(self._key_idx + 1)
+            log.warning("Apollo key %s is out of credits (%s); switching to %s",
+                        prev, r.status_code, self.key_name)
 
     def search_people(self, params: dict[str, Any]) -> list[dict[str, Any]]:
         # People Search API (api_search): filters go in the query string; list
@@ -77,7 +133,7 @@ class ApolloClient:
                 query[f"{k}[]"] = list(v)
             else:
                 query[k] = v
-        r = self.session.post(f"{APOLLO_BASE}/mixed_people/api_search", params=query, timeout=30)
+        r = self._post("mixed_people/api_search", params=query, timeout=30)
         r.raise_for_status()
         return r.json().get("people", [])
 
@@ -87,6 +143,10 @@ class ApolloClient:
         """Reveal emails for up to 10 people in one call (Apollo Bulk People
         Enrichment, /people/bulk_match). Costs 1 credit per matched person.
         Returns enriched person dicts aligned to `people` (None where no match).
+        Raises ApolloRevealError if the lookup itself fails.
+
+        Falls back to one people/match call per person when the current key's
+        plan doesn't include bulk_match (Apollo's Free plan). Same credit cost.
 
         reveal_personal_emails defaults to False — work emails are what we want
         for B2B outreach, and personal reveals can draw a separate credit pool.
@@ -103,12 +163,28 @@ class ApolloClient:
                     "last_name": p.get("last_name"),
                     "organization_name": (p.get("organization") or {}).get("name"),
                 })
-        payload = {"reveal_personal_emails": reveal_personal_emails, "details": details}
-        r = self.session.post(f"{APOLLO_BASE}/people/bulk_match", json=payload, timeout=60)
-        if r.status_code != 200:
-            log.warning("Apollo bulk_match failed (%s): %s", r.status_code, r.text[:300])
-            return [None] * len(people)
-        return r.json().get("matches", [None] * len(people))
+        if self._key_idx not in self._bulk_blocked:
+            payload = {"reveal_personal_emails": reveal_personal_emails, "details": details}
+            r = self._post("people/bulk_match", json=payload, timeout=60)
+            if r.status_code == 200:
+                return r.json().get("matches", [None] * len(people))
+            if not _api_inaccessible(r):
+                raise ApolloRevealError(f"bulk_match failed ({r.status_code}): {r.text[:300]}")
+            log.warning("Apollo bulk_match isn't on %s's plan; looking people up one at a time",
+                        self.key_name)
+            self._bulk_blocked.add(self._key_idx)
+
+        matches: list[dict[str, Any] | None] = []
+        for d in details:
+            params = {k: v for k, v in d.items() if v}
+            params["reveal_personal_emails"] = str(reveal_personal_emails).lower()
+            r = self._post("people/match", params=params, timeout=30)
+            if r.status_code != 200:
+                raise ApolloRevealError(
+                    f"people/match failed ({r.status_code}): {r.text[:300]}", done=matches
+                )
+            matches.append(r.json().get("person"))
+        return matches
 
 
 def _to_lead(
@@ -263,6 +339,39 @@ def search_candidates(
     return [_to_candidate(p, profile) for p in people[:max_results]]
 
 
+def search_fresh_candidates(
+    client: ApolloClient,
+    profile: dict[str, Any],
+    is_fresh: Callable[[Candidate], bool],
+    want: int,
+    max_pages: int = 10,
+) -> list[Candidate]:
+    """Search only (no credit spend), paging until `want` fresh candidates.
+
+    Apollo ranks a profile the same way every day, so after months of runs
+    page 1 is almost entirely people at companies we already emailed (measured
+    2026-10-06: 0-6 usable of 50 per profile, vs ~40 on each of pages 2-6).
+    Searching is free, so go deeper rather than let the batch come up short.
+    Stops early on a short page (end of results).
+    """
+    params = dict(profile["params"])
+    per_page = int(params.get("per_page", 50))
+    fresh: list[Candidate] = []
+    pages = 0
+    for page in range(1, max(1, max_pages) + 1):
+        params["page"] = page
+        people = client.search_people(params)
+        pages = page
+        fresh.extend(c for c in (_to_candidate(p, profile) for p in people) if is_fresh(c))
+        if len(fresh) >= want or len(people) < per_page:
+            break
+    log.info(
+        "Apollo profile %s: %d fresh candidates from %d page(s)",
+        profile["name"], len(fresh), pages,
+    )
+    return fresh
+
+
 def candidate_from_contact(
     *,
     name: str,
@@ -301,17 +410,28 @@ def candidate_from_contact(
 
 def bulk_reveal(client: ApolloClient, candidates: list[Candidate]) -> list[Lead | None]:
     """Reveal emails for candidates via Apollo bulk_match (10 per call, 1 credit
-    per matched person). Returns Lead|None aligned to `candidates`."""
+    per matched person). Returns Lead|None aligned to `candidates`.
+
+    Raises ApolloRevealError if a lookup fails; its `done` then holds the leads
+    resolved before the failure, aligned to the start of `candidates`."""
     out: list[Lead | None] = []
-    for i in range(0, len(candidates), 10):
-        chunk = candidates[i:i + 10]
-        # reveal_personal_emails=True maximizes hit rate: _best_email still prefers
-        # the work email, falling back to a personal one only when no work email exists.
-        matches = client.bulk_match([c.person for c in chunk], reveal_personal_emails=True)
+
+    def add(chunk: list[Candidate], matches: list) -> None:
         for cand, person in zip(chunk, matches):
             out.append(
                 _to_lead(person, source=cand.source, assume_uiuc=cand.is_uiuc_alum,
                          is_cube_member=cand.is_cube_member)
                 if person else None
             )
+
+    for i in range(0, len(candidates), 10):
+        chunk = candidates[i:i + 10]
+        # reveal_personal_emails=True maximizes hit rate: _best_email still prefers
+        # the work email, falling back to a personal one only when no work email exists.
+        try:
+            matches = client.bulk_match([c.person for c in chunk], reveal_personal_emails=True)
+        except ApolloRevealError as exc:
+            add(chunk, exc.done)
+            raise ApolloRevealError(str(exc), done=out) from exc
+        add(chunk, matches)
     return out

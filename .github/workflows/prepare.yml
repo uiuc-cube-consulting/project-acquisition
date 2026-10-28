@@ -1,13 +1,25 @@
 name: prepare
 
-# Runs Mon-Fri at 06:00 CT (11:00 UTC during CST, 12:00 UTC during CDT)
-# We pick 12:00 UTC so the job lands at 6am during winter / 7am during summer.
-# Tighten this if you want to handle DST more precisely.
+# GitHub's cron is best-effort: since Sept 2026 runs have started 4-8 hours
+# late (12:00 UTC fired at 17:00-20:00 UTC). So this fires at three early slots
+# (10:17 / 12:17 / 14:17 UTC = 5:17 / 7:17 / 9:17 am CDT, an hour earlier in
+# CST). Whichever starts first drafts the day's batch; the rest see it and exit
+# (src/schedule.py). Off the top of the hour, where GitHub's queue is busiest.
 
 on:
   schedule:
-    - cron: "0 12 * * 1-5"
+    - cron: "17 10,12,14 * * 1-5"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Prepare another batch even if today's already exists"
+        type: boolean
+        default: false
+
+# Never two prepares at once (two slots can start together after a long delay).
+concurrency:
+  group: prepare
+  cancel-in-progress: false
 
 jobs:
   prepare:
@@ -19,6 +31,11 @@ jobs:
     timeout-minutes: 45
     env:
       APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+      # Fallback account, used once APOLLO_API_KEY runs out of credits.
+      APOLLO2_API_KEY: ${{ secrets.APOLLO2_API_KEY }}
+      # Email lookups when Apollo can't reveal: Alumni tab rows and the
+      # big-company list (see src/sourcing/hunter.py).
+      HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       # Which Gemini model writes the emails. A repository variable, not a
       # secret: it is not a credential, and Google retires models, so swapping
@@ -39,20 +56,19 @@ jobs:
       UNSUBSCRIBE_MAILTO: ${{ secrets.UNSUBSCRIBE_MAILTO }}
       SENDER_NAME: ${{ secrets.SENDER_NAME }}
       SENDER_PHONE: ${{ secrets.SENDER_PHONE }}
-      DAILY_PREPARE_TARGET: ${{ secrets.DAILY_PREPARE_TARGET }}
-      # --- Spring 2027 campaign ---
-      # The semester the outreach pitches (appears in the subject and body).
-      TARGET_TERM: "Spring 2027"
-      CAMPAIGN_START: "2026-08-18"
-      # Reserve 65% of every batch for NON-alumni discovery. Before quotas, the
-      # alumni-first sort took every slot on any day the Alumni tab was full, so
-      # founders / Chicago businesses / big tech were never reached at all.
-      ALUMNI_TARGET_SHARE: "0.35"
+      # Leads drafted per run. A workflow literal, not a secret, so the volume is
+      # visible and reviewable. Raised 15 -> 40 on 2026-10-06 to reach companies
+      # while Q1 budgets are being set.
+      DAILY_PREPARE_TARGET: "40"
+      # Apollo reveals (credits) allowed per run = target x this.
+      REVEAL_BUDGET_PER_LEAD: "2"
+      # 8 contacts per Gemini call keeps a 40-lead run to ~5 drafting calls,
+      # well inside the free tier's daily request quota.
+      DRAFT_BATCH_SIZE: "8"
+      # Audience shares (alumni / enterprise) live in config/campaign.yaml.
       DISCOVERY_PROFILES_PER_RUN: "3"
-      # Reserve 35% of every batch for big, well-known companies: the named list
-      # in config/enterprise_targets.yaml plus large Chicago-HQ firms.
-      ENTERPRISE_TARGET_SHARE: "0.35"
-      ENTERPRISE_COMPANIES_PER_RUN: "12"
+      # Named companies from config/enterprise_targets.yaml to search per run.
+      ENTERPRISE_COMPANIES_PER_RUN: "30"
       # Drafts are written pre-approved; the send job mails them unattended.
       AUTO_APPROVE: "1"
     steps:
@@ -62,4 +78,4 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: python -m src.main prepare
+      - run: python -m src.main prepare ${{ inputs.force && '--force' || '' }}
