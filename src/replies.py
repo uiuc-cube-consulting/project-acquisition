@@ -39,6 +39,7 @@ from datetime import date, datetime, timedelta, timezone
 from email.header import decode_header, make_header
 from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
+from urllib.parse import quote
 
 from .env import env_str
 from .models import LeadStatus, ReplyClass
@@ -110,6 +111,7 @@ class ReplyRecord:
     bounce_reason: str = ""
     classification: str = ""
     classification_reason: str = ""
+    message_id: str = ""  # the reply's own Message-ID, for linking to it in Gmail
 
 
 @dataclass
@@ -262,6 +264,7 @@ def classify_message(
         subject=subject[:200],
         snippet=_quoted_stripped(body)[:600],
         from_email=from_email,
+        message_id=(msg.get("Message-ID") or "").strip(),
     )
 
 
@@ -448,12 +451,43 @@ def dedupe(records: list[ReplyRecord]) -> list[ReplyRecord]:
     return sorted(best.values(), key=lambda r: r.received_at)
 
 
+def gmail_link(message_id: str) -> str:
+    """A link that opens the message in the sending account's Gmail."""
+    if not message_id:
+        return ""
+    return f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{quote(message_id.strip('<>'))}"
+
+
+def _hot_lead_entries(records: list[ReplyRecord], leads: list[dict]) -> list[dict]:
+    """A Hot Leads entry for every positive reply. `new_hot_leads` drops the
+    ones already on the tab."""
+    lead_by_email = {str(l.get("email", "")).strip().lower(): l for l in leads}
+    entries = []
+    for r in records:
+        if r.category != HUMAN or r.classification != ReplyClass.POSITIVE.value:
+            continue
+        lead = lead_by_email.get(r.lead_email, {})
+        entries.append({
+            "name": str(lead.get("name", "")).strip(),
+            "company": str(lead.get("company", "")).strip(),
+            "email": r.lead_email,
+            "linkedin": str(lead.get("linkedin", "")).strip(),
+            "reply_excerpt": r.snippet[:500],
+            "thread_link": gmail_link(r.message_id),
+            "reason": r.classification_reason,
+        })
+    return entries
+
+
 def sync_replies(sheets, *, since: date | None = None, classify: bool = True,
-                 dry_run: bool = False) -> dict:
+                 dry_run: bool = False, sender=None) -> dict:
     """Scan the mailbox, then persist what came back to the Sheet.
 
     Writes the `Replies` tab (rebuilt each run — it's derived data) and updates
-    each matched lead's `status` / `replied_at` on the `Leads` tab.
+    each matched lead's `status` / `replied_at` on the `Leads` tab. Positive
+    replies not yet on `Hot Leads` are added there, and the board gets one email
+    listing them. Since only newly added rows are announced, a lead is announced
+    once, ever.
     """
     drafts = sheets.book.worksheet("Drafts").get_all_records()
     leads = sheets.book.worksheet("Leads").get_all_records()
@@ -532,6 +566,16 @@ def sync_replies(sheets, *, since: date | None = None, classify: bool = True,
             continue
     changed = sheets.bulk_update_leads(updates)
     log.info("Updated %d lead rows from inbox scan", changed)
+
+    new_hot = sheets.new_hot_leads(_hot_lead_entries(records, leads))
+    if new_hot:
+        from .summary import send_hot_lead_alert
+
+        # Alert before writing: the tab is what marks a lead as announced, so a
+        # failed send leaves it off and the next scan tries again.
+        send_hot_lead_alert(new_hot, sheet_id=sheets.sheet_id, sender=sender)
+        sheets.append_hot_leads(new_hot)
+    log.info("Added %d new hot leads", len(new_hot))
     return _summary(records, scan)
 
 

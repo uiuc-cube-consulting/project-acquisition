@@ -260,11 +260,13 @@ separately when metrics are refreshed, bringing the total to ten.
 | `Companies` | Company names/domains excluded during preparation |
 | `Replies` | Inbox scan results, one row per person per category; rebuilt on a live scan |
 | `Runs` | Preparation sourcing, reveal and draft counts |
-| `Hot Leads` | Legacy tab still created by bootstrap; the current pipeline does not populate it |
+| `Hot Leads` | One row per positive reply, added by the inbox scan; `owner` and `next_step` are for the board |
 | `Dashboard` | Aggregate Sheet metrics, written separately |
 
 There is no `Approvals` entry in `TAB_HEADERS`; approval uses `Drafts.approved`.
-Positive replies set `Leads.status` to `hot` and appear in `Replies`.
+Positive replies set `Leads.status` to `hot`, appear in `Replies`, and are added
+to `Hot Leads` once. Each scan that adds any sends one email listing them to
+`DIGEST_RECIPIENT` (or `GMAIL_ADDRESS`), with a link to each reply in Gmail.
 
 ## One-time setup
 
@@ -496,7 +498,7 @@ persist its drafts.
    credentials and reads the test Sheet. It prints matched results without
    writing reply/status rows. `--no-classify` skips Gemini; `--dry-run` alone
    does not skip classification. With no matching test messages, zero matches
-   is expected. It never creates a `Hot Leads` row.
+   is expected. It never creates a `Hot Leads` row or sends an alert.
 4. **Maintainer-only final live check:** in an isolated test configuration,
    initialize tabs with `bootstrap`, prepare a small controlled batch, verify
    `Drafts.approved`, send to a maintainer-controlled test recipient, and reply
