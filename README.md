@@ -156,6 +156,27 @@ straight from `dashboard/`. It contains aggregate numbers and company names
 only: no contact names, no email addresses. `dashboard/data.json` holds the same
 figures for anything else you want to build.
 
+The JSON also includes `reply_timing`: all-history reply rates by Central-time
+weekday, hour, and weekday × hour, plus elapsed time to the first human reply.
+Each recipient counts once at their earliest initial send. Recipients with a
+sent follow-up are excluded entirely; bounces leave the delivered denominator,
+and automatic replies never count as human replies. Exclusion counts are
+included. The timing cohort can therefore differ from the headline metrics.
+
+`REPLY_TIMING_MIN_SENDS` controls the timing data's small-sample flag (default
+10, minimum 1). Pure Python callers can pass `min_sends` to
+`metrics.reply_timing()` or `reply_timing_min_sends` to `metrics.compute()`.
+Positive-reply rates require that many sends, at least one human reply, and
+complete classification of the bucket's human replies; otherwise the rate is
+unknown. Latency buckets are <1h, 1–<4h, 4–<24h, 1–<3 days, and 3+ days,
+including nights and weekends. Recent sends have had less time to get replies,
+and excluding follow-up recipients can bias comparisons; these descriptive
+figures alone do not establish that changing send time improves reply rates.
+The report displays a weekday × hour heatmap, weekday/hour summaries, and a
+reply-delay histogram. Its measure selector switches between human and positive
+reply rates; every heatmap cell shows its send count, with small samples greyed
+out. The page's data-table toggle exposes the full timing counts and rates.
+
 It answers the questions worth asking about the pipeline:
 
 | Metric | What it means |

@@ -28,11 +28,14 @@ A note on the two rates people ask about most:
 from __future__ import annotations
 
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
+from statistics import median
 
 from .campaign import alumni_target_share, campaign_start, target_term
+from .env import env_int
 from .models import LeadStatus
+from .schedule import CENTRAL
 from .sheets import _truthy
 
 # Lead statuses that mean the recipient came back to us in some way.
@@ -183,6 +186,146 @@ def _clean_error(text: str) -> str:
 
 # ---------------- the computation ----------------
 
+def reply_timing(
+    leads: list[dict],
+    drafts: list[dict] | None = None,
+    replies: list[dict] | None = None,
+    *,
+    min_sends: int = 10,
+) -> dict:
+    """All-history initial-outreach timing; pure, aggregate-only output.
+
+    Leads-only calls support manually recorded replies. Drafts supply first-send
+    history and follow-up exclusions; Replies supply categories and sentiment.
+    Any sent follow-up excludes the recipient entirely (including sends from
+    the denominator), avoiding attribution of a follow-up reply to the initial
+    email. This conservative cohort can differ from the headline dashboard.
+
+    Rates use delivered mail. Positive rates require at least ``min_sends``
+    sends, a human reply, and classification of every human reply in the bucket.
+    Missing classification is unknown, never a negative reply. Timestamps without
+    an offset follow the existing parser's UTC convention. Durations use UTC,
+    while weekday/hour grouping uses America/Chicago, including DST.
+    """
+    if type(min_sends) is not int or min_sends < 1:
+        raise ValueError("min_sends must be a positive integer")
+
+    lead_rows, draft_rows, reply_rows = defaultdict(list), defaultdict(list), defaultdict(list)
+    missing_email = 0
+    for row in leads:
+        email = _s(row, "email").lower()
+        if email:
+            lead_rows[email].append(row)
+        else:
+            missing_email += 1
+    for rows, grouped in ((drafts or [], draft_rows), (replies or [], reply_rows)):
+        for row in rows:
+            email = _s(row, "lead_email").lower()
+            if email:
+                grouped[email].append(row)
+
+    def timestamps(rows: list[dict], key: str) -> list[datetime]:
+        return [dt.astimezone(timezone.utc) for row in rows
+                if (dt := _parse_dt(_s(row, key))) is not None]
+
+    excluded = {"missing_email_rows": missing_email, "follow_up_recipients": 0,
+                "invalid_send_recipients": 0, "unsent_recipients": 0,
+                "missing_reply_timestamps": 0, "negative_reply_delays": 0}
+    cohort = []
+    delays = []
+    for email in sorted(lead_rows.keys() | draft_rows.keys()):
+        ls, ds, rs = lead_rows[email], draft_rows[email], reply_rows[email]
+        if (any(_truthy(d.get("is_follow_up")) and _s(d, "sent_at") for d in ds)
+                or any(_s(l, "last_follow_up_at")
+                       or _s(l, "status") == LeadStatus.FOLLOWED_UP.value for l in ls)):
+            excluded["follow_up_recipients"] += 1
+            continue
+        initial = [d for d in ds if not _truthy(d.get("is_follow_up"))]
+        sends = timestamps(ls + initial, "sent_at")
+        if not sends:
+            reason = ("invalid_send_recipients" if any(_s(r, "sent_at") for r in ls + initial)
+                      else "unsent_recipients")
+            excluded[reason] += 1
+            continue
+        sent_at = min(sends)
+        human_rows = [r for r in rs if _s(r, "category") == "human"]
+        # An explicit mailbox category overrides stale/manual status fields.
+        manual_reply = any(_s(l, "status") in RESPONSE_STATUSES or _s(l, "replied_at") for l in ls)
+        replied = bool(human_rows) or (not rs and manual_reply)
+        bounced = not replied and (any(_s(r, "category") == "bounce" for r in rs)
+                                  or any(_s(l, "status") == LeadStatus.BOUNCED.value for l in ls))
+        positive = classified = False
+        if replied:
+            # Use the first human reply's classification, not a later message's.
+            first_human = min(human_rows, key=lambda r: min(
+                timestamps([r], "received_at"), default=datetime.max.replace(tzinfo=timezone.utc)
+            ), default={})
+            classification = _s(first_human, "classification")
+            positive = classification == "positive" or any(
+                _s(l, "status") == LeadStatus.HOT.value for l in ls
+            )
+            classified = positive or classification in {"neutral", "negative", "unsubscribe"}
+            reply_times = timestamps(human_rows, "received_at") or timestamps(ls, "replied_at")
+            if not reply_times:
+                excluded["missing_reply_timestamps"] += 1
+            else:
+                seconds = (min(reply_times) - sent_at).total_seconds()
+                if seconds < 0:
+                    excluded["negative_reply_delays"] += 1
+                else:
+                    delays.append(seconds)
+        local = sent_at.astimezone(CENTRAL)
+        cohort.append({"weekday": local.weekday(), "hour": local.hour,
+                       "sent_at": sent_at, "bounced": bounced, "replied": replied,
+                       "positive": positive, "classified": classified})
+
+    def summary(members: list[dict]) -> dict:
+        sent = len(members)
+        bounced = sum(r["bounced"] for r in members)
+        delivered = sent - bounced
+        responded = sum(r["replied"] for r in members)
+        classified = sum(r["classified"] for r in members)
+        positive = sum(r["positive"] for r in members)
+        available = sent >= min_sends and responded > 0 and classified == responded
+        return {"sent": sent, "delivered": delivered, "bounced": bounced,
+                "replies": responded, "reply_rate": _rate(responded, delivered),
+                "positive_replies": positive, "classified_replies": classified,
+                "classification_coverage": _rate(classified, responded),
+                "positive_reply_rate": _rate(positive, delivered) if available else None,
+                "positive_rate_available": available, "low_sample": sent < min_sends}
+
+    weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    by_weekday = [{"weekday": day, "label": label,
+                   **summary([r for r in cohort if r["weekday"] == day])}
+                  for day, label in enumerate(weekdays)]
+    by_hour = [{"hour": hour, "label": f"{hour:02d}:00–{hour + 1:02d}:00",
+                **summary([r for r in cohort if r["hour"] == hour])} for hour in range(24)]
+    # Keep the normal Mon–Fri, 08:00–16:00 window, plus any observed exceptions.
+    heatmap_days = sorted(set(range(5)) | {r["weekday"] for r in cohort})
+    heatmap_hours = sorted(set(range(8, 16)) | {r["hour"] for r in cohort})
+    cells = [{"weekday": day, "hour": hour,
+              **summary([r for r in cohort if r["weekday"] == day and r["hour"] == hour])}
+             for day in heatmap_days for hour in heatmap_hours]
+    bounds = [3600, 4 * 3600, 24 * 3600, 72 * 3600]
+    counts = Counter(sum(seconds >= bound for bound in bounds) for seconds in delays)
+    labels = ["<1h", "1–<4h", "4–<24h", "1–<3 days", "3+ days"]
+    send_times = [r["sent_at"] for r in cohort]
+    return {
+        "timezone": "America/Chicago", "scope": "all_history_initial_only",
+        "min_sends": min_sends, "totals": summary(cohort), "excluded": excluded,
+        "first_send": min(send_times).astimezone(CENTRAL).isoformat() if send_times else None,
+        "last_send": max(send_times).astimezone(CENTRAL).isoformat() if send_times else None,
+        "by_weekday": by_weekday, "by_hour": by_hour,
+        "heatmap": {"weekdays": heatmap_days, "hours": heatmap_hours, "cells": cells},
+        "time_to_first_reply": {
+            "n": len(delays), "median_seconds": median(delays) if delays else None,
+            "histogram": [{"label": label, "count": counts[i],
+                           "share": _rate(counts[i], len(delays))}
+                          for i, label in enumerate(labels)],
+        },
+    }
+
+
 def compute(
     leads: list[dict],
     drafts: list[dict],
@@ -192,6 +335,7 @@ def compute(
     runs: list[dict] | None = None,
     replies: list[dict] | None = None,
     daily_target: int = 15,
+    reply_timing_min_sends: int = 10,
 ) -> dict:
     suppression = suppression or []
     hot_leads = hot_leads or []
@@ -520,6 +664,7 @@ def compute(
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "campaign": campaign,
+        "reply_timing": reply_timing(leads, drafts, replies, min_sends=reply_timing_min_sends),
         "window": {
             "first_send": first_send.isoformat() if first_send else None,
             "last_send": last_send.isoformat() if last_send else None,
@@ -621,4 +766,5 @@ def collect(sheets, daily_target: int = 15) -> dict:
         runs=rows("Runs"),
         replies=rows("Replies"),
         daily_target=daily_target,
+        reply_timing_min_sends=max(1, env_int("REPLY_TIMING_MIN_SENDS", 10)),
     )
