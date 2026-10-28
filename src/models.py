@@ -40,6 +40,7 @@ class Lead(BaseModel):
     title: Optional[str] = None
     company: str
     email: EmailStr
+    email_status: Optional[str] = None  # from Apollo enrichment, e.g. "verified"
     linkedin: Optional[str] = None
     industry: Optional[str] = None
     location: Optional[str] = None

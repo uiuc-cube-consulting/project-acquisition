@@ -39,7 +39,7 @@ LEADS_HEADERS = [
     "date_added", "name", "title", "company", "email", "linkedin",
     "industry", "location", "company_stage", "is_uiuc_alum", "schools",
     "source", "score", "status", "sent_at", "replied_at",
-    "last_follow_up_at", "thread_id", "message_id",
+    "last_follow_up_at", "thread_id", "message_id", "email_status",
 ]
 
 DRAFTS_HEADERS = [
@@ -545,7 +545,7 @@ def _lead_to_row(l: Lead) -> list:
         l.sent_at.isoformat(timespec="seconds") if l.sent_at else "",
         l.replied_at.isoformat(timespec="seconds") if l.replied_at else "",
         l.last_follow_up_at.isoformat(timespec="seconds") if l.last_follow_up_at else "",
-        l.thread_id or "", l.message_id or "",
+        l.thread_id or "", l.message_id or "", l.email_status or "",
     ]
 
 

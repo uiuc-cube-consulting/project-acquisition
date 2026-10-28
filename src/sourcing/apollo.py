@@ -134,6 +134,7 @@ def _to_lead(
         title=person.get("title"),
         company=org.get("name") or "",
         email=email,
+        email_status=person.get("email_status"),
         linkedin=person.get("linkedin_url"),
         industry=industry,
         location=location,
