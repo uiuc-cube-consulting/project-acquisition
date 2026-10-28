@@ -459,7 +459,7 @@ def gmail_link(message_id: str) -> str:
 
 
 def _hot_lead_entries(records: list[ReplyRecord], leads: list[dict]) -> list[dict]:
-    """A Hot Leads entry for every positive reply. `add_hot_leads` drops the
+    """A Hot Leads entry for every positive reply. `new_hot_leads` drops the
     ones already on the tab."""
     lead_by_email = {str(l.get("email", "")).strip().lower(): l for l in leads}
     entries = []
@@ -567,11 +567,14 @@ def sync_replies(sheets, *, since: date | None = None, classify: bool = True,
     changed = sheets.bulk_update_leads(updates)
     log.info("Updated %d lead rows from inbox scan", changed)
 
-    new_hot = sheets.add_hot_leads(_hot_lead_entries(records, leads))
+    new_hot = sheets.new_hot_leads(_hot_lead_entries(records, leads))
     if new_hot:
         from .summary import send_hot_lead_alert
 
+        # Alert before writing: the tab is what marks a lead as announced, so a
+        # failed send leaves it off and the next scan tries again.
         send_hot_lead_alert(new_hot, sheet_id=sheets.sheet_id, sender=sender)
+        sheets.append_hot_leads(new_hot)
     log.info("Added %d new hot leads", len(new_hot))
     return _summary(records, scan)
 

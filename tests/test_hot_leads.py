@@ -41,7 +41,7 @@ class FakeBook:
 
 
 class FakeSheets(SheetClient):
-    """The real add_hot_leads over in-memory tabs; the other writes are recorded."""
+    """The real hot-lead methods over in-memory tabs; the other writes are recorded."""
 
     def __init__(self):
         self.sheet_id = "test-sheet"
@@ -151,3 +151,16 @@ def test_dry_run_writes_and_sends_nothing(run):
     assert sheets.hot_rows == []
     assert sheets.replies_written is None
     assert sender.sent == []
+
+
+def test_failed_alert_is_retried_next_scan(run):
+    sheets, sender, scan = run
+    sender.send = lambda **kw: (_ for _ in ()).throw(RuntimeError("SMTP down"))
+    with pytest.raises(RuntimeError):
+        scan(reply("pat@example.com", "positive", "abc123"))
+    assert sheets.hot_rows == []
+
+    del sender.send  # back to the recording method
+    scan(reply("pat@example.com", "positive", "abc123"))
+    assert len(sheets.hot_rows) == 1
+    assert len(sender.sent) == 1
