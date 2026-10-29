@@ -191,7 +191,7 @@ def reply_timing(
     drafts: list[dict] | None = None,
     replies: list[dict] | None = None,
     *,
-    min_sends: int = 10,
+    min_sends: int = 30,
 ) -> dict:
     """All-history initial-outreach timing; pure, aggregate-only output.
 
@@ -346,7 +346,7 @@ def compute(
     runs: list[dict] | None = None,
     replies: list[dict] | None = None,
     daily_target: int = 15,
-    reply_timing_min_sends: int = 10,
+    reply_timing_min_sends: int = 30,
 ) -> dict:
     suppression = suppression or []
     hot_leads = hot_leads or []
@@ -777,5 +777,5 @@ def collect(sheets, daily_target: int = 15) -> dict:
         runs=rows("Runs"),
         replies=rows("Replies"),
         daily_target=daily_target,
-        reply_timing_min_sends=max(1, env_int("REPLY_TIMING_MIN_SENDS", 10)),
+        reply_timing_min_sends=max(1, env_int("REPLY_TIMING_MIN_SENDS", 30)),
     )

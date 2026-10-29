@@ -127,7 +127,7 @@ def test_timing_mailbox_categories_override_stale_lead_status():
 
 
 def test_timing_first_human_reply_and_positive_classification_coverage():
-    leads = [timing_lead(i) for i in range(10)]
+    leads = [timing_lead(i) for i in range(30)]
     replies = [
         {"lead_email": "person0@example.com", "category": "human",
          "received_at": "2026-10-07T14:00:00Z", "classification": "negative"},
@@ -144,18 +144,18 @@ def test_timing_first_human_reply_and_positive_classification_coverage():
     assert result["time_to_first_reply"]["median_seconds"] == 5400
     replies[-1]["classification"] = "neutral"
     cell = timing_cell(reply_timing(leads, replies=replies))
-    assert cell["positive_reply_rate"] == 0.1
+    assert cell["positive_reply_rate"] == pytest.approx(1 / 30)
     assert cell["positive_rate_available"]
 
 
 def test_timing_small_sample_threshold_is_configurable_and_hot_is_positive():
-    leads = [timing_lead(i) for i in range(10)]
+    leads = [timing_lead(i) for i in range(30)]
     leads[0]["status"] = "hot"
-    assert timing_cell(reply_timing(leads[:9]))["low_sample"]
+    assert timing_cell(reply_timing(leads[:29]))["low_sample"]
     cell = timing_cell(reply_timing(leads))
     assert not cell["low_sample"]
-    assert cell["positive_reply_rate"] == 0.1
-    assert timing_cell(reply_timing(leads, min_sends=11))["positive_reply_rate"] is None
+    assert cell["positive_reply_rate"] == pytest.approx(1 / 30)
+    assert timing_cell(reply_timing(leads, min_sends=31))["positive_reply_rate"] is None
     assert not timing_cell(reply_timing(leads[:9], min_sends=5))["low_sample"]
     for threshold in [0, -1, 2.5, True]:
         with pytest.raises(ValueError, match="positive integer"):
@@ -206,7 +206,7 @@ def test_repeated_fall_dst_hour_combines_sends_without_losing_elapsed_time():
 
 @pytest.mark.parametrize("classification", ["neutral", "negative", "unsubscribe"])
 def test_fully_classified_zero_positive_rate_differs_from_unavailable(classification):
-    leads = [timing_lead(i) for i in range(10)]
+    leads = [timing_lead(i) for i in range(30)]
     replies = [{"lead_email": "person0@example.com", "category": "human",
                 "received_at": "2026-10-06T15:00:00Z", "classification": classification}]
     result = reply_timing(leads, replies=replies)

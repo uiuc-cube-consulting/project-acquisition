@@ -168,7 +168,7 @@ across Leads and Replies; Lead timestamps matching known automatic replies
 are excluded from that calculation.
 
 `REPLY_TIMING_MIN_SENDS` controls the timing data's small-sample flag (default
-10, minimum 1). Pure Python callers can pass `min_sends` to
+30, minimum 1). Pure Python callers can pass `min_sends` to
 `metrics.reply_timing()` or `reply_timing_min_sends` to `metrics.compute()`.
 Positive-reply rates require that many sends, at least one human reply, and
 complete classification of the bucket's human replies; otherwise the rate is
@@ -198,7 +198,7 @@ Omit `--open` to print the file path without launching a browser. For a stable
 output location, a different fixture seed, or another sample threshold:
 
 ```bash
-python -m src.report_fixture --out-dir /tmp/reply-timing-preview --seed 36 --min-sends 10
+python -m src.report_fixture --out-dir /tmp/reply-timing-preview --seed 36 --min-sends 30
 ```
 
 Re-running with the same seed produces the same input rows (the report's

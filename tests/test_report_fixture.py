@@ -35,7 +35,7 @@ def test_fixture_is_reproducible_fresh_and_uses_only_example_addresses():
 def test_fixture_exercises_chart_states_and_counts_reconcile():
     rows = report_fixture.generate_fixture_rows()
     original = deepcopy(rows)
-    timing = reply_timing(**rows)
+    timing = reply_timing(**rows, min_sends=10)
     assert rows == original
     totals = timing["totals"]
     assert totals["sent"] == sum(c["sent"] for c in timing["heatmap"]["cells"])
@@ -90,6 +90,7 @@ def test_preview_default_uses_a_temporary_directory(tmp_path, monkeypatch):
     path = report_fixture.build_fixture_report()
     assert path == tmp_path / "preview" / "index.html"
     assert path.exists()
+    assert json.loads((path.parent / "data.json").read_text())["reply_timing"]["min_sends"] == 30
 
 
 @pytest.mark.parametrize("suffix", ["", "nested-preview"])

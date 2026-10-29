@@ -95,7 +95,7 @@ def generate_fixture_rows(seed: int = 36) -> dict[str, list[dict]]:
 
 
 def build_fixture_report(
-    out_dir: str | Path | None = None, *, seed: int = 36, min_sends: int = 10,
+    out_dir: str | Path | None = None, *, seed: int = 36, min_sends: int = 30,
 ) -> Path:
     """Write labeled synthetic HTML and aggregate JSON, outside dashboard/."""
     out = Path(out_dir) if out_dir is not None else Path(mkdtemp(prefix="reply-timing-preview-"))
@@ -121,7 +121,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, help="Output directory; defaults to a new temporary folder")
     parser.add_argument("--seed", type=int, default=36, help="Fixture seed (default: 36)")
-    parser.add_argument("--min-sends", type=int, default=10, help="Small-sample threshold (default: 10)")
+    parser.add_argument("--min-sends", type=int, default=30, help="Small-sample threshold (default: 30)")
     parser.add_argument("--open", action="store_true", help="Open the preview in your default browser")
     args = parser.parse_args(argv)
     if args.min_sends < 1:

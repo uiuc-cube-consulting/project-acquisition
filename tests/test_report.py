@@ -6,7 +6,7 @@ import pytest
 from src.report import build_report
 
 
-@pytest.mark.parametrize("setting,expected", [("", 10), ("5", 5), ("invalid", 10), ("0", 1)])
+@pytest.mark.parametrize("setting,expected", [("", 30), ("5", 5), ("invalid", 30), ("0", 1)])
 def test_report_serializes_timing_metrics_offline(tmp_path, monkeypatch, setting, expected):
     monkeypatch.setenv("REPLY_TIMING_MIN_SENDS", setting)
     rows = {"Leads": [{"email": "fictional@example.com", "sent_at": "2026-10-06T14:00:00Z",
