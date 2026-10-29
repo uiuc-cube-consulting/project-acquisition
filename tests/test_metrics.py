@@ -214,3 +214,48 @@ def test_fully_classified_zero_positive_rate_differs_from_unavailable(classifica
     assert cell["positive_rate_available"]
     assert cell["positive_reply_rate"] == 0
     assert cell["classification_coverage"] == 1
+
+
+@pytest.mark.parametrize("status", ["replied", "hot"])
+def test_out_of_office_classified_as_human_does_not_count_as_a_reply(status):
+    lead = timing_lead(status=status, replied_at="2026-10-06T15:00:00Z")
+    replies = [{"lead_email": lead["email"], "category": "human", "classification": "ooo",
+                "received_at": "2026-10-06T15:00:00Z"}]
+    result = reply_timing([lead], replies=replies, min_sends=1)
+    cell = timing_cell(result)
+    assert cell["sent"] == cell["delivered"] == 1
+    assert cell["replies"] == cell["positive_replies"] == cell["classified_replies"] == 0
+    assert cell["reply_rate"] == 0
+    assert cell["positive_reply_rate"] is None
+    assert result["time_to_first_reply"]["n"] == 0
+
+
+@pytest.mark.parametrize("manual_time,mailbox_time", [
+    ("2026-10-06T15:00:00Z", "2026-10-07T14:00:00Z"),
+    ("2026-10-07T14:00:00Z", "2026-10-06T15:00:00Z"),
+    ("2026-10-06T10:00:00-05:00", "2026-10-07T14:00:00Z"),
+])
+def test_first_reply_uses_earliest_timestamp_across_leads_and_mailbox(manual_time, mailbox_time):
+    lead = timing_lead(status="replied", replied_at=manual_time)
+    replies = [{"lead_email": lead["email"], "category": "human", "classification": "neutral",
+                "received_at": mailbox_time}]
+    latency = reply_timing([lead], replies=replies)["time_to_first_reply"]
+    assert latency["n"] == 1
+    assert latency["median_seconds"] == 3600
+    assert latency["histogram"][1]["count"] == 1
+
+
+@pytest.mark.parametrize("auto_category", ["auto_reply", "human"])
+def test_automatic_timestamp_mirrored_on_lead_is_not_the_first_human_reply(auto_category):
+    lead = timing_lead(status="replied", replied_at="2026-10-06T14:15:00Z")
+    replies = [
+        {"lead_email": lead["email"], "category": auto_category, "classification": "ooo",
+         "received_at": "2026-10-06T09:15:00-05:00"},
+        {"lead_email": lead["email"], "category": "human", "classification": "neutral",
+         "received_at": "2026-10-06T16:00:00Z"},
+    ]
+    result = reply_timing([lead], replies=replies, min_sends=1)
+    cell = timing_cell(result)
+    assert cell["replies"] == cell["classified_replies"] == 1
+    assert cell["positive_reply_rate"] == 0
+    assert result["time_to_first_reply"]["median_seconds"] == 7200

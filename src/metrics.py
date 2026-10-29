@@ -248,7 +248,10 @@ def reply_timing(
             excluded[reason] += 1
             continue
         sent_at = min(sends)
-        human_rows = [r for r in rs if _s(r, "category") == "human"]
+        # Sentiment can identify an automatic absence notice after the initial
+        # detector labeled it human; classification does not rewrite category.
+        human_rows = [r for r in rs if _s(r, "category") == "human"
+                      and _s(r, "classification") != "ooo"]
         # An explicit mailbox category overrides stale/manual status fields.
         manual_reply = any(_s(l, "status") in RESPONSE_STATUSES or _s(l, "replied_at") for l in ls)
         replied = bool(human_rows) or (not rs and manual_reply)
@@ -265,7 +268,15 @@ def reply_timing(
                 _s(l, "status") == LeadStatus.HOT.value for l in ls
             )
             classified = positive or classification in {"neutral", "negative", "unsubscribe"}
-            reply_times = timestamps(human_rows, "received_at") or timestamps(ls, "replied_at")
+            # Leads may preserve an earlier manually logged human reply. Combine
+            # both sources, excluding Lead timestamps known to mirror auto-replies.
+            automatic_times = set(timestamps([
+                r for r in rs if _s(r, "category") == "auto_reply"
+                or _s(r, "classification") == "ooo"
+            ], "received_at"))
+            reply_times = timestamps(human_rows, "received_at") + [
+                dt for dt in timestamps(ls, "replied_at") if dt not in automatic_times
+            ]
             if not reply_times:
                 excluded["missing_reply_timestamps"] += 1
             else:

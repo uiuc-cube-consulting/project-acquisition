@@ -162,6 +162,10 @@ Each recipient counts once at their earliest initial send. Recipients with a
 sent follow-up are excluded entirely; bounces leave the delivered denominator,
 and automatic replies never count as human replies. Exclusion counts are
 included. The timing cohort can therefore differ from the headline metrics.
+Replies classified as `ooo` (out of office) are excluded even when their
+category is `human`. First-reply delays use the earliest known human reply
+across Leads and Replies; Lead timestamps matching known automatic replies
+are excluded from that calculation.
 
 `REPLY_TIMING_MIN_SENDS` controls the timing data's small-sample flag (default
 10, minimum 1). Pure Python callers can pass `min_sends` to
