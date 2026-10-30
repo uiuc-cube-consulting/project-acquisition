@@ -1,0 +1,38 @@
+name: Issue claim labels
+
+on:
+  issues:
+    types: [opened, reopened, assigned, unassigned, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: claim-labels-${{ github.event.issue.number || 'backfill' }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Sync claim labels from current assignees
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { syncIssue } = require('./.github/scripts/claim-labels.cjs');
+            if (context.payload.issue) {
+              await syncIssue({ github, context, issueNumber: context.payload.issue.number });
+            } else {
+              const issues = await github.paginate(github.rest.issues.listForRepo, {
+                ...context.repo, state: 'open', per_page: 100
+              });
+              for (const issue of issues.filter(i => !i.pull_request)) {
+                await syncIssue({ github, context, issueNumber: issue.number });
+              }
+            }
