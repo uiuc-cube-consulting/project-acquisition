@@ -406,9 +406,18 @@ Viewer and set `ALUMNI_SHEET_ID`. Its `Alumni` worksheet is read by
 
 ### 5. Local test
 
-Use Python 3.11 (the workflow version) and git. Claim the issue and wait for
-maintainer assignment before opening a PR. Branch from `main`; **never push
+Use Python 3.11 (the workflow version) and git. Claim an issue using its
+**Assignees** field in the GitHub sidebar. The `claimed-by:username` label is
+synced automatically from that field; a comment is not a claim. Take one issue
+at a time. If GitHub does not let you assign yourself, ask a maintainer to set
+the assignee rather than treating a comment as ownership. Branch from `main`; **never push
 directly to `main`**, which scheduled workflows use for production.
+
+Changing or clearing the assignee updates/removes only the corresponding
+`claimed-by:` labels; area, size and status labels are preserved. Multiple
+assignees get a label each. Do not edit claim labels manually: **Assignees is
+the source of truth**. Maintainers can run **Actions → Issue claim labels →
+Run workflow** to backfill all open issues after enabling the workflow.
 
 From a fresh clone, in Bash:
 
