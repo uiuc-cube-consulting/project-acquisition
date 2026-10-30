@@ -100,6 +100,7 @@ button.ghost[aria-pressed="true"] { color: var(--text-primary); border-color: va
 
 /* ---------- cards ---------- */
 .card {
+  min-width: 0;
   background: var(--surface-1); border: 1px solid var(--border);
   border-radius: 12px; padding: 20px; box-shadow: var(--shadow);
 }
@@ -138,7 +139,7 @@ h2 {
 .grid { display: grid; gap: 16px; }
 /* align-items:start so a short chart card doesn't stretch to match a long
    table beside it and end up mostly empty space. */
-.grid.two { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); align-items: start; }
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); align-items: start; }
 .grid.wide { grid-template-columns: 1fr; }
 
 /* ---------- charts ---------- */
@@ -157,7 +158,25 @@ th:first-child, td:first-child { text-align: left; white-space: normal; }
 th { color: var(--text-secondary); font-weight: 600; font-size: 12px; }
 td { font-variant-numeric: tabular-nums; color: var(--text-primary); }
 tbody tr:last-child td { border-bottom: none; }
-.always-table { display: block; }
+.always-table { display: block; overflow-x: auto; }
+
+/* ---------- reply timing ---------- */
+.timing-header { display: flex; gap: 16px; justify-content: space-between; flex-wrap: wrap; align-items: start; }
+.timing-header label { font-size: 13px; color: var(--text-secondary); }
+.timing-header select { font: inherit; color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--baseline); border-radius: 6px; padding: 6px; margin-left: 6px; }
+.heatmap-scroll { overflow-x: auto; margin-top: 12px; }
+.heatmap { border-collapse: separate; border-spacing: 5px; min-width: 660px; table-layout: fixed; }
+.heatmap caption { text-align: left; color: var(--text-secondary); font-size: 12px; padding-bottom: 8px; }
+.heatmap th, .heatmap td { border: 0; text-align: center; white-space: normal; }
+.heatmap th:first-child { width: 110px; text-align: left; position: sticky; left: 0; background: var(--surface-1); z-index: 1; }
+.heatmap td { border-radius: 7px; padding: 10px 5px; }
+.heatmap strong { display: block; font-size: 17px; font-weight: 650; }
+.heatmap small { display: block; font-size: 11px; margin-top: 3px; }
+.heatmap .unavailable { background: var(--page); color: var(--text-secondary); }
+.heatmap .unavailable strong { font-size: 12px; font-weight: 500; }
+.heatmap .low-sample { background: var(--gridline); }
+.timing-median { font-size: 30px; font-weight: 640; margin: 8px 0 2px; }
+#timingExclusions { margin: 14px 0 0; }
 
 /* ---------- callout ---------- */
 .callout {
@@ -267,6 +286,48 @@ footer code { font-size: 12px; background: var(--surface-1); border: 1px solid v
       <div class="table-view" id="funnelTable"></div>
     </section>
   </div>
+
+  <section id="replyTiming" hidden aria-labelledby="timingHeading">
+    <h2 id="timingHeading">When do people reply?</h2>
+    <div class="card">
+      <div class="timing-header">
+        <div>
+          <h3>Reply rate by weekday and hour sent</h3>
+          <p class="note tight" id="timingScope"></p>
+        </div>
+        <label>Measure <select id="timingMeasure">
+          <option value="reply_rate">Human replies</option>
+          <option value="positive_reply_rate">Positive replies</option>
+        </select></label>
+      </div>
+      <p class="note tight" id="timingMethod"></p>
+      <p class="note tight" id="timingAvailability"></p>
+      <div class="heatmap-scroll" id="timingHeatmap" tabindex="0" role="region" aria-label="Reply timing heatmap; scroll horizontally on smaller screens"></div>
+      <div class="legend" id="timingLegend"></div>
+      <p class="note" id="timingExclusions"></p>
+      <div class="table-view" id="timingTable"></div>
+    </div>
+    <div class="grid two" style="margin-top:16px">
+      <section class="card">
+        <h3>By weekday sent</h3>
+        <p class="note">Each weekday across all hours. n = initial sends.</p>
+        <div class="chart" id="timingWeekday"></div>
+      </section>
+      <section class="card">
+        <h3>By hour sent</h3>
+        <p class="note">Each hour across all weekdays. Central time; n = initial sends.</p>
+        <div class="chart" id="timingHour"></div>
+      </section>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h3>How long until the first human reply?</h3>
+      <p class="timing-median" id="timingMedian"></p>
+      <p class="note" id="timingLatencyNote"></p>
+      <div class="chart" id="timingLatency"></div>
+      <div class="table-view" id="timingLatencyTable"></div>
+    </div>
+    <p class="note" style="font-size:13px;color:var(--text-secondary)">Recent sends have had less time to receive replies. Excluding follow-up recipients can also bias comparisons. These figures describe associations; they do not establish that a different send time causes more replies.</p>
+  </section>
 
   <h2>Volume &amp; consistency</h2>
   <div class="grid wide">
@@ -751,7 +812,135 @@ function renderStatic() {
   );
 }
 
+/* Timing uses a fixed color scale so switching measure never rescales a winner. */
+function timingColor(rate) {
+  const strength = 4 + Math.min(Math.max(rate, 0) / 0.4, 1) * 66;
+  return `color-mix(in srgb, var(--series-1) ${strength}%, var(--surface-1))`;
+}
+function timingHourLabel(hour) {
+  const label = h => `${h % 12 || 12}${h % 24 < 12 ? "am" : "pm"}`;
+  return `${label(hour)}–${label(hour + 1)}`;
+}
+function timingValue(row, measure) {
+  if (!row.sent) return "No data";
+  if (!row.delivered) return "No deliveries";
+  return row[measure] === null ? "Unavailable" : pct(row[measure]);
+}
+function renderTiming() {
+  const timing = M.reply_timing;
+  document.getElementById("replyTiming").hidden = !timing;
+  if (!timing) return; // Older snapshots can still use the template.
+  const measure = document.getElementById("timingMeasure").value;
+  const positive = measure === "positive_reply_rate";
+  const days = timing.by_weekday;
+  const total = timing.totals, excluded = timing.excluded;
+  const date = iso => new Date(iso).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric", timeZone: timing.timezone,
+  });
+  document.getElementById("timingScope").textContent = total.sent
+    ? `All history · ${date(timing.first_send)}–${date(timing.last_send)} · n=${num(total.sent)} initial sends · ${num(total.delivered)} delivered`
+    : "No eligible initial sends recorded yet · n=0.";
+  document.getElementById("timingMethod").textContent =
+    `America/Chicago (Central, adjusts for DST). Each reply is attributed to when the initial email was sent. Rate = ${positive ? "positive" : "human"} replies ÷ delivered initial emails. n = sends; cells below ${num(timing.min_sends)} sends are grey and marked low n.`;
+  document.getElementById("timingAvailability").textContent = positive
+    ? `Positive rates require at least ${num(timing.min_sends)} sends, a human reply, and classification of every human reply in that bucket. Classification available for ${num(total.classified_replies)} of n=${num(total.replies)} human replies. Unavailable does not mean 0%.`
+    : "Automatic replies do not count as human replies. Bounces are excluded from delivered counts; recipients who received a follow-up are excluded entirely.";
+
+  const table = document.createElement("table");
+  table.className = "heatmap";
+  const caption = document.createElement("caption");
+  caption.textContent = `${positive ? "Positive" : "Human"} reply rate · weekday × hour of initial send · Central time`;
+  const head = document.createElement("thead"), header = document.createElement("tr");
+  ["Sent at", ...timing.heatmap.weekdays.map(day => days[day].label)].forEach(label => {
+    const th = document.createElement("th"); th.scope = "col"; th.textContent = label; header.appendChild(th);
+  });
+  head.appendChild(header);
+  const body = document.createElement("tbody");
+  const cells = new Map(timing.heatmap.cells.map(cell => [`${cell.weekday}|${cell.hour}`, cell]));
+  timing.heatmap.hours.forEach(hour => {
+    const tr = document.createElement("tr"), th = document.createElement("th");
+    th.scope = "row"; th.textContent = timingHourLabel(hour); tr.appendChild(th);
+    timing.heatmap.weekdays.forEach(day => {
+      const cell = cells.get(`${day}|${hour}`), td = document.createElement("td");
+      const value = document.createElement("strong"), count = document.createElement("small");
+      value.textContent = timingValue(cell, measure);
+      count.textContent = `n=${num(cell.sent)}${cell.sent && cell.low_sample ? " · low n" : ""}`;
+      if (cell[measure] === null || !cell.sent) td.className = "unavailable";
+      else td.style.background = timingColor(cell[measure]);
+      if (cell.sent && cell.low_sample) { td.classList.add("low-sample"); td.style.background = ""; }
+      const description = [
+        `${days[day].label}, ${timingHourLabel(hour)} Central`,
+        `${value.textContent}; n=${num(cell.sent)} sends; ${num(cell.delivered)} delivered`,
+        `${num(cell.replies)} human replies; ${num(cell.positive_replies)} known positive`,
+        `${num(cell.classified_replies)} of ${num(cell.replies)} human replies classified`,
+        cell.low_sample ? `Below ${timing.min_sends} sends; small sample` : "",
+      ].filter(Boolean).join(". ");
+      td.title = description;
+      // Keep native table semantics; keyboard focus exposes the full count breakdown.
+      td.tabIndex = 0; td.setAttribute("aria-label", description);
+      td.append(value, count); tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+  table.append(caption, head, body);
+  document.getElementById("timingHeatmap").replaceChildren(table);
+  legend(document.getElementById("timingLegend"), [
+    ...[0, 0.05, 0.1, 0.2, 0.4].map(rate => ({label: `${pct(rate)}${rate === 0.4 ? "+" : ""}`, color: timingColor(rate)})),
+    {label: `Fewer than ${timing.min_sends} sends`, color: "var(--gridline)"},
+  ]);
+  document.getElementById("timingExclusions").textContent =
+    `Excluded: ${num(excluded.follow_up_recipients)} follow-up recipients · ${num(excluded.invalid_send_recipients)} invalid send timestamps · ${num(excluded.unsent_recipients)} unsent recipients · ${num(excluded.missing_email_rows)} rows without a recipient. Bounced: ${num(total.bounced)} of n=${num(total.sent)} sends.`;
+  const dataRows = rows => rows.map(row => [
+    row.weekday === undefined ? timingHourLabel(row.hour) : days[row.weekday].label,
+    num(row.sent), num(row.delivered), num(row.replies), pct(row.reply_rate),
+    num(row.positive_replies), `${num(row.classified_replies)}/${num(row.replies)}`,
+    timingValue(row, "positive_reply_rate"), row.low_sample ? "Low n" : "",
+  ]);
+  const columns = ["Sent at", "Sends (n)", "Delivered", "Human replies", "Reply rate", "Known positive", "Classified / human", "Positive rate", "Sample"];
+  renderTable(document.getElementById("timingTable"), columns,
+    timing.heatmap.cells.map(cell => [
+      `${days[cell.weekday].label} ${timingHourLabel(cell.hour)}`,
+      ...dataRows([cell])[0].slice(1),
+    ]));
+
+  const summaryChart = (hostId, rows) => {
+    barChart(document.getElementById(hostId), rows.map(row => ({
+      label: row.weekday === undefined ? timingHourLabel(row.hour) : row.label,
+      value: row[measure] || 0,
+      valueLabel: `${timingValue(row, measure)} · n=${num(row.sent)}`,
+      color: row.low_sample ? "var(--neutral-mark)" : "var(--series-1)",
+      tip: [`${num(row.sent)} initial sends; ${num(row.delivered)} delivered`,
+            `${num(row.replies)} human replies; ${num(row.positive_replies)} known positive`,
+            `${num(row.classified_replies)} of ${num(row.replies)} classified`,
+            row.low_sample ? `Small sample: fewer than ${timing.min_sends} sends` : ""].filter(Boolean),
+    })), {max: 1, rowH: 34});
+  };
+  summaryChart("timingWeekday", days.filter(row => timing.heatmap.weekdays.includes(row.weekday)));
+  summaryChart("timingHour", timing.by_hour.filter(row => timing.heatmap.hours.includes(row.hour)));
+
+  const latency = timing.time_to_first_reply;
+  const duration = seconds => seconds < 3600 ? `${num(Math.round(seconds / 60))} min`
+    : seconds < 86400 ? `${(seconds / 3600).toFixed(1)} hours` : `${(seconds / 86400).toFixed(1)} days`;
+  document.getElementById("timingMedian").textContent = latency.n
+    ? `${duration(latency.median_seconds)} median · n=${num(latency.n)} replies`
+    : "No valid reply delays yet · n=0";
+  document.getElementById("timingLatencyNote").textContent =
+    `Elapsed time includes nights and weekends. Histogram n=${num(latency.n)} valid first replies. Missing or invalid reply timestamps: ${num(excluded.missing_reply_timestamps)}; replies dated before the send: ${num(excluded.negative_reply_delays)}. These still count as human replies, but are excluded from delay statistics.`;
+  if (latency.n) {
+    barChart(document.getElementById("timingLatency"), latency.histogram.map(bucket => ({
+      label: bucket.label, value: bucket.share,
+      valueLabel: `${num(bucket.count)} replies · ${pct(bucket.share)}`,
+      tip: [`${num(bucket.count)} of n=${num(latency.n)} valid first replies`, `${pct(bucket.share)} of valid reply delays`],
+    })), {max: 1, rowH: 36});
+  } else document.getElementById("timingLatency").replaceChildren();
+  renderTable(document.getElementById("timingLatencyTable"), ["Elapsed delay", "Replies", "Share", "Valid replies (n)"],
+    latency.histogram.map(bucket => [bucket.label, num(bucket.count), pct(bucket.share), num(latency.n)]));
+}
+
+document.getElementById("timingMeasure").addEventListener("change", renderTiming);
+
 function renderCharts() {
+  renderTiming();
   const r = M.reply, dl = M.deliverability, ap = M.apollo, h = M.headline;
   const C = {
     good: cssVar("--good"), warning: cssVar("--warning"), critical: cssVar("--critical"),

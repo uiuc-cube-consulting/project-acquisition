@@ -156,6 +156,57 @@ straight from `dashboard/`. It contains aggregate numbers and company names
 only: no contact names, no email addresses. `dashboard/data.json` holds the same
 figures for anything else you want to build.
 
+The JSON also includes `reply_timing`: all-history reply rates by Central-time
+weekday, hour, and weekday × hour, plus elapsed time to the first human reply.
+Each recipient counts once at their earliest initial send. Recipients with a
+sent follow-up are excluded entirely; bounces leave the delivered denominator,
+and automatic replies never count as human replies. Exclusion counts are
+included. The timing cohort can therefore differ from the headline metrics.
+Replies classified as `ooo` (out of office) are excluded even when their
+category is `human`. First-reply delays use the earliest known human reply
+across Leads and Replies; Lead timestamps matching known automatic replies
+are excluded from that calculation.
+
+`REPLY_TIMING_MIN_SENDS` controls the timing data's small-sample flag (default
+30, minimum 1). Pure Python callers can pass `min_sends` to
+`metrics.reply_timing()` or `reply_timing_min_sends` to `metrics.compute()`.
+Positive-reply rates require that many sends, at least one human reply, and
+complete classification of the bucket's human replies; otherwise the rate is
+unknown. Latency buckets are <1h, 1–<4h, 4–<24h, 1–<3 days, and 3+ days,
+including nights and weekends. Recent sends have had less time to get replies,
+and excluding follow-up recipients can bias comparisons; these descriptive
+figures alone do not establish that changing send time improves reply rates.
+The report displays a weekday × hour heatmap, weekday/hour summaries, and a
+reply-delay histogram. Its measure selector switches between human and positive
+reply rates; every heatmap cell shows its send count, with small samples greyed
+out. The page's data-table toggle exposes the full timing counts and rates.
+
+To preview the dashboard with a few hundred fictional `example.com` contacts,
+run this from the repository root (after activating your Python environment):
+
+```bash
+python -m src.report_fixture --open
+```
+
+This writes `index.html` and aggregate `data.json` to a new temporary folder
+and opens the HTML at the timing section in your default browser. It needs no
+credentials, does not load `.env`, and never reads Sheets or contacts outreach
+services. The preview is prominently labeled synthetic; its patterns are
+invented and provide no evidence for changing the send window.
+
+Omit `--open` to print the file path without launching a browser. For a stable
+output location, a different fixture seed, or another sample threshold:
+
+```bash
+python -m src.report_fixture --out-dir /tmp/reply-timing-preview --seed 36 --min-sends 30
+```
+
+Re-running with the same seed produces the same input rows (the report's
+generation timestamp still updates). Reusing an output folder replaces its
+preview files; output inside the published `dashboard/` directory is rejected.
+Fixtures include automatic replies, bounces, follow-ups, incomplete sentiment,
+empty and small samples, DST weeks, an early-morning reply, and invalid times.
+
 It answers the questions worth asking about the pipeline:
 
 | Metric | What it means |
