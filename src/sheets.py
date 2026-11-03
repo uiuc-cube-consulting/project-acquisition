@@ -45,7 +45,7 @@ LEADS_HEADERS = [
 DRAFTS_HEADERS = [
     "prepared_at", "lead_email", "template_used", "subject", "body",
     "approved", "sent_at", "send_error", "message_id",
-    "is_follow_up", "in_reply_to",
+    "is_follow_up", "in_reply_to", "send_attempts",
 ]
 
 HOT_LEADS_HEADERS = [
@@ -475,13 +475,23 @@ class SheetClient:
         return prepared, sent
 
     def list_approved_pending(self) -> list[tuple[int, Draft]]:
-        """Returns (sheet_row_index, draft) for unsent, approved rows."""
+        """Returns (sheet_row_index, draft) for unsent, approved rows still worth trying.
+
+        Skips drafts whose send_error is already final (`skipped:` / `permanent:`),
+        and drafts that have exhausted MAX_SEND_ATTEMPTS (default 3).
+        """
+        from .env import env_int
+
+        max_attempts = env_int("MAX_SEND_ATTEMPTS", 3)
         ws = self.book.worksheet("Drafts")
         records = ws.get_all_records()
         out: list[tuple[int, Draft]] = []
         for i, row in enumerate(records, start=2):
-            if _truthy(row.get("approved")) and not row.get("sent_at"):
-                out.append((i, _row_to_draft(row)))
+            if not _truthy(row.get("approved")) or row.get("sent_at"):
+                continue
+            if not draft_row_still_pending(row, max_attempts=max_attempts):
+                continue
+            out.append((i, _row_to_draft(row)))
         return out
 
     def mark_draft_sent(self, row_index: int, message_id: str) -> None:
@@ -489,9 +499,16 @@ class SheetClient:
         ws.update_cell(row_index, DRAFTS_HEADERS.index("sent_at") + 1, _now_iso())
         ws.update_cell(row_index, DRAFTS_HEADERS.index("message_id") + 1, message_id)
 
-    def mark_draft_error(self, row_index: int, error: str) -> None:
+    def mark_draft_error(self, row_index: int, error: str, *, increment_attempt: bool = True) -> None:
         ws = self.book.worksheet("Drafts")
         ws.update_cell(row_index, DRAFTS_HEADERS.index("send_error") + 1, error[:500])
+        if increment_attempt and "send_attempts" in DRAFTS_HEADERS:
+            col = DRAFTS_HEADERS.index("send_attempts") + 1
+            try:
+                current = int(str(ws.cell(row_index, col).value or "0").strip() or "0")
+            except (TypeError, ValueError):
+                current = 0
+            ws.update_cell(row_index, col, current + 1)
 
     def approve_draft_rows(self, row_indices: Iterable[int]) -> int:
         """Flip the `approved` cell to TRUE for the given Drafts rows."""
@@ -588,7 +605,25 @@ def _draft_to_row(d: Draft) -> list:
         d.send_error or "", d.message_id or "",
         "TRUE" if d.is_follow_up else "FALSE",
         d.in_reply_to or "",
+        int(d.send_attempts or 0),
     ]
+
+
+def _parse_send_attempts(value) -> int:
+    try:
+        return max(0, int(str(value or "0").strip() or "0"))
+    except (TypeError, ValueError):
+        return 0
+
+
+def draft_row_still_pending(row: dict, *, max_attempts: int = 3) -> bool:
+    """True when an approved unsent draft should still be offered to `send`."""
+    err = str(row.get("send_error") or "").strip().lower()
+    if err.startswith("skipped:") or err.startswith("permanent:"):
+        return False
+    if _parse_send_attempts(row.get("send_attempts")) >= max_attempts:
+        return False
+    return True
 
 
 def _row_to_draft(row: dict) -> Draft:
@@ -603,6 +638,8 @@ def _row_to_draft(row: dict) -> Draft:
         is_follow_up=_truthy(row.get("is_follow_up")),
         in_reply_to=row.get("in_reply_to") or None,
         message_id=row.get("message_id") or None,
+        send_error=str(row["send_error"]).strip() if row.get("send_error") else None,
+        send_attempts=_parse_send_attempts(row.get("send_attempts")),
     )
 
 

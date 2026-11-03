@@ -81,6 +81,7 @@ class Draft(BaseModel):
     message_id: Optional[str] = None
     is_follow_up: bool = False
     in_reply_to: Optional[str] = None  # Message-ID of the original send (for threading)
+    send_attempts: int = 0
 
 
 class Reply(BaseModel):

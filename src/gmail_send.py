@@ -140,3 +140,35 @@ class GmailSender:
         if elapsed < self.interval:
             time.sleep(self.interval - elapsed)
         self._last_sent_at = time.time()
+
+
+def is_permanent_send_failure(exc: BaseException) -> bool:
+    """True for failures that will not succeed on a later cron slot."""
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        return True
+    if isinstance(exc, smtplib.SMTPSenderRefused):
+        return True
+    if isinstance(exc, smtplib.SMTPResponseException):
+        # 5xx = permanent negative completion; 55x recipient / mailbox issues.
+        return int(getattr(exc, "smtp_code", 0) or 0) >= 500
+    text = str(exc).lower()
+    permanent_markers = (
+        "invalid address",
+        "invalid recipient",
+        "user unknown",
+        "mailbox unavailable",
+        "recipient address rejected",
+        "no such user",
+        "domain not found",
+        "does not exist",
+    )
+    return any(m in text for m in permanent_markers)
+
+
+def format_send_error(exc: BaseException) -> str:
+    """Sheet `send_error` text; permanent failures get a `permanent:` prefix."""
+    msg = str(exc).strip() or exc.__class__.__name__
+    if is_permanent_send_failure(exc):
+        if not msg.lower().startswith("permanent:"):
+            return f"permanent: {msg}"
+    return msg

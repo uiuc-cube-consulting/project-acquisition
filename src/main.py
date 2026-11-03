@@ -698,13 +698,15 @@ def cmd_send(dry_run: bool, force: bool = False) -> int:
         # Applies to follow-ups too — an unsubscribe always wins.
         if el in suppressed:
             log.info("Skipping %s: on the suppression list", draft.lead_email)
-            sheets.mark_draft_error(row_idx, "skipped: suppressed")
+            sheets.mark_draft_error(row_idx, "skipped: suppressed", increment_attempt=False)
             skipped_suppressed += 1
             continue
         # Follow-ups are intentionally to already-contacted leads — let them through.
         if not draft.is_follow_up and (el in already or el in seen):
             log.info("Skipping %s: already contacted (duplicate draft)", draft.lead_email)
-            sheets.mark_draft_error(row_idx, "skipped: lead already contacted")
+            sheets.mark_draft_error(
+                row_idx, "skipped: lead already contacted", increment_attempt=False
+            )
             continue
         seen.add(el)
         queue.append((row_idx, draft))
@@ -714,14 +716,17 @@ def cmd_send(dry_run: bool, force: bool = False) -> int:
         len(approved), skipped_suppressed, len(queue), cap, sent_today,
     )
 
-    from .gmail_send import GmailSender
+    from .gmail_send import GmailSender, format_send_error, is_permanent_send_failure
+
     sender = GmailSender()
     # The info packet now travels as a link in the email body (see draft.py),
     # so outreach no longer carries a PDF attachment.
     unsub = unsubscribe_mailto()
+    max_attempts = env_int("MAX_SEND_ATTEMPTS", 3)
 
     sent_count = 0
     follow_up_count = 0
+    gave_up = 0
     for row_idx, draft in queue[:remaining]:
         try:
             msg_id, thread_id = sender.send(
@@ -734,7 +739,11 @@ def cmd_send(dry_run: bool, force: bool = False) -> int:
             )
         except Exception as exc:
             log.exception("Send failed for %s: %s", draft.lead_email, exc)
-            sheets.mark_draft_error(row_idx, str(exc))
+            err = format_send_error(exc)
+            sheets.mark_draft_error(row_idx, err)
+            attempts = int(draft.send_attempts or 0) + 1
+            if is_permanent_send_failure(exc) or attempts >= max_attempts:
+                gave_up += 1
             continue
 
         if dry_run:
@@ -755,6 +764,8 @@ def cmd_send(dry_run: bool, force: bool = False) -> int:
         if draft.is_follow_up:
             follow_up_count += 1
 
+    if gave_up:
+        log.info("%d drafts gave up after %d attempts", gave_up, max_attempts)
     log.info("Sent %d emails (%d follow-ups)", sent_count, follow_up_count)
     # Only the run that actually sent emails the summary: send fires at several
     # slots a day, and the empty ones would otherwise each mail a "0 sent" digest.

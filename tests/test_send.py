@@ -47,7 +47,7 @@ class FakeSheets:
     def get_suppression_emails(self):
         return set(FakeSheets.suppressed)
 
-    def mark_draft_error(self, row_idx, error):
+    def mark_draft_error(self, row_idx, error, *, increment_attempt: bool = True):
         self.errors[row_idx] = error
 
     def mark_draft_sent(self, row_idx, message_id):
