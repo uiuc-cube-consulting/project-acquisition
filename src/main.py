@@ -47,7 +47,7 @@ from .follow_up import prepare_follow_ups
 from .models import Lead, LeadStatus
 from .past_projects import PastProjectIndex
 from .scoring import Scorer
-from .sheets import SheetClient
+from .sheets import MissingLeadRowsError, SheetClient
 from .sourcing.apollo import (
     ApolloClient, ApolloRevealError, Candidate, bulk_reveal, candidate_from_contact, configured_api_keys, load_profiles,
     enterprise_profiles, pick_profiles_for_today, search_fresh_candidates,
@@ -690,6 +690,9 @@ def cmd_send(dry_run: bool, force: bool = False) -> int:
     # Re-check suppression right before mailing: someone may have unsubscribed,
     # bounced, or been added by hand since `prepare` drafted them.
     suppressed = {e.strip().lower() for e in sheets.get_suppression_emails()}
+    draft_updates = {}
+    lead_updates = {}
+    sent_messages = []
     queue: list = []
     seen: set[str] = set()
     skipped_suppressed = 0
@@ -698,13 +701,13 @@ def cmd_send(dry_run: bool, force: bool = False) -> int:
         # Applies to follow-ups too — an unsubscribe always wins.
         if el in suppressed:
             log.info("Skipping %s: on the suppression list", draft.lead_email)
-            sheets.mark_draft_error(row_idx, "skipped: suppressed")
+            draft_updates[row_idx] = {"send_error": "skipped: suppressed"}
             skipped_suppressed += 1
             continue
         # Follow-ups are intentionally to already-contacted leads — let them through.
         if not draft.is_follow_up and (el in already or el in seen):
             log.info("Skipping %s: already contacted (duplicate draft)", draft.lead_email)
-            sheets.mark_draft_error(row_idx, "skipped: lead already contacted")
+            draft_updates[row_idx] = {"send_error": "skipped: lead already contacted"}
             continue
         seen.add(el)
         queue.append((row_idx, draft))
@@ -722,6 +725,9 @@ def cmd_send(dry_run: bool, force: bool = False) -> int:
 
     sent_count = 0
     follow_up_count = 0
+    # Continue the send batch before bookkeeping so a Sheets failure cannot
+    # interrupt later sends. This keeps Sheets calls constant, but a hard stop
+    # before the writes leaves ALL accepted sends in this run unrecorded.
     for row_idx, draft in queue[:remaining]:
         try:
             msg_id, thread_id = sender.send(
@@ -734,39 +740,63 @@ def cmd_send(dry_run: bool, force: bool = False) -> int:
             )
         except Exception as exc:
             log.exception("Send failed for %s: %s", draft.lead_email, exc)
-            sheets.mark_draft_error(row_idx, str(exc))
+            draft_updates[row_idx] = {"send_error": str(exc)[:500]}
             continue
 
         if dry_run:
             log.info("[DRY RUN] would mark sent: %s", draft.lead_email)
         else:
-            sheets.mark_draft_sent(row_idx, msg_id)
             now = datetime.now(timezone.utc)
-            new_status = LeadStatus.FOLLOWED_UP if draft.is_follow_up else LeadStatus.SENT
-            sheets.update_lead_status(
-                draft.lead_email,
-                new_status,
-                sent_at=now if not draft.is_follow_up else None,
-                last_follow_up_at=now if draft.is_follow_up else None,
-                thread_id=thread_id,
-                message_id=msg_id,
-            )
+            draft_updates[row_idx] = {"sent_at": now, "message_id": msg_id, "send_error": ""}
+            fields = {
+                "status": (LeadStatus.FOLLOWED_UP if draft.is_follow_up else LeadStatus.SENT).value,
+                "thread_id": thread_id, "message_id": msg_id,
+            }
+            fields["last_follow_up_at" if draft.is_follow_up else "sent_at"] = now
+            lead_updates.setdefault(draft.lead_email.strip().lower(), {}).update(fields)
+            sent_messages.append((row_idx, draft.lead_email, now, msg_id))
         sent_count += 1
         if draft.is_follow_up:
             follow_up_count += 1
 
+    unrecorded = []
+    write_failed = False
+    if not dry_run:
+        for tab, write in (
+            ("Drafts", lambda: sheets.bulk_update_drafts(draft_updates)),
+            ("Leads", lambda: sheets.bulk_update_leads(lead_updates, require_all=True)),
+        ):
+            try:
+                write()
+            except Exception as exc:
+                write_failed = True
+                log.exception("%s bookkeeping failed", tab)
+                for row, email, timestamp, message_id in sent_messages:
+                    if isinstance(exc, MissingLeadRowsError) and email.strip().lower() not in exc.emails:
+                        continue  # Matching Leads rows were written successfully.
+                    detail = (f"{email}; Drafts row {row}; sent {timestamp.isoformat()}; "
+                              f"message ID {message_id}; not confirmed in {tab}")
+                    log.error("Sent but not recorded: %s", detail)
+                    unrecorded.append(detail)
+
     log.info("Sent %d emails (%d follow-ups)", sent_count, follow_up_count)
-    # Only the run that actually sent emails the summary: send fires at several
-    # slots a day, and the empty ones would otherwise each mail a "0 sent" digest.
     if not dry_run and sent_count:
-        drafts_pending = len(sheets.list_approved_pending())  # remaining after this run
-        send_daily_summary(
-            sent_count=sent_count,
-            follow_ups=follow_up_count,
-            drafts_pending=drafts_pending,
-        )
+        try:
+            drafts_pending = len(sheets.list_approved_pending())
+        except Exception:
+            log.exception("Could not read pending drafts for summary")
+            drafts_pending = None
+        try:
+            send_daily_summary(
+                sent_count=sent_count, follow_ups=follow_up_count,
+                drafts_pending=drafts_pending, unrecorded=unrecorded,
+                sheet_id=sheets.sheet_id,
+            )
+        except Exception:
+            log.exception("Daily summary failed")
+            write_failed = True
         _refresh_dashboard(sheets)
-    return 0
+    return 1 if write_failed else 0
 
 
 # ---------------- replies ----------------

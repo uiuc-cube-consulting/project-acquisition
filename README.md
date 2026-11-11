@@ -636,3 +636,41 @@ The HTML dashboard is implemented; see [Metrics dashboard](#metrics-dashboard).
   change. Before review, run the import and tests from Local test and check the
   diff for credentials, local `.env` files and real contact data. Use fictional
   examples at `example.com`; never publish Sheet contents or inbox screenshots.
+
+### Send bookkeeping failures
+
+After Gmail accepts outreach, `send` records timestamps and message IDs in one
+Drafts batch and updates Leads in a separate batch. Sheets HTTP 429 writes retry
+at most four times (1, 2, then 4 seconds); recovery never retries Gmail. Both tabs
+are attempted independently. Unconfirmed writes are logged with the recipient,
+Drafts row, timestamp, message ID and affected tab, and included in the summary
+under “Sent but not recorded — check the Sheet.” The command exits nonzero.
+Reconcile these messages against Gmail before rerunning.
+
+A durable Drafts timestamp removes that draft from the next run. A durable Leads
+`sent_at` prevents initial outreach from being resent through the deduplication
+guard. Follow-ups intentionally bypass that guard: if their Drafts write fails,
+a Leads record alone does not prevent resending that follow-up. If neither tab
+has a durable record, a second run may resend initial outreach too. This is not
+an exactly-once delivery guarantee; process interruption between Gmail acceptance
+and the batch writes has the same risk. The daily cap counts Drafts timestamps,
+so missing Drafts records can also undercount sends.
+
+Compared with the old per-message writes, batching widens the interruption
+window: a timeout, cancellation, or process kill before the writes can leave
+**every accepted send in the batch** unrecorded, without a summary. Previously,
+completed earlier iterations normally had durable records; only the current
+send was exposed. A persistent Drafts failure now also leaves the whole batch
+unmarked, instead of stopping at the first affected message. Initial outreach
+is protected if Leads succeeds, but pending follow-ups can resend even when
+Leads records `last_follow_up_at`. Follow-ups bypass the initial-contact guard.
+The new flow deliberately finishes sending before attempting bookkeeping so
+Sheets errors do not prevent later sends, as requested in issue #51.
+
+Preventing these interruption resends requires a broader delivery design (for
+example, a durable send journal with reconciliation or incremental checkpoints).
+Per-message checkpoints trade the constant Sheets call count for a smaller risk
+window; a journal needs durable storage and recovery rules, and SMTP still has
+an ambiguous acceptance boundary. Those changes are outside this batching fix.
+Missing Leads rows are reported as unrecorded even when the other Leads updates
+succeed; summary pending counts appear as `unknown` if the post-send read fails.
