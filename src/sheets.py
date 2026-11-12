@@ -50,10 +50,13 @@ DRAFTS_HEADERS = [
 
 HOT_LEADS_HEADERS = [
     "flagged_at", "name", "company", "email", "linkedin",
-    "reply_excerpt", "thread_link",
+    "reply_excerpt", "thread_link", "owner", "next_step", "next_touch", "owner_email",
 ]
 
 SUPPRESSION_HEADERS = ["email", "added_at", "reason"]
+REMINDERS_HEADERS = [
+    "lead_email", "reminder_type", "sent_at",
+]
 
 # Free, manually-curated lead source. The team pastes prospective-client rows
 # here and `prepare` reads them — the no-cost stand-in for Apollo discovery.
@@ -98,6 +101,7 @@ TAB_HEADERS = {
     "Drafts": DRAFTS_HEADERS,
     "Hot Leads": HOT_LEADS_HEADERS,
     "Suppression": SUPPRESSION_HEADERS,
+    "Reminders": REMINDERS_HEADERS,
     "Prospects": PROSPECTS_HEADERS,
     "Alumni": ALUMNI_HEADERS,
     "Replies": REPLIES_HEADERS,
@@ -140,8 +144,16 @@ class SheetClient:
             else:
                 ws = self.book.worksheet(tab)
             current_headers = ws.row_values(1)
-            if current_headers != headers:
-                ws.update("A1", [headers])
+            missing_headers = [
+                header for header in headers
+                if header not in current_headers
+            ]
+            if missing_headers:
+                start_col = len(current_headers) + 1
+                ws.update(
+                    range_name=gspread.utils.rowcol_to_a1(1, start_col),
+                    values=[missing_headers],
+                )
         # Drop "Sheet1" default if present
         if "Sheet1" in existing and len(existing) > 1:
             try:
@@ -523,6 +535,29 @@ class SheetClient:
             [_now_iso(), name, company, email, linkedin or "", reply_excerpt[:500], thread_link],
             value_input_option="USER_ENTERED",
         )
+
+    def get_hot_leads(self) -> list[dict]:
+        """Read all Hot Leads rows from the spreadsheet."""
+        ws = self.book.worksheet("Hot Leads")
+        return ws.get_all_records()
+
+    def get_reminder_history(self) -> list[dict]:
+        """Read the reminder history ledger."""
+        ws = self.book.worksheet("Reminders")
+        return ws.get_all_records()
+
+    def append_reminder(self, lead_email: str, reminder_type: str) -> None:
+        """Record a reminder to prevent repeat notifications."""
+        ws = self.book.worksheet("Reminders")
+        ws.append_row(
+            [lead_email, reminder_type, _now_iso()],
+            value_input_option="USER_ENTERED",
+        )
+
+    def get_replies(self) -> list[dict]:
+        """Read the latest Replies tab."""
+        ws = self.book.worksheet("Replies")
+        return ws.get_all_records()
 
     def add_suppression(self, email: str, reason: str) -> None:
         ws = self.book.worksheet("Suppression")

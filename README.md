@@ -171,6 +171,41 @@ mirrored onto `Leads.status` / `Leads.replied_at`. Human replies are labelled
 positive / neutral / negative / unsubscribe by Gemini. The `send` workflow runs a separate `replies` step
 automatically, so the numbers stay current without anyone remembering to.
 
+### Hot Lead follow-through reminders
+
+Positive human replies are added to the `Hot Leads` tab automatically
+when `replies` runs. Existing leads are not duplicated.
+
+The `Hot Leads` tab supports manual tracking through these additional
+columns:
+
+- `owner` — person responsible for follow-through
+- `next_step` — planned action
+- `next_touch` — date of the next planned contact
+- `owner_email` — email address for reminder notifications
+
+Run `python -m src.main remind --dry-run` to calculate and preview
+reminders. This reads the live Google Sheets data but does not send
+emails or write reminder records.
+
+Reminder rules include:
+
+- **Reply owed:** a prospect's latest human reply has gone unanswered
+  for more than two business days.
+- **Unowned:** a lead has no owner after more than one business day.
+- **No next step:** an owned lead has no next step after more than
+  three business days.
+- **Due:** the next-touch date is today or earlier.
+
+Dates in `config/blackout_dates.yaml` are excluded from business-day
+calculations.
+
+Without `--dry-run`, the command sends individual reminder emails and
+records them in the `Reminders` tab. It uses `owner_email` when available,
+otherwise falling back to `APPROVER_EMAIL` or `DIGEST_RECIPIENT`.
+Reminders already recorded for the same lead and type on the current
+date are skipped.
+
 A plain-text version of the same figures is written to the **`Dashboard`** tab
 inside the Sheet (`python -m src.main stats`).
 

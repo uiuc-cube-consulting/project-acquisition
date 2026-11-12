@@ -110,6 +110,7 @@ class ReplyRecord:
     bounce_reason: str = ""
     classification: str = ""
     classification_reason: str = ""
+    thread_id: str = ""
 
 
 @dataclass
@@ -331,23 +332,41 @@ def scan_mailbox(
         log.info("Scanning %d messages since %s", len(ids), since)
 
         # Phase 1 — headers only. A mailbox is mostly newsletters and LinkedIn
+        thread_ids = {}
         # noise; pulling every full body would make this a multi-minute job, so
         # we cheaply narrow to messages that could plausibly answer our outreach.
         candidates: list[bytes] = []
-        header_fields = "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT IN-REPLY-TO REFERENCES CONTENT-TYPE X-FAILED-RECIPIENTS)])"
+        header_fields = "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT IN-REPLY-TO REFERENCES CONTENT-TYPE X-FAILED-RECIPIENTS)] X-GM-THRID)"
         for start in range(0, len(ids), batch):
             window = ids[start:start + batch]
             typ, chunk = conn.fetch(b",".join(window).decode(), header_fields)
             if typ != "OK":
                 continue
             fetched = [item for item in chunk if isinstance(item, tuple)]
-            for msg_id, item in zip(window, fetched):
+            for item in fetched:
                 try:
+                    response_text = item[0].decode(errors="replace")
+                    message_match = re.match(r"\s*(\d+)", response_text)
+                    thread_match = re.search(r"X-GM-THRID\s+(\d+)", response_text)
+
+                    if not message_match:
+                        continue
+
+                    message_id = message_match.group(1)
+
+                    if thread_match:
+                        thread_ids[message_id] = thread_match.group(1)
+
                     head = email.message_from_bytes(item[1])
+
                 except Exception:
                     continue
-                if _maybe_related(head, our_message_ids, sent_emails, sent_subjects, address):
-                    candidates.append(msg_id)
+
+                if _maybe_related(
+                    head, our_message_ids, sent_emails,
+                    sent_subjects, address
+                ):
+                    candidates.append(message_id.encode())
         log.info("%d of %d messages look related; fetching those in full", len(candidates), len(ids))
 
         # Phase 2 — full bodies for the shortlist, where the real classification
@@ -373,6 +392,11 @@ def scan_mailbox(
                     log.warning("Skipping unparseable message: %s", exc)
                     continue
                 if record:
+                    response_text = item[0].decode(errors="replace")
+                    match = re.match(r"\s*(\d+)", response_text)
+                    if match:
+                        message_id = match.group(1)
+                        record.thread_id = thread_ids.get(message_id, "")
                     result.records.append(record)
                 else:
                     result.unmatched += 1
@@ -513,8 +537,50 @@ def sync_replies(sheets, *, since: date | None = None, classify: bool = True,
         for r in records:
             print(f"{r.category:11s} {r.classification or '-':11s} {r.lead_email:45s} {r.subject[:60]}")
         return _summary(records, scan)
+    existing_hot_emails = {
+        str(row.get("email", "")).strip().lower()
+        for row in sheets.get_hot_leads()
+        if row.get("email")
+    }
 
     sheets.replace_replies(records)
+
+    # Add newly positive replies to Hot Leads without creating duplicates.
+    leads_by_email = {
+        str(lead.get("email", "")).strip().lower(): lead
+        for lead in leads
+        if lead.get("email")
+    }
+
+    for record in records:
+        email = record.lead_email.strip().lower()
+
+        if (
+            record.category != HUMAN
+            or record.classification != ReplyClass.POSITIVE.value
+            or email in existing_hot_emails
+        ):
+            continue
+
+        lead = leads_by_email.get(email)
+        if not lead:
+            continue
+
+        thread_link = (
+            f"https://mail.google.com/mail/u/0/#all/{record.thread_id}"
+            if record.thread_id
+            else ""
+        )
+
+        sheets.append_hot_lead(
+            name=str(lead.get("name", "")),
+            company=str(lead.get("company", "")),
+            email=email,
+            linkedin=lead.get("linkedin", ""),
+            reply_excerpt=record.snippet,
+            thread_link=thread_link,
+        )
+        existing_hot_emails.add(email)
 
     # Mirror onto Leads so the status column tells the truth at a glance.
     updates: dict[str, dict] = {}
