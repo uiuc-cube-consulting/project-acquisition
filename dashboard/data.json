@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-16T22:53:49+00:00",
+  "generated_at": "2026-11-24T00:45:41+00:00",
   "campaign": {
     "start": "2026-08-18",
     "sent": 515,
@@ -1789,7 +1789,7 @@
   "window": {
     "first_send": "2026-06-21",
     "last_send": "2026-11-05",
-    "weekdays": 106
+    "weekdays": 112
   },
   "headline": {
     "emails_sent": 1006,
@@ -1799,22 +1799,22 @@
     "drafts_written": 1178,
     "follow_ups_sent": 5,
     "last_7": 0,
-    "prior_7": 40,
-    "last_30": 163,
+    "prior_7": 0,
+    "last_30": 53,
     "active_days": 80,
     "avg_per_active_day": 12.6,
-    "day_coverage": 0.7547169811320755,
+    "day_coverage": 0.7142857142857143,
     "alumni_share": 0.44155844155844154
   },
   "reply": {
     "tracked": true,
-    "responses": 27,
-    "rate": 0.028662420382165606,
+    "responses": 28,
+    "rate": 0.029723991507430998,
     "interested": 0,
     "interested_rate": 0.0,
     "auto_replies": 29,
-    "engaged": 56,
-    "engagement_rate": 0.059447983014861996,
+    "engaged": 57,
+    "engagement_rate": 0.06050955414012739,
     "sentiment": [],
     "by_audience": [
       {
@@ -1831,8 +1831,8 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 21,
-        "reply_rate": 0.052763819095477386,
+        "replies": 22,
+        "reply_rate": 0.05527638190954774,
         "bounce_rate": 0.09954751131221719
       }
     ],
@@ -1842,8 +1842,8 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 21,
-        "reply_rate": 0.052763819095477386,
+        "replies": 22,
+        "reply_rate": 0.05527638190954774,
         "bounce_rate": 0.09954751131221719
       },
       {
@@ -1943,8 +1943,8 @@
         "sent": 961,
         "delivered": 902,
         "bounced": 59,
-        "replies": 25,
-        "reply_rate": 0.02771618625277162,
+        "replies": 26,
+        "reply_rate": 0.028824833702882482,
         "bounce_rate": 0.061394380853277836
       },
       {
@@ -1966,10 +1966,10 @@
     "delivered_rate": 0.9410589410589411
   },
   "apollo": {
-    "find_rate": 0.37128072445019406,
+    "find_rate": 0.4060790273556231,
     "basis": "runs",
-    "attempted": 1546,
-    "found": 574,
+    "attempted": 1645,
+    "found": 668,
     "lookup_breakdown": [
       {
         "label": "Email found",
@@ -1989,11 +1989,11 @@
     ],
     "alumni_rows": 612,
     "discovery_leads": 562,
-    "runs_logged": 66,
+    "runs_logged": 71,
     "bounced": 59,
     "bounce_rate": 0.058941058941058944,
     "deliverable_rate": 0.9410589410589411,
-    "usable_rate": 0.3493970453866961
+    "usable_rate": 0.38214429946952744
   },
   "funnel": [
     {
@@ -2022,9 +2022,9 @@
     },
     {
       "stage": "Replied",
-      "count": 27,
-      "from_prev": 0.028662420382165606,
-      "from_top": 0.0268389662027833
+      "count": 28,
+      "from_prev": 0.029723991507430998,
+      "from_top": 0.027833001988071572
     }
   ],
   "timeline": {
@@ -2164,6 +2164,12 @@
       {
         "week_start": "2026-11-16",
         "label": "Nov 16",
+        "sent": 0,
+        "drafted": 0
+      },
+      {
+        "week_start": "2026-11-23",
+        "label": "Nov 23",
         "sent": 0,
         "drafted": 0
       }
@@ -2524,7 +2530,7 @@
         "count": 7
       },
       {
-        "label": "RSM",
+        "label": "Medline",
         "count": 5
       },
       {
@@ -2536,15 +2542,15 @@
         "count": 5
       },
       {
-        "label": "Medline",
+        "label": "RSM US LLP",
         "count": 5
       },
       {
-        "label": "Huron",
+        "label": "HealthScape Advisors",
         "count": 4
       },
       {
-        "label": "HealthScape Advisors, a Chartis Company",
+        "label": "Huron",
         "count": 4
       },
       {
@@ -2552,15 +2558,15 @@
         "count": 4
       },
       {
-        "label": "Chicago Trading Company",
+        "label": "Starcom",
         "count": 3
       },
       {
-        "label": "Grainger",
+        "label": "Goldman Sachs",
         "count": 3
       },
       {
-        "label": "Capital One",
+        "label": "Northern Trust",
         "count": 3
       }
     ]
@@ -2572,8 +2578,8 @@
         "sent": 442,
         "delivered": 398,
         "bounced": 44,
-        "replies": 21,
-        "reply_rate": 0.052763819095477386,
+        "replies": 22,
+        "reply_rate": 0.05527638190954774,
         "bounce_rate": 0.09954751131221719
       },
       {
@@ -2729,15 +2735,15 @@
         "count": 7
       },
       {
+        "label": "Medline",
+        "count": 5
+      },
+      {
         "label": "United Airlines",
         "count": 5
       },
       {
         "label": "Microsoft",
-        "count": 5
-      },
-      {
-        "label": "Medline",
         "count": 5
       },
       {
@@ -2749,23 +2755,23 @@
         "count": 4
       },
       {
-        "label": "Chicago Trading Company",
-        "count": 3
-      },
-      {
-        "label": "Grainger",
-        "count": 3
-      },
-      {
-        "label": "Capital One",
-        "count": 3
-      },
-      {
         "label": "Starcom",
         "count": 3
       },
       {
-        "label": "Accenture",
+        "label": "RSM US LLP",
+        "count": 3
+      },
+      {
+        "label": "HealthScape Advisors, a Chartis Company",
+        "count": 3
+      },
+      {
+        "label": "Goldman Sachs",
+        "count": 3
+      },
+      {
+        "label": "Northern Trust",
         "count": 3
       }
     ]
@@ -2774,8 +2780,8 @@
     "bench_ready": 0,
     "bench_unlooked": 4,
     "projected_contacts": 1,
-    "daily_pace": 7.4,
-    "business_days_left": 0.1,
+    "daily_pace": 2.4,
+    "business_days_left": 0.4,
     "awaiting_approval": 4,
     "approved_unsent": 1,
     "stale_follow_up_drafts": 167
