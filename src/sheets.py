@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from typing import Iterable
 
@@ -29,6 +30,26 @@ from .env import env_str
 from .models import Draft, Lead, LeadStatus
 
 log = logging.getLogger(__name__)
+
+
+class MissingLeadRowsError(RuntimeError):
+    """The batch wrote matching Leads rows, but these addresses had no row."""
+
+    def __init__(self, emails: set[str]):
+        self.emails = emails
+        super().__init__(f"No Leads row for: {', '.join(sorted(emails))}")
+
+
+def retry_sheet_write(write):
+    """Retry idempotent Sheets writes on quota errors, at most four attempts."""
+    for attempt in range(4):
+        try:
+            return write()
+        except gspread.exceptions.APIError as exc:
+            if exc.response.status_code != 429 or attempt == 3:
+                raise
+            time.sleep(2 ** attempt)
+
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -316,12 +337,13 @@ class SheetClient:
                     ws.update_cell(i, col_idx, v if v is not None else "")
                 return
 
-    def bulk_update_leads(self, updates: dict[str, dict]) -> int:
+    def bulk_update_leads(self, updates: dict[str, dict], *, require_all: bool = False) -> int:
         """Apply {email: {column: value}} to the Leads tab in ONE write.
 
         `update_lead_status` re-reads the whole tab and writes a cell at a time,
         which blows the API quota when a scan touches ~80 leads at once. This
-        reads once and batches every cell into a single batch_update.
+        reads once and batches every cell into a single batch_update. With
+        require_all, report absent rows after recording all matching rows.
         """
         if not updates:
             return 0
@@ -330,12 +352,14 @@ class SheetClient:
         wanted = {e.strip().lower(): v for e, v in updates.items()}
         payload: list[dict] = []
         touched = 0
+        matched = set()
         for i, row in enumerate(records, start=2):  # row 1 is the header
             email = str(row.get("email") or "").strip().lower()
             fields = wanted.get(email)
             if not fields:
                 continue
             touched += 1
+            matched.add(email)
             for key, value in fields.items():
                 if key not in LEADS_HEADERS:
                     continue
@@ -344,10 +368,12 @@ class SheetClient:
                 cell = gspread.utils.rowcol_to_a1(i, LEADS_HEADERS.index(key) + 1)
                 payload.append({"range": f"Leads!{cell}", "values": [[value if value is not None else ""]]})
         if payload:
-            self.book.values_batch_update({
+            retry_sheet_write(lambda: self.book.values_batch_update({
                 "valueInputOption": "USER_ENTERED",
                 "data": payload,
-            })
+            }))
+        if require_all and (missing := wanted.keys() - matched):
+            raise MissingLeadRowsError(missing)
         return touched
 
     # ---------------- Replies (inbox scan) ----------------
@@ -483,6 +509,20 @@ class SheetClient:
             if _truthy(row.get("approved")) and not row.get("sent_at"):
                 out.append((i, _row_to_draft(row)))
         return out
+
+    def bulk_update_drafts(self, updates: dict[int, dict]) -> None:
+        """Record successes and errors together in one idempotent batch write."""
+        payload = []
+        for row, fields in updates.items():
+            for key, value in fields.items():
+                if isinstance(value, datetime):
+                    value = value.isoformat(timespec="seconds")
+                cell = gspread.utils.rowcol_to_a1(row, DRAFTS_HEADERS.index(key) + 1)
+                payload.append({"range": f"Drafts!{cell}", "values": [[value]]})
+        if payload:
+            retry_sheet_write(lambda: self.book.values_batch_update({
+                "valueInputOption": "RAW", "data": payload,
+            }))
 
     def mark_draft_sent(self, row_index: int, message_id: str) -> None:
         ws = self.book.worksheet("Drafts")
