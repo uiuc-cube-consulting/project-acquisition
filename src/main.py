@@ -33,11 +33,13 @@ uses Gemini. `send --dry-run` still requires Sheets and sender settings.
 """
 from __future__ import annotations
 
-import argparse
 import itertools
 import logging
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
+
+import yaml
 
 from dotenv import load_dotenv
 
@@ -62,7 +64,6 @@ from .env import env_flag, env_float, env_int, env_str
 from .campaign import alumni_target_share, enterprise_target_share
 from .schedule import blackout_reason, describe_send_window, in_send_window, now_ct
 from .templates import unsubscribe_mailto
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s | %(message)s",
@@ -829,6 +830,94 @@ def cmd_replies(dry_run: bool, since: str | None, classify: bool) -> int:
 
 # ---------------- report ----------------
 
+def cmd_remind(dry_run: bool) -> int:
+    """Check Hot Leads and prepare follow-through reminders."""
+    from datetime import date
+    from .follow_through import reminder_reasons
+
+    sheets = SheetClient()
+    leads = sheets.get_hot_leads()
+    replies = sheets.get_replies()
+    history = sheets.get_reminder_history()
+
+    config_path = Path("config/blackout_dates.yaml")
+    blackout_dates = yaml.safe_load(config_path.read_text()) or []
+
+    today = date.today()
+    latest_replies = {}
+
+    for reply in replies:
+        if str(reply.get("category", "")).strip().upper() != "HUMAN":
+            continue
+
+        email = str(reply.get("lead_email", "")).strip().lower()
+        if not email:
+            continue
+
+        received = str(reply.get("received_at", "")).strip()
+        if email not in latest_replies or received > latest_replies[email]:
+            latest_replies[email] = received
+
+    sent_history = {
+        (
+            str(row.get("lead_email", "")).strip().lower(),
+            str(row.get("reminder_type", "")).strip(),
+        )
+        for row in history
+        if str(row.get("sent_at", "")).strip()[:10] == today.isoformat()
+    }
+
+    reminders = []
+
+    for lead in leads:
+        email = str(lead.get("email", "")).strip().lower()
+        if not email:
+            continue
+
+        latest = latest_replies.get(email, "")
+        lead["latest_message_at"] = latest
+        lead["latest_sender_is_prospect"] = bool(latest)
+
+        for reason in reminder_reasons(lead, today, blackout_dates):
+            if (email, reason) not in sent_history:
+                reminders.append((email, lead, reason))
+
+    log.info("Found %d reminders to send", len(reminders))
+
+    for email, lead, reason in reminders:
+        owner = str(lead.get("owner", "")).strip()
+        owner_email = str(lead.get("owner_email", "")).strip()
+        recipient = owner_email or env_str("APPROVER_EMAIL") or env_str("DIGEST_RECIPIENT")
+
+        if dry_run:
+            log.info(
+                "[DRY RUN] Reminder: %s | Lead: %s | Owner: %s | Recipient: %s",
+                reason, email, owner or "Unassigned", recipient or "Not configured",
+            )
+            continue
+
+        if not recipient:
+            log.warning("No reminder recipient configured for %s", email)
+            continue
+
+        from .gmail_send import GmailSender
+        sender = GmailSender()
+        sender.send(
+            to=recipient,
+            subject=f"Hot Lead Reminder: {reason}",
+            body=(
+                f"Follow-through reminder: {reason}\n\n"
+                f"Lead: {lead.get('name', email)}\n"
+                f"Company: {lead.get('company', '')}\n"
+                f"Lead email: {email}\n"
+                f"Next step: {lead.get('next_step', '')}\n"
+                f"Next touch: {lead.get('next_touch', '')}\n"
+            ),
+        )
+        sheets.append_reminder(email, reason)
+
+    return 0
+
 def cmd_report(out_dir: str, open_browser: bool) -> int:
     from .report import build_report
 
@@ -956,6 +1045,8 @@ def main() -> int:
     p.add_argument("--dry-run", action="store_true", help="Print what was found; write nothing")
     p.add_argument("--since", help="Only scan mail on/after this date (YYYY-MM-DD)")
     p.add_argument("--no-classify", action="store_true", help="Skip Gemini sentiment labelling")
+    p = sub.add_parser("remind", help="Check Hot Leads and send follow-up reminders")
+    p.add_argument("--dry-run", action="store_true", help="Print reminders without sending")
     p = sub.add_parser("report", help="Build the standalone HTML metrics dashboard")
     p.add_argument("--out", default="dashboard", help="Output directory (default: dashboard/)")
     p.add_argument("--open", action="store_true", help="Open the dashboard in a browser when done")
@@ -977,6 +1068,9 @@ def main() -> int:
         return cmd_replies(
             dry_run=args.dry_run, since=args.since, classify=not args.no_classify
         )
+
+    if args.cmd == "remind":
+        return cmd_remind(dry_run=args.dry_run)
     if args.cmd == "report":
         return cmd_report(out_dir=args.out, open_browser=args.open)
     return 1
