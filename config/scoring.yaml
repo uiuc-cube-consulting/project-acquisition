@@ -3,13 +3,16 @@
 
 weights:
   uiuc_alum: 50                  # our highest-converting segment; alumni also get their own daily quota (ALUMNI_TARGET_SHARE)
-  illinois_based: 20
+  illinois_based: 20             # location says Illinois or IL; Chicago/Champaign/Urbana in Illinois add half again
   startup_stage_match: 15        # seed through Series B
   industry_matches_past_project: 10
   senior_title: 10               # Director, VP, Founder, Partner, C-level
   uiuc_alum_executive: 25        # bonus stacking with both alum and senior title
 
 # Hard filters (lead is dropped if any return True)
+# NOTE: only already_contacted_within_days is read from this list (by Scorer.__init__).
+# current_uiuc_student and in_suppression_list are hard-coded in Scorer.is_excluded;
+# removing them here does not turn them off.
 exclude:
   - current_uiuc_student         # never contact current students at illinois.edu
   - in_suppression_list
@@ -22,7 +25,8 @@ target_stages:
   - "Series B"
   - "Early Stage"
 
-# Seniority keywords (case-insensitive substring match on title)
+# Seniority keywords: case-insensitive, whole word or phrase.
+# "COO" matches "COO" and "COO & Co-Founder", but not "Coordinator".
 senior_title_keywords:
   - "Founder"
   - "CEO"
@@ -31,9 +35,19 @@ senior_title_keywords:
   - "CFO"
   - "President"
   - "VP"
+  - "SVP"
+  - "EVP"
   - "Vice President"
   - "Director"
   - "Managing Partner"
   - "General Partner"
   - "Partner"
   - "Head of"
+
+# Junior keywords: same matching. Any match cancels seniority, so
+# "Executive Assistant to the CEO" and "Partnerships Associate" are not senior.
+junior_title_keywords:
+  - "Assistant"
+  - "Associate"
+  - "Coordinator"
+  - "Intern"
