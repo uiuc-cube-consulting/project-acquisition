@@ -23,6 +23,7 @@ Commands, and the GitHub Actions workflows that run them:
       5. Email a daily summary, then scan the inbox (`replies`)
 
   replies  — read-only IMAP scan: records replies, auto-replies and bounces
+  remind   — email the board Hot Leads that need follow-through (not scheduled yet)
   report   — build the standalone HTML dashboard in dashboard/
   stats    — refresh the Sheet's Dashboard tab
   bootstrap— create the Sheet tabs + headers
@@ -33,13 +34,11 @@ uses Gemini. `send --dry-run` still requires Sheets and sender settings.
 """
 from __future__ import annotations
 
+import argparse
 import itertools
 import logging
 import sys
 from datetime import datetime, timezone
-from pathlib import Path
-
-import yaml
 
 from dotenv import load_dotenv
 
@@ -64,6 +63,7 @@ from .env import env_flag, env_float, env_int, env_str
 from .campaign import alumni_target_share, enterprise_target_share
 from .schedule import blackout_reason, describe_send_window, in_send_window, now_ct
 from .templates import unsubscribe_mailto
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s | %(message)s",
@@ -828,95 +828,62 @@ def cmd_replies(dry_run: bool, since: str | None, classify: bool) -> int:
     return 0
 
 
-# ---------------- report ----------------
+# ---------------- remind ----------------
 
-def cmd_remind(dry_run: bool) -> int:
-    """Check Hot Leads and prepare follow-through reminders."""
-    from datetime import date
-    from .follow_through import reminder_reasons
+def cmd_remind(dry_run: bool, force: bool = False, sheets=None, sender=None) -> int:
+    """Email the board (and any owner who is an email address) the Hot Leads
+    that need a nudge from us. Never contacts the prospect. See follow_through.py."""
+    from .follow_through import by_owner, digest_subject, due_reminders, format_digest
+    from .schedule import blackout_days
 
-    sheets = SheetClient()
-    leads = sheets.get_hot_leads()
-    replies = sheets.get_replies()
-    history = sheets.get_reminder_history()
+    today = now_ct().date()
+    blackouts = blackout_days()
+    if not dry_run and not force and (today.weekday() >= 5 or today in blackouts):
+        log.info("%s is not a business day; no reminders. Use --force to send anyway.", today)
+        return 0
 
-    config_path = Path("config/blackout_dates.yaml")
-    blackout_dates = yaml.safe_load(config_path.read_text()) or []
+    sheets = sheets or SheetClient()
+    reminders = due_reminders(
+        sheets.get_hot_leads(),
+        sheets.get_replies(),
+        sheets.get_reminder_history(),
+        today,
+        blackouts,
+        reply_owed_days=env_int("REMIND_REPLY_OWED_DAYS", 2),
+    )
+    log.info("%d follow-through reminders due", len(reminders))
+    if not reminders:
+        return 0
 
-    today = date.today()
-    latest_replies = {}
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheets.sheet_id}/edit"
+    board = env_str("DIGEST_RECIPIENT", "") or env_str("GMAIL_ADDRESS", "")
+    messages = [(board, reminders)] + [
+        (owner, items) for owner, items in by_owner(reminders).items() if owner != board.lower()
+    ]
+    if dry_run:
+        for to, items in messages:
+            print(f"To: {to or '(DIGEST_RECIPIENT unset)'}\nSubject: {digest_subject(items)}\n")
+            print(format_digest(items, sheet_url), end="\n\n")
+        return 0
 
-    for reply in replies:
-        if str(reply.get("category", "")).strip().upper() != "HUMAN":
-            continue
-
-        email = str(reply.get("lead_email", "")).strip().lower()
-        if not email:
-            continue
-
-        received = str(reply.get("received_at", "")).strip()
-        if email not in latest_replies or received > latest_replies[email]:
-            latest_replies[email] = received
-
-    sent_history = {
-        (
-            str(row.get("lead_email", "")).strip().lower(),
-            str(row.get("reminder_type", "")).strip(),
-        )
-        for row in history
-        if str(row.get("sent_at", "")).strip()[:10] == today.isoformat()
-    }
-
-    reminders = []
-
-    for lead in leads:
-        email = str(lead.get("email", "")).strip().lower()
-        if not email:
-            continue
-
-        latest = latest_replies.get(email, "")
-        lead["latest_message_at"] = latest
-        lead["latest_sender_is_prospect"] = bool(latest)
-
-        for reason in reminder_reasons(lead, today, blackout_dates):
-            if (email, reason) not in sent_history:
-                reminders.append((email, lead, reason))
-
-    log.info("Found %d reminders to send", len(reminders))
-
-    for email, lead, reason in reminders:
-        owner = str(lead.get("owner", "")).strip()
-        owner_email = str(lead.get("owner_email", "")).strip()
-        recipient = owner_email or env_str("APPROVER_EMAIL") or env_str("DIGEST_RECIPIENT")
-
-        if dry_run:
-            log.info(
-                "[DRY RUN] Reminder: %s | Lead: %s | Owner: %s | Recipient: %s",
-                reason, email, owner or "Unassigned", recipient or "Not configured",
-            )
-            continue
-
-        if not recipient:
-            log.warning("No reminder recipient configured for %s", email)
-            continue
-
+    if sender is None:
         from .gmail_send import GmailSender
-        sender = GmailSender()
-        sender.send(
-            to=recipient,
-            subject=f"Hot Lead Reminder: {reason}",
-            body=(
-                f"Follow-through reminder: {reason}\n\n"
-                f"Lead: {lead.get('name', email)}\n"
-                f"Company: {lead.get('company', '')}\n"
-                f"Lead email: {email}\n"
-                f"Next step: {lead.get('next_step', '')}\n"
-                f"Next touch: {lead.get('next_touch', '')}\n"
-            ),
-        )
-        sheets.append_reminder(email, reason)
+        sender = GmailSender(send_interval_seconds=0)
+    # The board digest first, then the ledger, so a failed owner email can't
+    # make the board get the same digest again on the next run.
+    sender.send(to=board, subject=digest_subject(reminders), body=format_digest(reminders, sheet_url))
+    sheets.append_reminders((r.email, r.reason) for r in reminders)
+    failed = 0
+    for to, items in messages[1:]:
+        try:
+            sender.send(to=to, subject=digest_subject(items), body=format_digest(items, sheet_url))
+        except Exception:
+            log.exception("Owner reminder to %s failed", to)
+            failed += 1
+    return 1 if failed else 0
 
-    return 0
+
+# ---------------- report ----------------
 
 def cmd_report(out_dir: str, open_browser: bool) -> int:
     from .report import build_report
@@ -1045,8 +1012,9 @@ def main() -> int:
     p.add_argument("--dry-run", action="store_true", help="Print what was found; write nothing")
     p.add_argument("--since", help="Only scan mail on/after this date (YYYY-MM-DD)")
     p.add_argument("--no-classify", action="store_true", help="Skip Gemini sentiment labelling")
-    p = sub.add_parser("remind", help="Check Hot Leads and send follow-up reminders")
-    p.add_argument("--dry-run", action="store_true", help="Print reminders without sending")
+    p = sub.add_parser("remind", help="Email the board Hot Leads that need follow-through")
+    p.add_argument("--dry-run", action="store_true", help="Print the reminder emails; send and write nothing")
+    p.add_argument("--force", action="store_true", help="Run even on a weekend or blackout date")
     p = sub.add_parser("report", help="Build the standalone HTML metrics dashboard")
     p.add_argument("--out", default="dashboard", help="Output directory (default: dashboard/)")
     p.add_argument("--open", action="store_true", help="Open the dashboard in a browser when done")
@@ -1070,7 +1038,7 @@ def main() -> int:
         )
 
     if args.cmd == "remind":
-        return cmd_remind(dry_run=args.dry_run)
+        return cmd_remind(dry_run=args.dry_run, force=args.force)
     if args.cmd == "report":
         return cmd_report(out_dir=args.out, open_browser=args.open)
     return 1

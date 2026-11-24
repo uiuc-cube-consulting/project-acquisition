@@ -71,13 +71,14 @@ DRAFTS_HEADERS = [
 
 HOT_LEADS_HEADERS = [
     "flagged_at", "name", "company", "email", "linkedin",
-    "reply_excerpt", "thread_link", "owner", "next_step", "next_touch", "owner_email",
+    "reply_excerpt", "thread_link", "owner", "next_step", "next_touch",
 ]
 
 SUPPRESSION_HEADERS = ["email", "added_at", "reason"]
-REMINDERS_HEADERS = [
-    "lead_email", "reminder_type", "sent_at",
-]
+
+# Ledger for `remind`: one row per follow-through reminder sent, so the same
+# item is nagged about at most once every two business days.
+REMINDERS_HEADERS = ["lead_email", "reminder_type", "sent_at"]
 
 # Free, manually-curated lead source. The team pastes prospective-client rows
 # here and `prepare` reads them — the no-cost stand-in for Apollo discovery.
@@ -99,6 +100,9 @@ ALUMNI_HEADERS = [
 REPLIES_HEADERS = [
     "received_at", "lead_email", "category", "classification",
     "subject", "snippet", "bounce_reason", "from_email", "reason",
+    # Gmail thread, and when the prospect's message became the thread's latest
+    # (blank once anyone else wrote after it). Read by `remind`.
+    "thread_id", "waiting_since",
 ]
 
 # One row per `prepare` run: how many email lookups we spent and how many
@@ -397,6 +401,8 @@ class SheetClient:
                 r.bounce_reason,
                 r.from_email,
                 r.classification_reason,
+                r.thread_id,
+                r.waiting_since.isoformat(timespec="seconds") if r.waiting_since else "",
             ]
             for r in records
         ]
@@ -596,27 +602,19 @@ class SheetClient:
             )
 
     def get_hot_leads(self) -> list[dict]:
-        """Read all Hot Leads rows from the spreadsheet."""
-        ws = self.book.worksheet("Hot Leads")
-        return ws.get_all_records()
-
-    def get_reminder_history(self) -> list[dict]:
-        """Read the reminder history ledger."""
-        ws = self.book.worksheet("Reminders")
-        return ws.get_all_records()
-
-    def append_reminder(self, lead_email: str, reminder_type: str) -> None:
-        """Record a reminder to prevent repeat notifications."""
-        ws = self.book.worksheet("Reminders")
-        ws.append_row(
-            [lead_email, reminder_type, _now_iso()],
-            value_input_option="USER_ENTERED",
-        )
+        return self._ensure_tab("Hot Leads").get_all_records()
 
     def get_replies(self) -> list[dict]:
-        """Read the latest Replies tab."""
-        ws = self.book.worksheet("Replies")
-        return ws.get_all_records()
+        return self._ensure_tab("Replies").get_all_records()
+
+    def get_reminder_history(self) -> list[dict]:
+        return self._ensure_tab("Reminders").get_all_records()
+
+    def append_reminders(self, items: Iterable[tuple[str, str]]) -> None:
+        """Log (lead_email, reminder_type) pairs as sent now, in one write."""
+        rows = [[email, reason, _now_iso()] for email, reason in items]
+        if rows:
+            self._ensure_tab("Reminders").append_rows(rows, value_input_option="RAW")
 
     def add_suppression(self, email: str, reason: str) -> None:
         ws = self.book.worksheet("Suppression")

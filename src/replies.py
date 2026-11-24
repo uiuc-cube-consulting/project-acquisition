@@ -112,7 +112,10 @@ class ReplyRecord:
     classification: str = ""
     classification_reason: str = ""
     message_id: str = ""  # the reply's own Message-ID, for linking to it in Gmail
-    thread_id: str = ""
+    thread_id: str = ""  # Gmail's X-GM-THRID for the conversation
+    # When this person's message became the thread's latest, if nobody has
+    # written since. None once we (or anyone else) replied after it.
+    waiting_since: datetime | None = None
 
 
 @dataclass
@@ -307,6 +310,60 @@ def _received_at(msg: Message) -> datetime:
 
 # ---------------- IMAP ----------------
 
+_FETCH_SEQ = re.compile(rb"^\s*(\d+)\s")
+_FETCH_THRID = re.compile(rb"X-GM-THRID\s+(\d+)")
+
+
+def _fetch_items(chunk: list) -> list[tuple[bytes, str, bytes]]:
+    """(sequence number, Gmail thread id or "", literal) per message in an IMAP
+    FETCH response. Gmail may report X-GM-THRID before or after the literal; in
+    the second case imaplib leaves it in the bytes that follow the tuple."""
+    out: list[list] = []
+    for part in chunk:
+        if isinstance(part, tuple):
+            seq = _FETCH_SEQ.match(part[0])
+            if not seq:
+                continue
+            thrid = _FETCH_THRID.search(part[0])
+            out.append([seq.group(1), thrid.group(1).decode() if thrid else "", part[1]])
+        elif isinstance(part, bytes) and out and not out[-1][1]:
+            thrid = _FETCH_THRID.search(part)
+            if thrid:
+                out[-1][1] = thrid.group(1).decode()
+    return [(seq, thrid, raw) for seq, thrid, raw in out]
+
+
+def _note_latest(latest: dict[str, tuple[datetime, str]], thread_id: str, head: Message) -> None:
+    """Keep the newest (date, sender) seen for each thread."""
+    try:
+        when = parsedate_to_datetime(head.get("Date"))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return
+    if when is None:
+        return
+    when = when.astimezone(timezone.utc) if when.tzinfo else when.replace(tzinfo=timezone.utc)
+    sender = parseaddr(_decode(head.get("From")))[1].strip().lower()
+    if thread_id not in latest or when > latest[thread_id][0]:
+        latest[thread_id] = (when, sender)
+
+
+def waiting_since(record: ReplyRecord, latest: dict[str, tuple[datetime, str]]) -> datetime | None:
+    """When the ball landed in our court on this reply's thread, or None.
+
+    It's waiting on us only if the newest message in the thread is from the
+    person who replied. Anyone else writing after them (us from the outreach
+    account, or a board member who CC'd it) means it was answered. Without a
+    thread id we can't tell, so we say nothing rather than nag on a guess.
+    """
+    if record.category != HUMAN or not record.thread_id:
+        return None
+    last = latest.get(record.thread_id)
+    if last is None:
+        return None
+    when, sender = last
+    return when if sender == record.from_email.strip().lower() else None
+
+
 def scan_mailbox(
     *,
     since: date,
@@ -335,55 +392,45 @@ def scan_mailbox(
         log.info("Scanning %d messages since %s", len(ids), since)
 
         # Phase 1 — headers only. A mailbox is mostly newsletters and LinkedIn
-        thread_ids = {}
         # noise; pulling every full body would make this a multi-minute job, so
         # we cheaply narrow to messages that could plausibly answer our outreach.
+        # The same pass records who wrote last in each Gmail thread (X-GM-THRID),
+        # which is how `remind` knows a reply is waiting on us. Our own replies
+        # sit in [Gmail]/All Mail too, so they count without any extra fetch.
         candidates: list[bytes] = []
-        header_fields = "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT IN-REPLY-TO REFERENCES CONTENT-TYPE X-FAILED-RECIPIENTS)] X-GM-THRID)"
+        thread_of: dict[bytes, str] = {}
+        latest: dict[str, tuple[datetime, str]] = {}
+        header_fields = (
+            "(X-GM-THRID BODY.PEEK[HEADER.FIELDS "
+            "(FROM DATE SUBJECT IN-REPLY-TO REFERENCES CONTENT-TYPE X-FAILED-RECIPIENTS)])"
+        )
         for start in range(0, len(ids), batch):
             window = ids[start:start + batch]
             typ, chunk = conn.fetch(b",".join(window).decode(), header_fields)
             if typ != "OK":
                 continue
-            fetched = [item for item in chunk if isinstance(item, tuple)]
-            for item in fetched:
+            for seq, thread_id, raw in _fetch_items(chunk):
                 try:
-                    response_text = item[0].decode(errors="replace")
-                    message_match = re.match(r"\s*(\d+)", response_text)
-                    thread_match = re.search(r"X-GM-THRID\s+(\d+)", response_text)
-
-                    if not message_match:
-                        continue
-
-                    message_id = message_match.group(1)
-
-                    if thread_match:
-                        thread_ids[message_id] = thread_match.group(1)
-
-                    head = email.message_from_bytes(item[1])
-
+                    head = email.message_from_bytes(raw)
                 except Exception:
                     continue
-
-                if _maybe_related(
-                    head, our_message_ids, sent_emails,
-                    sent_subjects, address
-                ):
-                    candidates.append(message_id.encode())
+                if thread_id:
+                    thread_of[seq] = thread_id
+                    _note_latest(latest, thread_id, head)
+                if _maybe_related(head, our_message_ids, sent_emails, sent_subjects, address):
+                    candidates.append(seq)
         log.info("%d of %d messages look related; fetching those in full", len(candidates), len(ids))
 
         # Phase 2 — full bodies for the shortlist, where the real classification
         # happens (bounce reports only name the failed recipient in the body).
         for start in range(0, len(candidates), batch):
-            seq = b",".join(candidates[start:start + batch]).decode()
-            typ, chunk = conn.fetch(seq, "(BODY.PEEK[])")
+            seq_set = b",".join(candidates[start:start + batch]).decode()
+            typ, chunk = conn.fetch(seq_set, "(BODY.PEEK[])")
             if typ != "OK":
                 continue
-            for item in chunk:
-                if not isinstance(item, tuple):
-                    continue
+            for seq, _, raw in _fetch_items(chunk):
                 try:
-                    msg = email.message_from_bytes(item[1])
+                    msg = email.message_from_bytes(raw)
                     record = classify_message(
                         msg,
                         our_message_ids=our_message_ids,
@@ -395,11 +442,8 @@ def scan_mailbox(
                     log.warning("Skipping unparseable message: %s", exc)
                     continue
                 if record:
-                    response_text = item[0].decode(errors="replace")
-                    match = re.match(r"\s*(\d+)", response_text)
-                    if match:
-                        message_id = match.group(1)
-                        record.thread_id = thread_ids.get(message_id, "")
+                    record.thread_id = thread_of.get(seq, "")
+                    record.waiting_since = waiting_since(record, latest)
                     result.records.append(record)
                 else:
                     result.unmatched += 1
@@ -571,50 +615,8 @@ def sync_replies(sheets, *, since: date | None = None, classify: bool = True,
         for r in records:
             print(f"{r.category:11s} {r.classification or '-':11s} {r.lead_email:45s} {r.subject[:60]}")
         return _summary(records, scan)
-    existing_hot_emails = {
-        str(row.get("email", "")).strip().lower()
-        for row in sheets.get_hot_leads()
-        if row.get("email")
-    }
 
     sheets.replace_replies(records)
-
-    # Add newly positive replies to Hot Leads without creating duplicates.
-    leads_by_email = {
-        str(lead.get("email", "")).strip().lower(): lead
-        for lead in leads
-        if lead.get("email")
-    }
-
-    for record in records:
-        email = record.lead_email.strip().lower()
-
-        if (
-            record.category != HUMAN
-            or record.classification != ReplyClass.POSITIVE.value
-            or email in existing_hot_emails
-        ):
-            continue
-
-        lead = leads_by_email.get(email)
-        if not lead:
-            continue
-
-        thread_link = (
-            f"https://mail.google.com/mail/u/0/#all/{record.thread_id}"
-            if record.thread_id
-            else ""
-        )
-
-        sheets.append_hot_lead(
-            name=str(lead.get("name", "")),
-            company=str(lead.get("company", "")),
-            email=email,
-            linkedin=lead.get("linkedin", ""),
-            reply_excerpt=record.snippet,
-            thread_link=thread_link,
-        )
-        existing_hot_emails.add(email)
 
     # Mirror onto Leads so the status column tells the truth at a glance.
     updates: dict[str, dict] = {}

@@ -228,38 +228,38 @@ automatically, so the numbers stay current without anyone remembering to.
 
 ### Hot Lead follow-through reminders
 
-Positive human replies are added to the `Hot Leads` tab automatically
-when `replies` runs. Existing leads are not duplicated.
+`python -m src.main remind` emails the board the Hot Leads that need a nudge
+from us. It never contacts the prospect. One grouped email goes to
+`DIGEST_RECIPIENT` (falling back to the sending account). If a lead's `owner`
+cell holds an email address, that person also gets an email with only their
+own items. When nothing is due, nothing is sent.
 
-The `Hot Leads` tab supports manual tracking through these additional
-columns:
+What it checks, counting business days (weekends and the dates in
+`config/blackout_dates.yaml` don't count):
 
-- `owner` — person responsible for follow-through
-- `next_step` — planned action
-- `next_touch` — date of the next planned contact
-- `owner_email` — email address for reminder notifications
+| Reminder | When | How to clear it |
+| --- | --- | --- |
+| Reply owed | The prospect wrote last in the Gmail thread, more than 2 business days ago (`REMIND_REPLY_OWED_DAYS`) | Reply from the outreach account, or CC it. The next `replies` scan sees the newer message |
+| Due | `next_touch` is today or earlier | Move `next_touch` forward or clear it |
+| Unowned | No `owner` more than 1 business day after the lead was flagged | Fill in `owner` (a name or an email address) |
+| No next step | An `owner` but no `next_step` more than 3 business days after flagging | Fill in `next_step` |
 
-Run `python -m src.main remind --dry-run` to calculate and preview
-reminders. This reads the live Google Sheets data but does not send
-emails or write reminder records.
+"Who wrote last" comes from the `replies` scan. It reads Gmail's thread id
+(`X-GM-THRID`) for every message in `[Gmail]/All Mail`, including our own, and
+writes `thread_id` and `waiting_since` on the `Replies` tab. `waiting_since` is
+blank once anyone other than the prospect has written after them. A reply sent
+from someone's personal address without CCing the outreach account is invisible
+to the scan, so it still counts as owed.
 
-Reminder rules include:
+Each reminder sent is logged on the `Reminders` tab. The same lead and reason
+is repeated at most once every 2 business days. On weekends and blackout dates
+`remind` exits without sending unless given `--force`.
+`python -m src.main remind --dry-run` prints the emails it would send. It reads
+the live Sheet and writes nothing.
 
-- **Reply owed:** a prospect's latest human reply has gone unanswered
-  for more than two business days.
-- **Unowned:** a lead has no owner after more than one business day.
-- **No next step:** an owned lead has no next step after more than
-  three business days.
-- **Due:** the next-touch date is today or earlier.
-
-Dates in `config/blackout_dates.yaml` are excluded from business-day
-calculations.
-
-Without `--dry-run`, the command sends individual reminder emails and
-records them in the `Reminders` tab. It uses `owner_email` when available,
-otherwise falling back to `APPROVER_EMAIL` or `DIGEST_RECIPIENT`.
-Reminders already recorded for the same lead and type on the current
-date are skipped.
+The `next_touch` column is new: run `python -m src.main bootstrap` once to add
+it to an existing `Hot Leads` tab. `remind` is not in a workflow yet. To schedule it, add
+`python -m src.main remind` as a step after `replies` in `send.yml`.
 
 A plain-text version of the same figures is written to the **`Dashboard`** tab
 inside the Sheet (`python -m src.main stats`).

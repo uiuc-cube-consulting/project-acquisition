@@ -16,7 +16,7 @@ Central time (America/Chicago) handles DST, which a UTC cron cannot.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -82,6 +82,14 @@ def blackout_reason(day: date) -> str | None:
         if start <= day <= end:
             return reason
     return None
+
+
+def blackout_days() -> set[date]:
+    """Every configured blackout date, with ranges expanded."""
+    days: set[date] = set()
+    for start, end, _ in _load_blackouts():
+        days.update(start + timedelta(days=n) for n in range((end - start).days + 1))
+    return days
 
 
 def is_blackout(day: date) -> bool:
